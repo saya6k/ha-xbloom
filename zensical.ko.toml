@@ -1,0 +1,21 @@
+[project]
+site_name = "XBloom Coffee Machine"
+site_url = "https://saya6k.github.io/ha-xbloom/ko/"
+site_description = "XBloom Studio 커피머신을 Home Assistant에서 로컬 블루투스로 제어. 추출·그라인딩·저장된 레시피 실행, Assist(LLM) 노출 — 모두 클라우드 없이."
+docs_dir = "docs/ko"
+site_dir = "site/ko"
+repo_url = "https://github.com/saya6k/ha-xbloom"
+edit_uri = "edit/main/docs/ko/"
+
+[project.theme]
+language = "ko"
+
+[[project.extra.alternate]]
+name = "English"
+link = "https://saya6k.github.io/ha-xbloom/en/"
+lang = "en"
+
+[[project.extra.alternate]]
+name = "한국어"
+link = "https://saya6k.github.io/ha-xbloom/ko/"
+lang = "ko"

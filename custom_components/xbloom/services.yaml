@@ -1,0 +1,71 @@
+execute_recipe:
+  name: Execute recipe
+  description: >-
+    Run a saved XBloom recipe, optionally overriding the grind size and/or
+    grinder RPM for this brew only (coffee grinding recipes only; ignored for
+    tea / no-grind recipes). Selecting a recipe also syncs the Grind Size and
+    Grinder RPM number entities to it.
+  target:
+    device:
+      integration: xbloom
+  fields:
+    recipe_name:
+      name: Recipe name
+      description: >-
+        Name of the saved recipe to run. Defaults to the currently selected
+        recipe if omitted.
+      required: false
+      example: Morning V60
+      selector:
+        text:
+    grind_size:
+      name: Grind size
+      description: >-
+        Override the grind size (0 = finest, 80 = coarsest) for this brew only.
+      required: false
+      example: 42
+      selector:
+        number:
+          min: 1
+          max: 80
+          step: 1
+          mode: slider
+    rpm:
+      name: Grinder RPM
+      description: Override the grinder RPM for this brew only.
+      required: false
+      example: 90
+      selector:
+        number:
+          min: 60
+          max: 120
+          step: 10
+          mode: slider
+    bypass_volume:
+      name: Bypass volume
+      description: >-
+        Bypass water volume in ml added after the pours (0 = bypass off). Can
+        be added even if the recipe has no bypass. Coffee recipes only.
+      required: false
+      example: 50
+      selector:
+        number:
+          min: 0
+          max: 200
+          step: 5
+          unit_of_measurement: mL
+          mode: slider
+    bypass_temperature:
+      name: Bypass temperature
+      description: >-
+        Bypass water temperature in °C (0 = bypass off). Pair with a non-zero
+        bypass volume. Coffee recipes only.
+      required: false
+      example: 90
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "°C"
+          mode: slider

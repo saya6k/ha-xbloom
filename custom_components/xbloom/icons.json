@@ -1,0 +1,123 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "grinder_running": {
+        "default": "mdi:grain"
+      },
+      "brewer_running": {
+        "default": "mdi:coffee"
+      },
+      "water_level": {
+        "default": "mdi:water-check",
+        "state": {
+          "on": "mdi:water-alert"
+        }
+      },
+      "problem": {
+        "default": "mdi:check-circle",
+        "state": {
+          "on": "mdi:alert-circle"
+        }
+      }
+    },
+    "button": {
+      "grind": {
+        "default": "mdi:coffee"
+      },
+      "pour": {
+        "default": "mdi:water"
+      },
+      "execute_recipe": {
+        "default": "mdi:play-circle"
+      },
+      "cancel": {
+        "default": "mdi:stop-circle"
+      },
+      "vibrate_scale": {
+        "default": "mdi:vibrate"
+      },
+      "tare_scale": {
+        "default": "mdi:scale-balance"
+      },
+      "write_slot_a": {
+        "default": "mdi:alpha-a-box-outline"
+      },
+      "write_slot_b": {
+        "default": "mdi:alpha-b-box-outline"
+      },
+      "write_slot_c": {
+        "default": "mdi:alpha-c-box-outline"
+      }
+    },
+    "number": {
+      "grind_size": {
+        "default": "mdi:grain"
+      },
+      "rpm": {
+        "default": "mdi:speedometer"
+      },
+      "temperature": {
+        "default": "mdi:thermometer"
+      },
+      "volume": {
+        "default": "mdi:cup-water"
+      }
+    },
+    "sensor": {
+      "state": {
+        "default": "mdi:coffee-maker",
+        "state": {
+          "idle": "mdi:coffee-maker-outline",
+          "grinding": "mdi:grain",
+          "brewing": "mdi:coffee",
+          "paused": "mdi:pause-circle",
+          "error": "mdi:alert-circle",
+          "sleeping": "mdi:sleep"
+        }
+      },
+      "weight": {
+        "default": "mdi:scale"
+      },
+      "brewer_temperature": {
+        "default": "mdi:thermometer"
+      },
+      "last_error": {
+        "default": "mdi:alert-circle-outline"
+      },
+      "firmware_version": {
+        "default": "mdi:chip"
+      },
+      "serial_number": {
+        "default": "mdi:identifier"
+      }
+    },
+    "select": {
+      "recipe": {
+        "default": "mdi:coffee-maker-outline"
+      },
+      "water_source": {
+        "default": "mdi:water-pump",
+        "state": {
+          "tank": "mdi:cup-water",
+          "direct": "mdi:water"
+        }
+      }
+    },
+    "switch": {
+      "connection": {
+        "default": "mdi:bluetooth-off",
+        "state": {
+          "on": "mdi:bluetooth-connect"
+        }
+      }
+    },
+    "event": {
+      "error_event": {
+        "default": "mdi:alert-circle"
+      },
+      "notification_event": {
+        "default": "mdi:bell-outline"
+      }
+    }
+  }
+}

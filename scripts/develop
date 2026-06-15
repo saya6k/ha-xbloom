@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Run Home Assistant from this checkout for live testing.
+# HA binds 8123 inside the container; VS Code forwards it to the host
+# (auto-picks a different host port if 8123 is already taken).
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+
+if [ ! -d config ] || [ ! -L config/custom_components/xbloom ]; then
+  echo "config/ not initialized — running scripts/setup first."
+  scripts/setup
+fi
+
+exec hass --config "$PWD/config" --debug

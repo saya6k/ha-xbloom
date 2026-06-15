@@ -1,0 +1,254 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "XBloom Coffee Machine",
+        "description": "Enter the Bluetooth MAC address of your XBloom device. Run `xbloom scan` from a terminal to discover it, or check the XBloom Studio app.",
+        "data": {
+          "mac_address": "MAC Address (XX:XX:XX:XX:XX:XX)",
+          "telemetry_interval": "Telemetry update interval (seconds)",
+          "session_timeout": "Idle disconnect timeout (seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the XBloom device. Check the MAC address and ensure Bluetooth is enabled.",
+      "invalid_mac": "Invalid MAC address format.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "XBloom device is already configured.",
+      "no_devices_found": "No XBloom devices found nearby. Make sure the machine is powered on."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "XBloom Options",
+        "menu_options": {
+          "settings": "Settings (telemetry, session timeout)",
+          "add_recipe": "Add a recipe",
+          "edit_recipe": "Edit a recipe",
+          "delete_recipe": "Delete a recipe"
+        }
+      },
+      "settings": {
+        "title": "Settings",
+        "data": {
+          "telemetry_interval": "Telemetry update interval (seconds)",
+          "session_timeout": "Idle disconnect timeout (seconds)"
+        }
+      },
+      "add_recipe": {
+        "title": "Add a recipe",
+        "description": "Paste the recipe in YAML format. See docs/en/brewing-notes.md and skills/xbloom-brew/references/yaml-schema.md for the field reference.",
+        "data": {
+          "recipe_yaml": "Recipe (YAML)"
+        }
+      },
+      "edit_recipe": {
+        "title": "Edit a recipe — pick one",
+        "data": {
+          "recipe_name": "Recipe"
+        }
+      },
+      "edit_recipe_yaml": {
+        "title": "Edit a recipe",
+        "description": "Edit the YAML below. Renaming the recipe (changing the `name:` field) is allowed.",
+        "data": {
+          "recipe_yaml": "Recipe (YAML)"
+        }
+      },
+      "delete_recipe": {
+        "title": "Delete a recipe",
+        "data": {
+          "recipe_name": "Recipe to delete"
+        }
+      }
+    },
+    "error": {
+      "invalid_yaml": "Invalid YAML — {error}",
+      "invalid_recipe": "Recipe does not match the schema — {error}",
+      "recipe_exists": "A recipe named '{error}' already exists. Use 'Edit a recipe' instead or pick another name."
+    },
+    "abort": {
+      "no_recipes": "No UI-managed recipes exist yet. Use 'Add a recipe' first. (Recipes defined in configuration.yaml are read-only here.)"
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "grinder_running": {
+        "name": "Grinder Running"
+      },
+      "brewer_running": {
+        "name": "Brewer Running"
+      },
+      "water_level": {
+        "name": "Water Level"
+      },
+      "problem": {
+        "name": "Problem"
+      }
+    },
+    "button": {
+      "grind": {
+        "name": "Grind"
+      },
+      "pour": {
+        "name": "Pour"
+      },
+      "execute_recipe": {
+        "name": "Execute Recipe"
+      },
+      "cancel": {
+        "name": "Cancel"
+      },
+      "vibrate_scale": {
+        "name": "Vibrate Scale"
+      },
+      "tare_scale": {
+        "name": "Tare Scale"
+      },
+      "write_slot_a": {
+        "name": "Write to Easy Slot A"
+      },
+      "write_slot_b": {
+        "name": "Write to Easy Slot B"
+      },
+      "write_slot_c": {
+        "name": "Write to Easy Slot C"
+      }
+    },
+    "number": {
+      "grind_size": {
+        "name": "Grind Size"
+      },
+      "rpm": {
+        "name": "Grinder RPM"
+      },
+      "temperature": {
+        "name": "Temperature"
+      },
+      "volume": {
+        "name": "Volume"
+      },
+      "flow_rate": {
+        "name": "Flow Rate"
+      }
+    },
+    "sensor": {
+      "state": {
+        "name": "State",
+        "state": {
+          "unknown": "Unknown",
+          "idle": "Idle",
+          "grinding": "Grinding",
+          "brewing": "Brewing",
+          "paused": "Paused",
+          "error": "Error",
+          "sleeping": "Sleeping"
+        }
+      },
+      "weight": {
+        "name": "Weight"
+      },
+      "brewer_temperature": {
+        "name": "Brewer Temperature"
+      },
+      "last_error": {
+        "name": "Last Error"
+      },
+      "firmware_version": {
+        "name": "Firmware Version"
+      },
+      "serial_number": {
+        "name": "Serial Number"
+      }
+    },
+    "select": {
+      "recipe": {
+        "name": "Recipe"
+      },
+      "water_source": {
+        "name": "Manual Pour Water Source",
+        "state": {
+          "tank": "Water Tank",
+          "direct": "Direct Plumbed"
+        }
+      },
+      "pour_pattern": {
+        "name": "Manual Pour Pattern",
+        "state": {
+          "center": "Center",
+          "circular": "Circular",
+          "spiral": "Spiral"
+        }
+      }
+    },
+    "switch": {
+      "connection": {
+        "name": "Connection"
+      }
+    },
+    "event": {
+      "error_event": {
+        "name": "Error",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "water_shortage": "Water Shortage",
+              "no_beans": "No Beans",
+              "abnormal_dose_or_water": "Abnormal Dose / Water",
+              "abnormal_gear_position": "Abnormal Gear Position"
+            }
+          }
+        }
+      },
+      "notification_event": {
+        "name": "Notification",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "grinding_started": "Grinding Started",
+              "grinding_complete": "Grinding Complete",
+              "brewing_started": "Brewing Started",
+              "pour_complete": "Pour Complete",
+              "bloom": "Bloom",
+              "paused": "Paused",
+              "recipe_complete": "Recipe Complete",
+              "tea_soaking": "Tea Soaking"
+            }
+          }
+        }
+      }
+    }
+  },
+  "services": {
+    "execute_recipe": {
+      "name": "Execute recipe",
+      "description": "Run a saved XBloom recipe, optionally overriding the grind size and/or grinder RPM for this brew only (coffee grinding recipes only).",
+      "fields": {
+        "recipe_name": {
+          "name": "Recipe name",
+          "description": "Name of the saved recipe to run. Defaults to the currently selected recipe if omitted."
+        },
+        "grind_size": {
+          "name": "Grind size",
+          "description": "Override the grind size (0 = finest, 80 = coarsest) for this brew only."
+        },
+        "rpm": {
+          "name": "Grinder RPM",
+          "description": "Override the grinder RPM for this brew only."
+        },
+        "bypass_volume": {
+          "name": "Bypass volume",
+          "description": "Bypass water volume in ml added after the pours (0 = bypass off). Can be added even if the recipe has no bypass. Coffee recipes only."
+        },
+        "bypass_temperature": {
+          "name": "Bypass temperature",
+          "description": "Bypass water temperature in °C (0 = bypass off). Pair with a non-zero bypass volume. Coffee recipes only."
+        }
+      }
+    }
+  }
+}
