@@ -1,17 +1,17 @@
 {
   "domain": "xbloom",
   "name": "XBloom Coffee Machine",
-  "version": "1.0.0",
-  "documentation": "https://github.com/saya6k/ha-xbloom",
-  "issue_tracker": "https://github.com/saya6k/ha-xbloom/issues",
-  "requirements": ["bleak>=2.0.0"],
-  "dependencies": [],
-  "codeowners": ["@saya6k"],
-  "iot_class": "local_polling",
-  "config_flow": true,
   "bluetooth": [
     {
       "service_uuid": "0000e0ff-3c17-d293-8e48-14fe2e4da212"
     }
-  ]
+  ],
+  "codeowners": ["@saya6k"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/saya6k/ha-xbloom",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/saya6k/ha-xbloom/issues",
+  "requirements": ["bleak>=2.0.0"],
+  "version": "1.0.0"
 }

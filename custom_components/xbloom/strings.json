@@ -69,7 +69,7 @@
     "error": {
       "invalid_yaml": "Invalid YAML — {error}",
       "invalid_recipe": "Recipe does not match the schema — {error}",
-      "recipe_exists": "A recipe named '{error}' already exists. Use 'Edit a recipe' instead or pick another name."
+      "recipe_exists": "A recipe named {error} already exists. Use 'Edit a recipe' instead or pick another name."
     },
     "abort": {
       "no_recipes": "No UI-managed recipes exist yet. Use 'Add a recipe' first. (Recipes defined in configuration.yaml are read-only here.)"

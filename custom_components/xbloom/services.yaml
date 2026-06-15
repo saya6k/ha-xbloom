@@ -5,10 +5,17 @@ execute_recipe:
     grinder RPM for this brew only (coffee grinding recipes only; ignored for
     tea / no-grind recipes). Selecting a recipe also syncs the Grind Size and
     Grinder RPM number entities to it.
-  target:
-    device:
-      integration: xbloom
   fields:
+    device_id:
+      name: Machine
+      description: >-
+        The XBloom machine(s) to brew on. Defaults to all configured machines.
+      required: false
+      selector:
+        device:
+          filter:
+            - integration: xbloom
+          multiple: true
     recipe_name:
       name: Recipe name
       description: >-
