@@ -11,7 +11,7 @@
   ],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/saya6k/ha-xbloom",
+  "documentation": "https://saya6k.github.io/ha-xbloom/",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/saya6k/ha-xbloom/issues",
   "requirements": [
