@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.4](https://github.com/saya6k/ha-xbloom/compare/xbloom-v1.0.3...xbloom-v1.0.4) (2026-06-18)
+
+
+### Bug Fixes
+
+* **coordinator:** send Back-to-Home (8022) after cancel to restore machine UI state ([#5](https://github.com/saya6k/ha-xbloom/issues/5)) ([e004f61](https://github.com/saya6k/ha-xbloom/commit/e004f6128b9222103671ded3b0997706fb4b9c8e))
+
 ## [1.0.3](https://github.com/saya6k/ha-xbloom/compare/xbloom-v1.0.2...xbloom-v1.0.3) (2026-06-16)
 
 
