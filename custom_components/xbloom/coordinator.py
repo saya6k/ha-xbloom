@@ -12,7 +12,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, DEFAULT_WATER_SOURCE
+from .const import DOMAIN, DEFAULT_MODE, DEFAULT_WATER_SOURCE
 from ._client import XBloomClientWithEvents as XBloomClient, strict_ascii
 from . import brewing
 from xbloom.models.types import (
