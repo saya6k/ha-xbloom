@@ -235,7 +235,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     merged_recipes.update(hass.data[DOMAIN].get("yaml_recipes", {}))
     options_recipes = entry.options.get(CONF_RECIPES) or {}
     if isinstance(options_recipes, dict):
-        merged_recipes.update(options_recipes)
+        for name, recipe in options_recipes.items():
+            if recipe is None:
+                merged_recipes.pop(name, None)  # tombstone: hide from lower layers
+            else:
+                merged_recipes[name] = recipe
     coordinator.recipes = merged_recipes
 
     # Initial data fetch (non-blocking; device may not be connected yet)

@@ -163,9 +163,30 @@ pours:
 
 
 def _options_recipes(entry: config_entries.ConfigEntry) -> dict[str, dict]:
-    """Return UI-managed recipes from entry.options as a plain dict."""
+    """Return UI-managed recipes from entry.options (valid recipes only, no tombstones)."""
     raw = entry.options.get(CONF_RECIPES) or {}
-    return dict(raw) if isinstance(raw, dict) else {}
+    if not isinstance(raw, dict):
+        return {}
+    return {k: v for k, v in raw.items() if v is not None}
+
+
+def _all_visible_recipes(entry: config_entries.ConfigEntry, hass) -> dict[str, dict]:
+    """Merge defaults + YAML + options recipes, respecting tombstones.
+
+    A ``None`` value in options is a tombstone that hides a same-named
+    recipe from a lower layer (defaults or YAML).
+    """
+    merged: dict[str, dict] = {}
+    merged.update(hass.data.get(DOMAIN, {}).get("default_recipes", {}))
+    merged.update(hass.data.get(DOMAIN, {}).get("yaml_recipes", {}))
+    options_raw = entry.options.get(CONF_RECIPES) or {}
+    if isinstance(options_raw, dict):
+        for name, recipe in options_raw.items():
+            if recipe is None:
+                merged.pop(name, None)  # tombstone
+            else:
+                merged[name] = recipe
+    return merged
 
 
 def _save_options(
@@ -247,15 +268,16 @@ class XBloomOptionsFlow(config_entries.OptionsFlow):
             if err:
                 errors["base"], placeholders["error"] = err
             else:
-                existing = _options_recipes(self._entry)
+                existing = _all_visible_recipes(self._entry, self.hass)
                 if recipe["name"] in existing:
                     errors["base"] = "recipe_exists"
                     placeholders["error"] = recipe["name"]
                 else:
-                    existing[recipe["name"]] = recipe
+                    existing_opts = _options_recipes(self._entry)
+                    existing_opts[recipe["name"]] = recipe
                     return self.async_create_entry(
                         title="",
-                        data=_save_options(self._entry, recipes=existing),
+                        data=_save_options(self._entry, recipes=existing_opts),
                     )
 
         return self.async_show_form(
@@ -276,7 +298,7 @@ class XBloomOptionsFlow(config_entries.OptionsFlow):
     async def async_step_edit_recipe(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        existing = _options_recipes(self._entry)
+        existing = _all_visible_recipes(self._entry, self.hass)
         if not existing:
             return self.async_abort(reason="no_recipes")
 
@@ -301,13 +323,13 @@ class XBloomOptionsFlow(config_entries.OptionsFlow):
     async def async_step_edit_recipe_yaml(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        existing = _options_recipes(self._entry)
-        if not self._editing or self._editing not in existing:
+        visible = _all_visible_recipes(self._entry, self.hass)
+        if not self._editing or self._editing not in visible:
             return self.async_abort(reason="no_recipes")
 
         errors, placeholders = {}, {}
         default_yaml = yaml.safe_dump(
-            dict(existing[self._editing]), allow_unicode=True, sort_keys=False
+            dict(visible[self._editing]), allow_unicode=True, sort_keys=False
         )
 
         if user_input is not None:
@@ -316,7 +338,12 @@ class XBloomOptionsFlow(config_entries.OptionsFlow):
             if err:
                 errors["base"], placeholders["error"] = err
             else:
-                # Allow rename — drop the old key, add under the new name.
+                # Allow rename — drop the old key from options, add under the
+                # new name.  If the original recipe lives in a lower layer
+                # (defaults / YAML) it wasn't in options to begin with, so the
+                # filter is a no-op for it; the new version is saved to options
+                # and shadows the lower layer by name.
+                existing = _options_recipes(self._entry)
                 new_recipes = {
                     k: v for k, v in existing.items() if k != self._editing
                 }
@@ -344,8 +371,8 @@ class XBloomOptionsFlow(config_entries.OptionsFlow):
     async def async_step_delete_recipe(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        existing = _options_recipes(self._entry)
-        if not existing:
+        visible = _all_visible_recipes(self._entry, self.hass)
+        if not visible:
             return self.async_abort(reason="no_recipes")
 
         if user_input is None:
@@ -355,7 +382,7 @@ class XBloomOptionsFlow(config_entries.OptionsFlow):
                     {
                         vol.Required("recipe_name"): SelectSelector(
                             SelectSelectorConfig(
-                                options=sorted(existing.keys()),
+                                options=sorted(visible.keys()),
                                 mode=SelectSelectorMode.DROPDOWN,
                             )
                         ),
@@ -364,10 +391,16 @@ class XBloomOptionsFlow(config_entries.OptionsFlow):
             )
 
         name = user_input["recipe_name"]
-        remaining = {k: v for k, v in existing.items() if k != name}
+        existing = _options_recipes(self._entry)
+        if name in existing:
+            # Options-owned recipe — remove it entirely.
+            del existing[name]
+        else:
+            # Default or YAML recipe — add a tombstone so it stays hidden.
+            existing[name] = None
         return self.async_create_entry(
             title="",
-            data=_save_options(self._entry, recipes=remaining),
+            data=_save_options(self._entry, recipes=existing),
         )
 
 
