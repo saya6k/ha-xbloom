@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/saya6k/ha-xbloom/compare/xbloom-v1.2.0...xbloom-v1.2.1) (2026-06-24)
+
+
+### Bug Fixes
+
+* add missing DEFAULT_MODE import in coordinator.py ([#11](https://github.com/saya6k/ha-xbloom/issues/11)) ([fe7b16a](https://github.com/saya6k/ha-xbloom/commit/fe7b16ab8502a11941245b734cbf05cfb184d081))
+
 ## [1.2.0](https://github.com/saya6k/ha-xbloom/compare/xbloom-v1.1.0...xbloom-v1.2.0) (2026-06-24)
 
 
