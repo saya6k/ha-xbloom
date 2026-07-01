@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.1](https://github.com/saya6k/ha-xbloom/compare/xbloom-v1.3.0...xbloom-v1.3.1) (2026-07-01)
+
+
+### Documentation
+
+* add HACS My Home Assistant badge to README ([#16](https://github.com/saya6k/ha-xbloom/issues/16)) ([d37397b](https://github.com/saya6k/ha-xbloom/commit/d37397be0620d4c02647923985dea0f559c7761e))
+
+
+### CI
+
+* draft releases with manual publish; deploy docs on release-published ([#18](https://github.com/saya6k/ha-xbloom/issues/18)) ([50359e4](https://github.com/saya6k/ha-xbloom/commit/50359e48ebdeaa250aa362e36628dc0140ae8c57))
+
 ## [1.3.0](https://github.com/saya6k/ha-xbloom/compare/xbloom-v1.2.1...xbloom-v1.3.0) (2026-06-24)
 
 
