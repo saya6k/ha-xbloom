@@ -19,6 +19,7 @@
     ".": {
       "package-name": "xbloom",
       "changelog-path": "CHANGELOG.md",
+      "draft": true,
       "extra-files": [
         {"type": "json", "path": "custom_components/xbloom/manifest.json", "jsonpath": "$.version"}
       ]
