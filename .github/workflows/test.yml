@@ -24,4 +24,4 @@ jobs:
             --workdir /workspace \
             --entrypoint /bin/bash \
             "$HA_IMAGE" \
-            -c 'pip3 install --no-cache-dir pytest ruff && ruff check . && pytest'
+            -c 'pip3 install --no-cache-dir pytest ruff==0.17.4 && ruff check . && pytest'
