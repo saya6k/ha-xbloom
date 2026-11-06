@@ -1151,18 +1151,17 @@ class XBloomClient:
                 if raw in _VALID_POUR_PATTERNS:
                     st.pour_pattern_live = raw
                     self._fire_event("settings", "brewer_knob", {"pattern": raw})
-        elif response == Response.UNIT_CHANGE:
+        elif response == Response.UNIT_CHANGE and len(payload) >= 12:
             # Machine-initiated display-units/water-source sync (e.g. the
             # user changed them on the touchscreen). Payload: 3 LE u32s —
             # weight unit, temp unit, water source. Fired as a "settings"
             # event (not "notification") so it reaches the coordinator
             # without surfacing on the notification event entity.
-            if len(payload) >= 12:
-                weight_raw, temp_raw, water_raw = struct.unpack_from("<3I", payload, 0)
-                self._fire_event(
-                    "settings", "unit_change",
-                    {"weight_unit": weight_raw, "temp_unit": temp_raw, "water_source": water_raw},
-                )
+            weight_raw, temp_raw, water_raw = struct.unpack_from("<3I", payload, 0)
+            self._fire_event(
+                "settings", "unit_change",
+                {"weight_unit": weight_raw, "temp_unit": temp_raw, "water_source": water_raw},
+            )
 
         # ACK for a mode-switch command (cmd 11511) — the machine echoes the
         # newly-applied mode code back as its payload.
