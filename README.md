@@ -37,8 +37,8 @@ It drives the same entities and services as everything else, so nothing it does 
     <th>Manual</th>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/panel-brew.png" alt="Brew tab: the selected recipe with dose, ratio, water, grind, temperature and its pour timeline"></td>
-    <td width="50%"><img src="docs/images/panel-manual.png" alt="Manual tab: grinder, pour and scale controls"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/saya6k/hacs-xbloom/main/docs/images/panel-brew.png" alt="Brew tab: the selected recipe with dose, ratio, water, grind, temperature and its pour timeline"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/saya6k/hacs-xbloom/main/docs/images/panel-manual.png" alt="Manual tab: grinder, pour and scale controls"></td>
   </tr>
 </table>
 
