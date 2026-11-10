@@ -150,7 +150,7 @@ data:
   share_url: "https://share-h5.xbloom.com/?id=KmMzhYCe5itq%2FJcqOLhiag%3D%3D"
 ```
 
-The collective-search facet dropdowns are a snapshot of the hub's category codes. If xBloom adds a category the dropdown doesn't know yet, type its numeric code directly (the fields accept custom values) — and please [open an issue](https://github.com/saya6k/hacs-xbloom/issues) with the code so it can be added to the snapshot and translated in the next release.
+The collective-search facet dropdowns are a snapshot of the hub's category codes. If xBloom adds a category the dropdown doesn't know yet, type its numeric code directly (the fields accept custom values) — and please [open an issue](https://github.com/saya6k/ha-xbloom/issues) with the code so it can be added to the snapshot and translated in the next release.
 
 **Cloud account (optional)** — only `cloud_export_recipe` needs one. Enter your xBloom app email/password in the config flow's "xBloom Cloud Account" step during initial setup, or add/update/remove it later via Settings → Devices & Services → xBloom → ⋯ → **Configure** → **Cloud account**. Signed in with Apple and have no xBloom password? Use xBloom's own "forgot password" flow (with the email Apple relays, visible in the app's account settings) to set one first.
 
@@ -219,7 +219,7 @@ A devcontainer is provided for testing the integration against a real Home Assis
 scripts/develop
 ```
 
-HA binds the standard port 8123 inside the container. The container's hostname is set to `hacs-xbloom-dev` so it's distinguishable from any production HA instance you run on the host network. VS Code forwards 8123 to the host (and auto-picks a different host port if 8123 is already taken there).
+HA binds the standard port 8123 inside the container. The container's hostname is set to `ha-xbloom-dev` so it's distinguishable from any production HA instance you run on the host network. VS Code forwards 8123 to the host (and auto-picks a different host port if 8123 is already taken there).
 
 ## License
 

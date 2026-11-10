@@ -55,7 +55,7 @@ from .constants import (
 _LOGGER = logging.getLogger(__name__)
 
 # Pre-filled "new issue" link the unknown-colour Repairs issue points at.
-_COLOR_REPORT_URL = "https://github.com/saya6k/hacs-xbloom/issues/new?title={title}&body={body}"
+_COLOR_REPORT_URL = "https://github.com/saya6k/ha-xbloom/issues/new?title={title}&body={body}"
 # The official app refetches its cached machine cover after 3 days.
 _MACHINE_COVER_MAX_AGE_S = 3 * 24 * 3600
 

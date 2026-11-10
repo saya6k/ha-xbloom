@@ -37,8 +37,8 @@ It drives the same entities and services as everything else, so nothing it does 
     <th>Manual</th>
   </tr>
   <tr>
-    <td width="50%"><img src="https://raw.githubusercontent.com/saya6k/hacs-xbloom/main/docs/images/panel-brew.png" alt="Brew tab: the selected recipe with dose, ratio, water, grind, temperature and its pour timeline"></td>
-    <td width="50%"><img src="https://raw.githubusercontent.com/saya6k/hacs-xbloom/main/docs/images/panel-manual.png" alt="Manual tab: grinder, pour and scale controls"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/saya6k/ha-xbloom/main/docs/images/panel-brew.png" alt="Brew tab: the selected recipe with dose, ratio, water, grind, temperature and its pour timeline"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/saya6k/ha-xbloom/main/docs/images/panel-manual.png" alt="Manual tab: grinder, pour and scale controls"></td>
   </tr>
 </table>
 
@@ -59,7 +59,7 @@ It drives the same entities and services as everything else, so nothing it does 
 
 ## Installation (HACS)
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=saya6k&repository=hacs-xbloom&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=saya6k&repository=ha-xbloom&category=integration)
 
 1. In HACS → Integrations → ⋮ → **Custom repositories**, add this repo URL with category **Integration**.
 2. Install **xBloom Coffee Machine**.
@@ -189,7 +189,7 @@ data:
 The collective-search facet dropdowns are a snapshot of the hub's category codes.
 If xBloom adds a category the dropdown doesn't know yet, type its numeric code
 directly (the fields accept custom values) — and please [open an
-issue](https://github.com/saya6k/hacs-xbloom/issues) with the code so it can be added
+issue](https://github.com/saya6k/ha-xbloom/issues) with the code so it can be added
 to the snapshot and translated in the next release.
 
 **Cloud account (optional)** — only `cloud_export_recipe` needs one. Enter your
@@ -255,7 +255,7 @@ A devcontainer is provided for testing the integration against a real Home Assis
 scripts/develop
 ```
 
-HA binds the standard port 8123 inside the container. The container's hostname is set to `hacs-xbloom-dev` so it's distinguishable from any production HA instance you run on the host network. VS Code forwards 8123 to the host (and auto-picks a different host port if 8123 is already taken there).
+HA binds the standard port 8123 inside the container. The container's hostname is set to `ha-xbloom-dev` so it's distinguishable from any production HA instance you run on the host network. VS Code forwards 8123 to the host (and auto-picks a different host port if 8123 is already taken there).
 
 ## License
 
