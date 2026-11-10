@@ -38,7 +38,7 @@ def test_unknown_code_raises_a_repairs_issue():
 def test_report_link_carries_only_the_code_not_the_serial():
     create, _ = _sync("J15A06B4CV030")
     url = create.call_args.kwargs["translation_placeholders"]["report_url"]
-    assert url.startswith("https://github.com/saya6k/hacs-xbloom/issues/new?")
+    assert url.startswith("https://github.com/saya6k/ha-xbloom/issues/new?")
     assert "06" in unquote(url)
     assert "B4CV030" not in unquote(url)
 

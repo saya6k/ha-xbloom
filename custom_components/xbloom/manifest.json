@@ -20,9 +20,9 @@
     "panel_custom",
     "websocket_api"
   ],
-  "documentation": "https://saya6k.github.io/hacs-xbloom/",
+  "documentation": "https://saya6k.github.io/ha-xbloom/",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/saya6k/hacs-xbloom/issues",
+  "issue_tracker": "https://github.com/saya6k/ha-xbloom/issues",
   "requirements": [
     "bleak>=2.0.0",
     "bleak-retry-connector>=3.4.0"

@@ -1,7 +1,7 @@
 {
-  "name": "hacs-xbloom-dev",
+  "name": "ha-xbloom-dev",
   "image": "ghcr.io/home-assistant/home-assistant:2026.11.0b0",
-  "runArgs": ["--hostname=hacs-xbloom-dev", "--entrypoint", "/bin/bash", "-p", "8123:8123"],
+  "runArgs": ["--hostname=ha-xbloom-dev", "--entrypoint", "/bin/bash", "-p", "8123:8123"],
   "overrideCommand": true,
   "postCreateCommand": "scripts/setup",
   "forwardPorts": [8123],
