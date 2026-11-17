@@ -1609,7 +1609,7 @@ class XBloomPanel extends HTMLElement {
         return `<button class="recipe-card ${r.name === selected ? "selected" : ""}" data-action="open-recipe" data-arg="${esc(r.uid)}">
           ${this._recipeArt(r)}
           <div class="rc-body">
-            <div class="rc-top"><span class="badge ${tea ? "tea" : ""}">${this._t(`cup_${r.cup_type}`)}</span></div>
+            <div class="rc-top"><span class="badge ${tea ? "tea" : ""}">${esc(this._t(`cup_${r.cup_type}`))}</span></div>
             <div class="rc-name">${esc(r.name)}</div>
             <div class="rc-specs">
               ${tea ? "" : `<span>1:${num(r.ratio, 1)}</span>`}
@@ -1635,7 +1635,7 @@ class XBloomPanel extends HTMLElement {
         <div class="detail-hero">
           ${this._recipeArt(r, "art-hero")}
           <div class="detail-head">
-            <span class="badge ${isTea(r) ? "tea" : ""}">${this._t(`cup_${r.cup_type}`)}</span>
+            <span class="badge ${isTea(r) ? "tea" : ""}">${esc(this._t(`cup_${r.cup_type}`))}</span>
             <h1>${esc(r.name)}</h1>
             ${r.source ? `<div class="dim small">${this._t("source")}: ${esc(r.source)}</div>` : ""}
           </div>

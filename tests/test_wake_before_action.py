@@ -6,7 +6,7 @@ streaming 20501 but ignored three 8022 sends 1.5 s apart; a reconnect
 after connecting, so a held link has no app-defined wake path. The
 handshake is tried on the held link first (cheap, unverified), then a
 reconnect (verified) — but never a reconnect while something is armed,
-since connecting sends the cleanup commands that would clear it.
+since it is unverified that a reconnect leaves the armed page alone.
 """
 from __future__ import annotations
 

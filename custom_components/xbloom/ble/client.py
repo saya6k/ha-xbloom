@@ -433,7 +433,10 @@ class XBloomClient:
         with contextlib.suppress(Exception):
             await self._connection.start_notify(self.READ_CHAR, self._on_notification)
         self._status.connected = True
-        await self._reset_state()
+        # Only the 8100 handshake, like the official app (mtuSuccess): the
+        # cleanup commands in _reset_state stopped whatever was running, so
+        # a reconnect after a BLE hiccup cancelled a brew or cut a pour short.
+        await self.async_send_handshake()
         await asyncio.sleep(0.5)  # settle time for the first status push
         return True
 
