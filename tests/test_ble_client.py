@@ -13,10 +13,12 @@ unchanged from the originals; only the import and enum names differ.
 """
 from __future__ import annotations
 
+import asyncio
 import struct
+from unittest.mock import AsyncMock, patch
 
 from custom_components.xbloom.ble.client import XBloomClient
-from custom_components.xbloom.ble.constants import Response
+from custom_components.xbloom.ble.constants import Command, Response
 
 
 class _FakeConnection:
@@ -478,3 +480,33 @@ def test_40506_is_suppressed_during_calibration_like_9003():
     client._status.is_calibrating_grinder = True
     client._handle_response(Response.GRINDER_RUN_BEGIN, _frame_notag(b""))
     assert events == []
+
+
+# ---------------------------------------------------------------------
+# Connect sends only the handshake
+# ---------------------------------------------------------------------
+
+
+class _ConnectingConnection(_FakeConnection):
+    """Connects, and records the command id of every packet written."""
+
+    def __init__(self):
+        self.sent: list[int] = []
+
+    async def connect(self, address, timeout=20.0):
+        self.is_connected = True
+
+    async def write_command(self, char_uuid, data, response=False):
+        self.sent.append(int.from_bytes(data[3:5], "little"))
+
+
+def test_connect_sends_only_the_handshake():
+    """The reconnect supervisor reconnects after every unexpected drop, so
+    connect must not send the cleanup (40519/8013/8012) — that cancelled a
+    brew or pour already running on the machine. The official app sends
+    only 8100 after connecting (AppBleManager.mtuSuccess)."""
+    connection = _ConnectingConnection()
+    client = XBloomClient(mac_address="AA:BB:CC:DD:EE:FF", connection=connection)
+    with patch("custom_components.xbloom.ble.client.asyncio.sleep", AsyncMock()):
+        assert asyncio.run(client.connect()) is True
+    assert connection.sent == [Command.HANDSHAKE]

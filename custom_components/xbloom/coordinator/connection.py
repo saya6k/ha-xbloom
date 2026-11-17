@@ -1127,9 +1127,10 @@ class ConnectionMixin:
         First the handshake alone on the held link: cheap, but whether it
         wakes the machine there is unverified, hence the log line. Then a
         reconnect, which is verified. Never the reconnect while something
-        is armed: connecting sends the cleanup commands (40519/8013/8012,
-        ``XBloomClient._reset_state``), which would clear the arm the
-        caller is about to confirm.
+        is armed: connecting used to send the cleanup commands
+        (40519/8013/8012), which cleared the arm the caller is about to
+        confirm; it now sends only 8100, but whether a reconnect leaves an
+        armed machine page alone is unverified.
         """
         if self.client is not None:
             await self.client.async_send_handshake()

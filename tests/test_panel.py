@@ -118,6 +118,14 @@ def test_store_photo_keys_match_machine_colors():
     assert tuple(machine_photo.STORE_PHOTOS) == machine_color.MACHINE_COLORS
 
 
+def test_recipe_cup_type_is_escaped():
+    """cup_type is a free string in RECIPE_SCHEMA and _t() returns unknown
+    keys as-is, so the badge must escape it — else a recipe saved with HTML
+    in cup_type runs script in every viewer's panel."""
+    assert "${this._t(`cup_${r.cup_type}`)}" not in JS
+    assert JS.count("${esc(this._t(`cup_${r.cup_type}`))}") == 2
+
+
 def test_panel_loads_the_machine_photo_from_ha_only():
     """Offline use: the panel never points an <img> at the internet; HA
     serves the cached photo (machine_photo.py)."""
