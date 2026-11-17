@@ -15,6 +15,7 @@ it lists every configured machine and lets the user switch between them.
 from __future__ import annotations
 
 import hashlib
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,7 @@ import voluptuous as vol
 from aiohttp import web
 from homeassistant.components import panel_custom, websocket_api
 from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.http.auth import async_sign_path
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -41,6 +43,8 @@ _STATIC_URL = "/xbloom_static"
 _FRONTEND_DIR = Path(__file__).parent / "frontend"
 _PANEL_FILE = "xbloom-panel.js"
 _BRAND_DIR = Path(__file__).parent / "brand"
+# How long a signed photo URL stays valid, and how long the browser caches it.
+_PHOTO_URL_TTL = timedelta(days=1)
 
 def _machine_serial(hass: HomeAssistant, coordinator: Any) -> str | None:
     """Live serial when connected, else the one kept on the device entry
@@ -59,9 +63,9 @@ class MachinePhotoView(HomeAssistantView):
 
     url = "/api/xbloom/machine_photo/{entry_id}"
     name = "api:xbloom:machine_photo"
-    # An <img> can't send a bearer token; this only serves XBloom's public
-    # product shots, picked by an unguessable entry id.
-    requires_auth = False
+    # An <img> can't send a bearer token, so the panel gets a signed URL
+    # (_photo_url) and HA's auth middleware checks its authSig instead.
+    requires_auth = True
 
     async def get(self, request: web.Request, entry_id: str) -> web.Response:
         hass: HomeAssistant = request.app[KEY_HASS]
@@ -80,11 +84,18 @@ class MachinePhotoView(HomeAssistantView):
         )
 
 
-def _photo_url(entry_id: str, coordinator: Any, serial: str | None) -> str:
-    """The panel's photo URL; the query changes when a newer server cover
-    is cached, so the browser doesn't keep showing the older one."""
+def _photo_url(hass: HomeAssistant, entry_id: str, coordinator: Any, serial: str | None) -> str:
+    """The panel's signed photo URL; the query changes when a newer server
+    cover is cached, so the browser doesn't keep showing the older one.
+
+    Signed for the websocket caller and valid as long as the browser caches
+    the photo, so a re-render of a long-open panel still hits the cache."""
     version = coordinator.machine_cover_version
-    return f"{MachinePhotoView.url.format(entry_id=entry_id)}?v={color_code(serial)}-{version}"
+    return async_sign_path(
+        hass,
+        f"{MachinePhotoView.url.format(entry_id=entry_id)}?v={color_code(serial)}-{version}",
+        _PHOTO_URL_TTL,
+    )
 
 
 def _file_hash(path: Path) -> str:
@@ -153,7 +164,7 @@ def _machine_payload(hass: HomeAssistant, entry_id: str, coordinator: Any) -> di
         "detected_color": color_from_serial(serial),
         # Served by HA from its own cache — the server cover for the serial
         # when one is cached, else the store photo for its colour.
-        "photo_url": _photo_url(entry_id, coordinator, serial),
+        "photo_url": _photo_url(hass, entry_id, coordinator, serial),
         # The machine's own display unit (g/oz/ml) — the scale sensor is
         # always grams, so the panel converts to match the machine screen.
         "weight_unit": getattr(coordinator, "_weight_unit", "g"),

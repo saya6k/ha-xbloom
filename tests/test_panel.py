@@ -63,7 +63,9 @@ def test_machine_payload_maps_entities_and_full_recipes():
     ]
     with patch.object(panel.er, "async_get"), patch.object(
         panel.er, "async_entries_for_config_entry", return_value=entries
-    ):
+    ), patch.object(
+        panel, "async_sign_path", side_effect=lambda h, path, ttl: f"{path}&authSig=x"
+    ) as sign:
         payload = panel._machine_payload(hass, "entry1", coordinator)
 
     assert payload["entities"] == {"sensor.state": "sensor.xbloom_state"}
@@ -76,7 +78,12 @@ def test_machine_payload_maps_entities_and_full_recipes():
     assert payload["mac"] == "AA:BB"
     # Serial "J15A02…" → the app's white-machine code; nothing picked yet.
     assert payload["detected_color"] == "moonlight_white"
-    assert payload["photo_url"] == "/api/xbloom/machine_photo/entry1?v=02-None"
+    # Signed, so the photo view can require auth while an <img> loads it.
+    assert payload["photo_url"] == "/api/xbloom/machine_photo/entry1?v=02-None&authSig=x"
+    sign.assert_called_once_with(
+        hass, "/api/xbloom/machine_photo/entry1?v=02-None", panel._PHOTO_URL_TTL
+    )
+    assert panel.MachinePhotoView.requires_auth is True
 
 
 def test_color_from_serial_follows_the_official_app():
