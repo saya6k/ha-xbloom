@@ -124,7 +124,9 @@ def test_machine_payload_carries_the_weight_unit():
 
     with patch.object(panel.er, "async_get"), patch.object(
         panel.er, "async_entries_for_config_entry", return_value=[]
-    ), patch.object(panel, "_machine_serial", return_value=None):
+    ), patch.object(panel, "_machine_serial", return_value=None), patch.object(
+        panel, "async_sign_path", side_effect=lambda h, path, ttl: path
+    ):
         payload = panel._machine_payload(hass, "e1", coordinator)
     assert payload["weight_unit"] == "ml"
     assert payload["store_region"] == "kr"
