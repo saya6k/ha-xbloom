@@ -30,7 +30,26 @@
 - **LLM API** — 상태, 레시피 CRUD, 추출, 슬롯 쓰기, 가져오기/내보내기, 허브 검색을 음성/채팅 에이전트에 노출 — 옵트인 방식의 xBloom LLM API 경유([Assist / LLM 도구](#assist--llm-도구) 참고), 안전 확인 포함(원두, 드리퍼, 필터, 저울 위 컵, 삭제).
 - **한국어·영어** UI 번역.
 
+## xBloom Studio(Alshekhi/xbloom-studio)와의 차이
+
+[`Alshekhi/xbloom-studio`](https://github.com/Alshekhi/xbloom-studio)는 같은 기기를 같은 로컬 블루투스 프로토콜로 제어하는 또 다른 통합이며, HACS 기본 스토어에 등록된 쪽입니다. 둘 다 `custom_components/xbloom`(도메인 `xbloom`)에 설치되므로 **한 번에 하나만 설치할 수 있습니다**. 용도에 맞는 쪽을 고르세요:
+
+| | 이 통합 (ha-xbloom) | xbloom-studio |
+|---|---|---|
+| 인터페이스 | 앱 스타일 내장 사이드바 패널(브루, 레시피, 클라우드 허브 검색, 수동, 설정) | 기본 카드로 만든 대시보드 YAML 제공 |
+| 레시피 | 로컬 저장소가 source of truth, 클라우드는 가져오기/내보내기 경계 | 로컬 라이브러리, 또는 xBloom 계정에 다시 기록하는 클라우드 동기화 |
+| BLE 클라이언트 | 이 저장소 안의 클린룸 구현, PyPI 의존성 없음 | [`xbloom-py`](https://pypi.org/project/xbloom-py/), 처음 설정할 때 PyPI에서 설치 |
+| 분쇄/추출/레시피 실행 버튼 | 2단계(예약 → 확정)라 컵과 드리퍼를 먼저 준비할 수 있음 | 한 번 누르면 실행 |
+| 언어 | 영어, 한국어 | 영어, 아랍어 |
+| 그쪽에만 있음 | — | 펌웨어 업데이트, Coffee Lab(원두 봉지 추적, 맛 피드백), 음성 안내 블루프린트 |
+
+이 통합에는 이 밖에도 다음이 있습니다: 기기에 꽂은 팟이나 레시피 카드를 레시피와 함께 기록하는 팟 라이브러리, 명령 ACK가 아니라 기기 상태로 확인하는 추출 시작 검증(물 부족·원두 없음으로 거부되면 알려 줌), 추출 반경·진동 진폭·화면 밝기·그라인더 캘리브레이션 제어, 그리고 Home Assistant 하나에서 여러 기기 사용.
+
+이 비교는 2026년 11월 기준입니다. 상대 프로젝트의 최신 기능은 그쪽 README를 확인하세요.
+
 ## 설치 (HACS)
+
+이 통합은 HACS 기본 스토어에 없으므로(위에서 설명한 대로 도메인이 이미 등록돼 있음) 사용자 지정 저장소로 추가하세요. xbloom-studio가 설치돼 있다면 먼저 제거하세요.
 
 1. HACS → Integrations → ⋮ → **Custom repositories**에서 이 repo URL을 카테고리 **Integration**으로 추가.
 2. **xBloom Coffee Machine** 설치.
