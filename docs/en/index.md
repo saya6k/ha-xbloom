@@ -30,7 +30,26 @@ Huge thanks to Frederic, the PyBloom contributors, and Bruno Azzinnari for the p
 - **LLM API** — status, recipe CRUD, brewing, slot writing, import/export, and hub search exposed to voice/chat agents through the opt-in xBloom LLM API (see [Assist / LLM tools](#assist--llm-tools)) with safety confirmations (beans, dripper, filter, cup-on-scale, delete) — skipped entirely for no-grind recipes (e.g. a water-only pour).
 - **Korean and English** UI translations.
 
+## How this differs from xBloom Studio (Alshekhi/xbloom-studio)
+
+[`Alshekhi/xbloom-studio`](https://github.com/Alshekhi/xbloom-studio) is another integration for the same machine over the same local Bluetooth protocol, and it is the one in the HACS default store. Both install into `custom_components/xbloom` (domain `xbloom`), so **only one of them can be installed at a time**. Pick the one that fits:
+
+| | This integration (ha-xbloom) | xbloom-studio |
+|---|---|---|
+| Interface | Built-in app-style sidebar panel (brew, recipes, cloud hub search, manual, settings) | Ready-made dashboard YAML built from stock cards |
+| Recipes | Local store is the source of truth; the cloud is an import/export boundary | Local library, or cloud sync that writes back to your xBloom account |
+| BLE client | Clean-room implementation in this repository, no PyPI dependency | [`xbloom-py`](https://pypi.org/project/xbloom-py/), installed from PyPI on first setup |
+| Grind, pour, run recipe buttons | Two-stage (arm, then confirm) so the cup and dripper can be set first | One-tap |
+| Languages | English, Korean | English, Arabic |
+| Only there | — | Firmware updates, Coffee Lab (bag tracking, tasting feedback), spoken-announcement blueprints |
+
+Also in this integration: a pod library that records every scanned pod or recipe card with its recipe; brew-start confirmation from the machine's own state rather than the command ACK, so a refused start (no water, no beans) is reported; pour radius, vibration amplitude, display brightness and grinder calibration controls; and several machines on one Home Assistant.
+
+This comparison reflects both projects as of November 2026; see the other project's README for its current features.
+
 ## Installation (HACS)
+
+This integration is not in the HACS default store (its domain is already taken there, see above), so add it as a custom repository. If xbloom-studio is installed, remove it first.
 
 1. In HACS → Integrations → ⋮ → **Custom repositories**, add this repo URL with category **Integration**.
 2. Install **xBloom Coffee Machine**.
