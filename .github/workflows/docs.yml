@@ -4,18 +4,61 @@ name: Docs
 # release is published — release-drafter maintains a single rolling draft, so
 # a maintainer's manual publish is what deploys the docs. Checkout defaults to
 # the released tag. Also dispatchable for manual re-deploys.
+#
+# A push to main that touches the docs also deploys, but only when nothing
+# but docs changed since the latest stable release — otherwise the site would
+# describe unreleased features, and the next stable publish deploys instead.
 # yamllint disable-line rule:truthy
 on:
   release:
     types: [published]
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "zensical.*.toml"
+      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 jobs:
+  gate:
+    name: Docs-only since last release?
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deploy: ${{ steps.check.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release view --json tagName --jq .tagName)
+          other=$(git diff --name-only "$tag" HEAD \
+            | grep -Ev '^(docs/|zensical\.[a-z]+\.toml$|README\.md$|\.github/workflows/docs\.yml$)' || true)
+          if [ -n "$other" ]; then
+            echo "Non-docs changes since $tag, leaving the deploy to the next stable release:"
+            echo "$other"
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
+
   docs:
     name: Build & deploy
+    needs: gate
     # Skip prerelease publishes: `release: published` fires for those too,
     # but the docs site should only reflect a maintainer's stable release.
-    if: github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false
+    # On push, deploy only when the gate found docs-only changes.
+    if: >-
+      !cancelled() && (
+        github.event_name == 'workflow_dispatch'
+        || (github.event_name == 'release' && github.event.release.prerelease == false)
+        || (github.event_name == 'push' && needs.gate.outputs.deploy == 'true')
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
