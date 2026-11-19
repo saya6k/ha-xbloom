@@ -50,6 +50,10 @@ _LOGGER = logging.getLogger(__name__)
 
 CLIENT_API_BASE = "https://client-api.xbloom.com"
 J20_API_BASE = "https://api-iot.xbloom.com"
+# ServiceConfig.configBeanRelease's WebSocket: live shadow deltas for every
+# machine on the account, authenticated by the bare IoT token in an
+# ``Authorization`` header (WsManager); no subscribe message is sent.
+J20_WS_URL = "wss://15qmk9hof3.execute-api.us-east-1.amazonaws.com/prod/"
 
 # App 2.2.5 constants (ServiceConfig.configBeanRelease).
 J20_APP_ID = "94a98bca981d11eb9c0824418c29779a"

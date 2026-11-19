@@ -53,8 +53,10 @@ class J20ProblemBinarySensor(_J20BinarySensor):
     _attr_device_class = BinarySensorDeviceClass.PROBLEM
 
     @property
-    def is_on(self) -> bool:
-        return warning_active(self.coordinator.data.get("warning"))
+    def is_on(self) -> bool | None:
+        if not self.coordinator.online:
+            return None
+        return warning_active(self.coordinator.live.get("warning"))
 
 
 class J20GrindingBinarySensor(_J20BinarySensor):
@@ -64,4 +66,4 @@ class J20GrindingBinarySensor(_J20BinarySensor):
 
     @property
     def is_on(self) -> bool | None:
-        return self.coordinator.data.get("grinding")
+        return self.coordinator.live.get("grinding")
