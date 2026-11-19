@@ -19,6 +19,7 @@ class FakeStudio(SimpleNamespace):
     capabilities = _STUDIO.capabilities
     limits = _STUDIO.limits
     unreachable_hint = _STUDIO.unreachable_hint
+    arming_buttons = _STUDIO.arming_buttons
     async_ensure_available = _STUDIO.async_ensure_available
     status_summary = _STUDIO.status_summary
     water_shortage = _STUDIO.water_shortage

@@ -79,6 +79,17 @@ async def _async_original_login(
     return "invalid_auth"
 
 
+async def _async_original_owns(client: J20CloudClient, device_id: str) -> str | None:
+    """After a login: a form error key unless that account owns ``device_id``."""
+    try:
+        devices = await client.async_list_devices()
+    except J20ApiError:
+        return "original_cannot_connect"
+    if any(str(d.get("deviceId")) == device_id for d in devices):
+        return None
+    return "original_wrong_account"
+
+
 def _valid_mac(mac: str) -> bool:
     return bool(MAC_RE.match(mac.strip()))
 
@@ -261,12 +272,17 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if login is not None:
                     errors["base"] = login
                 else:
-                    devices = [
-                        d
-                        for d in await client.async_list_devices()
-                        if is_original_device(d)
-                    ]
-                    if not devices:
+                    try:
+                        devices = [
+                            d
+                            for d in await client.async_list_devices()
+                            if is_original_device(d)
+                        ]
+                    except J20ApiError:
+                        devices = None
+                    if devices is None:
+                        errors["base"] = "original_cannot_connect"
+                    elif not devices:
                         errors["base"] = "no_original_devices"
                     elif len(devices) == 1:
                         return await self._async_create_original_entry(
@@ -380,9 +396,13 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "original_account_incomplete"
             else:
                 client = J20CloudClient(async_get_clientsession(self.hass))
-                login = await _async_original_login(client, email, password)
-                if login is not None:
-                    errors["base"] = login
+                error = await _async_original_login(client, email, password)
+                if error is None:
+                    error = await _async_original_owns(
+                        client, entry.data.get(CONF_J20_DEVICE_ID, "")
+                    )
+                if error is not None:
+                    errors["base"] = error
                 else:
                     self.hass.config_entries.async_update_entry(
                         entry,
@@ -392,7 +412,11 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_PASSWORD: password,
                         },
                     )
-                    await self.hass.config_entries.async_reload(entry.entry_id)
+                    # A loaded entry's update listener already reloads it;
+                    # one that failed setup (the usual reauth case) has no
+                    # listener, so reload it here — exactly once either way.
+                    if entry.state is not config_entries.ConfigEntryState.LOADED:
+                        self.hass.config_entries.async_schedule_reload(entry.entry_id)
                     return self.async_abort(reason="reauth_successful")
 
         return self.async_show_form(
@@ -554,15 +578,16 @@ class XBloomOptionsFlow(config_entries.OptionsFlow):
             password = user_input.get(CONF_PASSWORD) or ""
             test_email = email or self._entry.data.get(CONF_EMAIL, "")
             test_password = password or self._entry.data.get(CONF_PASSWORD, "")
+            client = J20CloudClient(async_get_clientsession(self.hass))
             login = (
-                await _async_original_login(
-                    J20CloudClient(async_get_clientsession(self.hass)),
-                    test_email,
-                    test_password,
-                )
+                await _async_original_login(client, test_email, test_password)
                 if email or password
                 else None
             )
+            if login is None and email and email != self._entry.data.get(CONF_EMAIL):
+                login = await _async_original_owns(
+                    client, self._entry.data.get(CONF_J20_DEVICE_ID, "")
+                )
             if login is not None:
                 errors["base"] = login
             else:
@@ -572,18 +597,20 @@ class XBloomOptionsFlow(config_entries.OptionsFlow):
                 if password:
                     new_data[CONF_PASSWORD] = password
                     changed = True
+                new_options = {
+                    **self._entry.options,
+                    CONF_TELEMETRY_INTERVAL: user_input.get(
+                        CONF_TELEMETRY_INTERVAL, DEFAULT_J20_SCAN_INTERVAL
+                    ),
+                }
                 if changed:
+                    # Data and options in one update, so the entry's
+                    # listener reloads it once; the create_entry below
+                    # then writes the same options and changes nothing.
                     self.hass.config_entries.async_update_entry(
-                        self._entry, data=new_data
+                        self._entry, data=new_data, options=new_options
                     )
-                return self.async_create_entry(
-                    title="",
-                    data={
-                        CONF_TELEMETRY_INTERVAL: user_input.get(
-                            CONF_TELEMETRY_INTERVAL, DEFAULT_J20_SCAN_INTERVAL
-                        )
-                    },
-                )
+                return self.async_create_entry(title="", data=new_options)
 
         current = self._entry.options.get(
             CONF_TELEMETRY_INTERVAL,

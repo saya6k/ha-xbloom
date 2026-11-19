@@ -14,6 +14,7 @@ records the operation, confirming sends it.
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from typing import Any, ClassVar, TypeVar
@@ -61,6 +62,11 @@ from .values import (
 _LOGGER = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
+
+# How long a local arm (see the module docstring) waits for its confirm.
+# The Studio's arm lives on the machine's screen and ends with it; this one
+# has nothing to end it, so it lapses rather than firing hours later.
+ARM_TIMEOUT_S = 300
 
 
 class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -124,6 +130,7 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.temperature: float = TEMPERATURE_DEFAULT
         self.pattern: str = PATTERN_DEFAULT
         self._armed: str | None = None
+        self._armed_at: float = 0.0
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -150,7 +157,23 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     @property
     def armed_operation(self) -> str | None:
+        if self._armed is not None and time.monotonic() - self._armed_at > ARM_TIMEOUT_S:
+            self._armed = None
         return self._armed
+
+    def _arm(self, operation: str) -> bool:
+        if not self.online:
+            return False
+        self._armed = operation
+        self._armed_at = time.monotonic()
+        return True
+
+    def _take_arm(self, operation: str) -> bool:
+        """Consume a standing (unexpired) arm of ``operation``."""
+        if self.armed_operation != operation:
+            return False
+        self._armed = None
+        return True
 
     async def async_ensure_available(self) -> bool:
         """Re-read the shadow, then report whether the machine is online."""
@@ -171,40 +194,36 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         }
 
     async def async_arm_grind(self) -> bool:
-        if not self.online:
-            return False
-        self._armed = "grind"
-        return True
+        return self._arm("grind")
 
     async def async_confirm_grind(self) -> bool:
-        if self._armed != "grind":
+        if not self._take_arm("grind"):
             return False
-        self._armed = None
         await self.async_grind()
         return True
 
     async def async_arm_pour(self) -> bool:
-        if not self.online:
-            return False
-        self._armed = "pour"
-        return True
+        return self._arm("pour")
 
     async def async_confirm_pour(self) -> bool:
-        if self._armed != "pour":
+        if not self._take_arm("pour"):
             return False
-        self._armed = None
         await self.async_pour()
         return True
 
     async def async_cancel(self) -> None:
-        """Drop a pending arm, or stop a running pour.
+        """Drop a pending arm, or stop a running pour (the Stop button and
+        the panel's Cancel use this too).
 
         The app has no command to stop the grinder (only
         ``grinding_start: 1``), so a running grind can't be cancelled.
         """
-        if self._armed is not None:
+        if self.armed_operation is not None:
             self._armed = None
             return
+        # The polled shadow may be up to a poll interval old; decide on a
+        # fresh one rather than stop an idle machine or miss a pour.
+        await self.async_refresh()
         state = work_mode_state((self.data or {}).get("work_mode"))
         if state == WORK_MODE_GRINDING:
             raise HomeAssistantError(
@@ -280,6 +299,9 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self._send({"bruw_curve": "FFFF11"})
 
     async def _send(self, desired: dict[str, Any]) -> None:
+        # Any command acted on the machine directly, so a pending arm from
+        # an earlier conversation no longer reflects what the user wants.
+        self._armed = None
         # The app disables its start buttons while the shadow reports the
         # machine offline (refreshOnLineView). A desired state written now
         # would sit in the shadow and run whenever the machine reconnects.

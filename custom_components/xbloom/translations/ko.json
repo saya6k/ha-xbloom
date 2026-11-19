@@ -76,7 +76,8 @@
       "invalid_auth": "이메일 또는 비밀번호가 올바르지 않습니다.",
       "no_original_devices": "이 계정에서 xBloom Original을 찾지 못했습니다.",
       "original_account_incomplete": "xBloom 이메일과 비밀번호를 모두 입력하세요.",
-      "original_cannot_connect": "xBloom 클라우드에 연결할 수 없습니다. 인터넷 연결을 확인한 뒤 다시 시도하세요."
+      "original_cannot_connect": "xBloom 클라우드에 연결할 수 없습니다. 인터넷 연결을 확인한 뒤 다시 시도하세요.",
+      "original_wrong_account": "이 xBloom 계정에는 이 기기가 없습니다. 기기를 등록한 계정으로 로그인하세요."
     },
     "abort": {
       "already_configured": "xBloom 기기가 이미 설정되어 있습니다.",
@@ -162,7 +163,8 @@
       "account_password_required": "클라우드 계정을 설정하거나 변경하려면 비밀번호를 입력하세요.",
       "account_email_required": "클라우드 계정을 설정하려면 이메일을 입력하세요.",
       "invalid_auth": "이메일 또는 비밀번호가 올바르지 않습니다.",
-      "original_cannot_connect": "xBloom 클라우드에 연결할 수 없습니다. 인터넷 연결을 확인한 뒤 다시 시도하세요."
+      "original_cannot_connect": "xBloom 클라우드에 연결할 수 없습니다. 인터넷 연결을 확인한 뒤 다시 시도하세요.",
+      "original_wrong_account": "이 xBloom 계정에는 이 기기가 없습니다. 기기를 등록한 계정으로 로그인하세요."
     },
     "abort": {
       "no_recipes": "사용 가능한 레시피가 없습니다. '레시피 추가'로 새로 만드세요."

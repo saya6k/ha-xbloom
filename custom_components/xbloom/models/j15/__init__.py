@@ -38,6 +38,18 @@ from ...const import (
     DOMAIN,
 )
 from ...pods import PodLibrary
+
+# The entity platform modules, found by models.async_setup_platform_entry.
+from . import (  # noqa: F401
+    binary_sensor,
+    button,
+    event,
+    number,
+    select,
+    sensor,
+    switch,
+    update,
+)
 from .coordinator import XBloomCoordinator
 
 _LOGGER = logging.getLogger(__name__)

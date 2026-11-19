@@ -13,24 +13,17 @@ routes each config entry to its model package.
 """
 from __future__ import annotations
 
-from types import ModuleType
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import CONF_DEVICE_TYPE, DEVICE_TYPE_ORIGINAL
 from .llm_api import register_llm_api
 from .machine import Capability, get_machine
 from .migrations import async_migrate_entry as async_migrate_entry
-from .models import j15, j20
+from .models import model_for as _model
 from .panel import async_register_panel
 from .recipes import CONFIG_SCHEMA as CONFIG_SCHEMA
 from .recipes import async_load_recipes
 from .services import async_register_services, async_unload_services
-
-
-def _model(entry: ConfigEntry) -> ModuleType:
-    return j20 if entry.data.get(CONF_DEVICE_TYPE) == DEVICE_TYPE_ORIGINAL else j15
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

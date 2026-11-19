@@ -101,10 +101,16 @@ def machines(
     with ``capability``."""
     found: dict[str, Any] = {}
     for entry_id, data in hass.data.get(DOMAIN, {}).items():
-        if not isinstance(data, dict) or DATA_COORDINATOR not in data:
+        # hass.data[DOMAIN] also holds name-keyed recipe maps (yaml_recipes
+        # …); a recipe that happens to be named "coordinator" must not
+        # pass for a machine, so require the machine interface itself.
+        if not isinstance(data, dict):
             continue
-        machine = data[DATA_COORDINATOR]
-        if capability is None or capability in machine.capabilities:
+        machine = data.get(DATA_COORDINATOR)
+        caps = getattr(machine, "capabilities", None)
+        if not isinstance(caps, frozenset):
+            continue
+        if capability is None or capability in caps:
             found[entry_id] = machine
     return found
 

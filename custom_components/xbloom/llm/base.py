@@ -28,6 +28,18 @@ class XBloomBaseTool(llm.Tool):
         self.coordinator = coordinator
         self.hass = hass
 
+    @property
+    def _arms_on_machine(self) -> bool:
+        """Whether arming opens a page on the machine (the Studio) or only
+        records the request locally until it is confirmed."""
+        return bool(getattr(self.coordinator, "arming_buttons", False))
+
+    def _armed_text(self, page: str) -> str:
+        """What the user should be told an arm did."""
+        if self._arms_on_machine:
+            return f"The machine is now showing its {page} page with these settings. "
+        return "Nothing has been sent to the machine yet. "
+
     async def _unavailable(self) -> llm.ToolResult | None:
         """None when the machine is reachable, else the tool's error result."""
         if await self.coordinator.async_ensure_available():

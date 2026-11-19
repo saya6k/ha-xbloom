@@ -27,6 +27,18 @@ def _hass_with_entries(entries: dict):
     return SimpleNamespace(data={DOMAIN: entries})
 
 
+def test_a_recipe_named_coordinator_is_not_a_machine():
+    """hass.data[DOMAIN] also holds name-keyed recipe maps."""
+    studio = FakeStudio()
+    hass = _hass_with_entries(
+        {
+            "studio": {DATA_COORDINATOR: studio},
+            "yaml_recipes": {DATA_COORDINATOR: {"name": DATA_COORDINATOR, "pours": []}},
+        }
+    )
+    assert _coordinators_for_call(hass, SimpleNamespace(data={})) == [studio]
+
+
 def test_machines_without_the_capability_are_never_targeted():
     """An Original (no recipes) must not receive a recipe service call."""
     studio = FakeStudio()

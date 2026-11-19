@@ -95,9 +95,25 @@ class XBloomPourTool(XBloomBaseTool):
         "that is still armed — otherwise it arms again and you must ask "
         "again."
     )
+    # For a machine with no on-machine arm page.
+    _local_arm_description = (
+        "Pour water from the xBloom with a custom temperature and volume. "
+        "This is a manual pour — it does NOT grind beans. Temperature is in "
+        "degrees Celsius (see the temperature parameter's range) or set "
+        "boiling=true for the boiling-point mode. Volume is in milliliters. "
+        "Two-phase flow: the first call (without confirmed) only ARMS the "
+        "request — nothing is sent to the machine yet — and you must then "
+        "ask the user to confirm (and to place a cup). Call again with "
+        "confirmed=true to start the pour; if the user declines, call "
+        "xbloom__cancel. confirmed=true only starts a pour that is still "
+        "armed — otherwise it arms again and you must ask again."
+    )
+
     def __init__(self, coordinator, hass: HomeAssistant) -> None:  # noqa: ANN001
         super().__init__(coordinator, hass)
         self.parameters = _parameters(coordinator.limits)
+        if not self._arms_on_machine:
+            self.description = self._local_arm_description
 
     async def async_call(
         self,
@@ -193,8 +209,8 @@ class XBloomPourTool(XBloomBaseTool):
                             if confirmed
                             else ""
                         )
-                        + "The machine is now showing its pour page with these "
-                        "settings. Ask the user to confirm starting the pour "
+                        + self._armed_text("pour")
+                        + "Ask the user to confirm starting the pour "
                         "and to place a cup under the dispenser; if they "
                         "agree, call xbloom__pour again with confirmed=true "
                         "(same arguments). If they decline, call xbloom__cancel."

@@ -254,11 +254,12 @@ class J20CloudClient:
         """The account's machines from ``tuMachineList.tuhtml``.
 
         Uses the recipe-cloud session token plus the IoT ``accessToken``
-        the app's ``MachineListForm`` sends. Returns an empty list on any
-        failure.
+        the app's ``MachineListForm`` sends. Raises ``J20ApiError`` when the
+        list can't be fetched, so an outage is never mistaken for an
+        account without machines.
         """
         if not (self.token and self.project_token and self.member_id is not None):
-            return []
+            raise J20ApiError("not logged in")
         body = {
             "interfaceVersion": _AUTH_INTERFACE_VERSION,
             "skey": _AUTH_SKEY,
@@ -284,7 +285,7 @@ class J20CloudClient:
                 body=body,
             )
         if not payload or payload.get("result") != "success":
-            return []
+            raise J20ApiError("machine list request failed")
         machines = payload.get("machineList")
         if not machines and isinstance(payload.get("data"), dict):
             machines = payload["data"].get("machineList")
@@ -361,8 +362,20 @@ class J20CloudClient:
                 headers={**_HEADERS, **(headers or {})},
                 timeout=_TIMEOUT,
             ) as response:
-                payload = await response.json(content_type=None)
-        except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
+                status = response.status
+                try:
+                    payload = await response.json(content_type=None)
+                except ValueError:
+                    payload = None
+        except (aiohttp.ClientError, TimeoutError) as exc:
             _LOGGER.warning("XBloom Original cloud call to %s failed: %s", url, exc)
             return None
-        return payload if isinstance(payload, dict) else None
+        if isinstance(payload, dict):
+            return payload
+        if status == 401:
+            # A token rejection whose body isn't the usual JSON envelope:
+            # report it as one, so the caller re-authenticates instead of
+            # treating it as the cloud being unreachable.
+            return {"code": 401}
+        _LOGGER.warning("XBloom Original cloud call to %s: HTTP %s, no JSON body", url, status)
+        return None

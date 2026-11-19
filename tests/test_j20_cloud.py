@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import pytest
@@ -122,10 +122,13 @@ def test_grinding_follows_app_work_modes(work_mode, grinding) -> None:
 
 
 class _FakeResponse:
-    def __init__(self, payload: dict) -> None:
+    def __init__(self, payload: object, status: int = 200) -> None:
         self._payload = payload
+        self.status = status
 
-    async def json(self, content_type: str | None = None) -> dict:
+    async def json(self, content_type: str | None = None) -> object:
+        if isinstance(self._payload, Exception):
+            raise self._payload
         return self._payload
 
     async def __aenter__(self) -> _FakeResponse:
@@ -148,7 +151,27 @@ class _FakeSession:
         payload = self._payloads.pop(0)
         if payload is _NETWORK_DOWN:
             raise aiohttp.ClientConnectionError("down")
+        if isinstance(payload, _FakeResponse):
+            return payload
         return _FakeResponse(payload)
+
+
+def test_401_without_json_body_is_a_token_rejection() -> None:
+    """Some gateways answer an expired token with a bare 401 (HTML/empty
+    body); that must lead to re-auth, not to 'cloud unreachable'."""
+    session = _FakeSession([_FakeResponse(ValueError("not json"), status=401)])
+    client = J20CloudClient(session)  # type: ignore[arg-type]
+    client.project_token = "expired"
+    with pytest.raises(J20AuthError):
+        asyncio.run(client.async_get_shadow("dev-1", J20_PRODUCT_ID))
+
+
+def test_machine_list_failure_is_an_error_not_an_empty_account() -> None:
+    session = _FakeSession([_NETWORK_DOWN, _NETWORK_DOWN])
+    client = J20CloudClient(session)  # type: ignore[arg-type]
+    client.token, client.project_token, client.member_id = "t", "p", 1
+    with pytest.raises(J20ApiError):
+        asyncio.run(client.async_list_devices())
 
 
 def test_login_extracts_all_tokens() -> None:
@@ -315,22 +338,49 @@ def test_unmapped_warning_is_still_a_problem() -> None:
 # --- coordinator: re-auth order and the offline gate ------------------------
 
 
-def _coordinator(**attrs):
+def _coordinator(*, online=True, data=None, **attrs):
+    """A real J20Coordinator without DataUpdateCoordinator.__init__ (no hass):
+    the methods under test only touch the attributes set here."""
     from custom_components.xbloom.models.j20.coordinator import J20Coordinator
 
-    fake = SimpleNamespace(**attrs)
-    for name in (
-        "_async_reauthenticate", "_async_call", "_send",
-        "async_arm_grind", "async_confirm_grind", "async_arm_pour",
-        "async_confirm_pour", "async_cancel",
-    ):
-        setattr(fake, name, getattr(J20Coordinator, name).__get__(fake))
-    return fake
+    coordinator = object.__new__(J20Coordinator)
+    coordinator.data = {"online": online, **(data or {})}
+    coordinator._armed = None
+    coordinator._armed_at = 0.0
+    coordinator.grind_size = 15
+    coordinator.async_refresh = AsyncMock()
+    for name, value in attrs.items():
+        setattr(coordinator, name, value)
+    return coordinator
+
+
+def test_an_arm_lapses_instead_of_firing_later():
+    from custom_components.xbloom.models.j20 import coordinator as module
+
+    coordinator = _coordinator(async_grind=AsyncMock())
+    with patch.object(module.time, "monotonic", return_value=1000.0):
+        assert asyncio.run(coordinator.async_arm_grind()) is True
+    later = 1000.0 + module.ARM_TIMEOUT_S + 1
+    with patch.object(module.time, "monotonic", return_value=later):
+        assert coordinator.armed_operation is None
+        assert asyncio.run(coordinator.async_confirm_grind()) is False
+    coordinator.async_grind.assert_not_awaited()
+
+
+def test_a_direct_command_clears_a_pending_arm():
+    """A button press (or any other command) supersedes an LLM arm."""
+    client = SimpleNamespace(async_send_desired=AsyncMock())
+    coordinator = _coordinator(
+        _client=client, device_id="d", async_request_refresh=AsyncMock()
+    )
+    asyncio.run(coordinator.async_arm_pour())
+    asyncio.run(coordinator.async_grind())
+    assert coordinator.armed_operation is None
 
 
 def test_arm_only_records_then_confirm_sends():
     """No machine-side arm page: arming sends nothing, confirming starts."""
-    coordinator = _coordinator(online=True, _armed=None, async_grind=AsyncMock())
+    coordinator = _coordinator(async_grind=AsyncMock())
     assert asyncio.run(coordinator.async_arm_grind()) is True
     coordinator.async_grind.assert_not_awaited()
     assert coordinator._armed == "grind"
@@ -340,19 +390,20 @@ def test_arm_only_records_then_confirm_sends():
 
 
 def test_confirm_without_arm_sends_nothing():
-    coordinator = _coordinator(online=True, _armed=None, async_pour=AsyncMock())
+    coordinator = _coordinator(async_pour=AsyncMock())
     assert asyncio.run(coordinator.async_confirm_pour()) is False
     coordinator.async_pour.assert_not_awaited()
 
 
 def test_offline_machine_cannot_be_armed():
-    coordinator = _coordinator(online=False, _armed=None)
+    coordinator = _coordinator(online=False)
     assert asyncio.run(coordinator.async_arm_pour()) is False
     assert coordinator._armed is None
 
 
 def test_cancel_drops_an_arm_without_sending():
-    coordinator = _coordinator(_armed="pour", data={"work_mode": 6}, async_stop=AsyncMock())
+    coordinator = _coordinator(data={"work_mode": 6}, async_stop=AsyncMock())
+    asyncio.run(coordinator.async_arm_pour())
     asyncio.run(coordinator.async_cancel())
     assert coordinator._armed is None
     coordinator.async_stop.assert_not_awaited()
@@ -361,11 +412,16 @@ def test_cancel_drops_an_arm_without_sending():
 def test_cancel_stops_a_running_pour_but_not_a_grind():
     from homeassistant.exceptions import HomeAssistantError
 
-    brewing = _coordinator(_armed=None, data={"work_mode": 6}, async_stop=AsyncMock())
+    brewing = _coordinator(data={"work_mode": 6}, async_stop=AsyncMock())
     asyncio.run(brewing.async_cancel())
+    brewing.async_refresh.assert_awaited_once()  # decides on a fresh shadow
     brewing.async_stop.assert_awaited_once()
 
-    grinding = _coordinator(_armed=None, data={"work_mode": 4}, async_stop=AsyncMock())
+    idle = _coordinator(data={"work_mode": 5}, async_stop=AsyncMock())
+    asyncio.run(idle.async_cancel())
+    idle.async_stop.assert_not_awaited()
+
+    grinding = _coordinator(data={"work_mode": 4}, async_stop=AsyncMock())
     with pytest.raises(HomeAssistantError):
         asyncio.run(grinding.async_cancel())
     grinding.async_stop.assert_not_awaited()
@@ -413,6 +469,7 @@ def test_offline_machine_gets_no_command() -> None:
 
     client = SimpleNamespace(async_send_desired=AsyncMock())
     coordinator = _coordinator(_client=client, online=False, device_id="dev-1")
+    asyncio.run(coordinator.async_arm_pour())  # no-op: offline
     with pytest.raises(HomeAssistantError):
         asyncio.run(coordinator._send({"grinding_start": 1}))
     client.async_send_desired.assert_not_awaited()
@@ -428,9 +485,23 @@ def test_command_auth_failure_starts_reauth() -> None:
     )
     entry = MagicMock()
     coordinator = _coordinator(
-        _client=client, online=True, device_id="dev-1",
+        _client=client, device_id="dev-1",
         _email="e", _password="p", config_entry=entry, hass=object(),
     )
     with pytest.raises(HomeAssistantError):
         asyncio.run(coordinator._send({"grinding_start": 1}))
     entry.async_start_reauth.assert_called_once()
+
+
+def test_reauth_account_must_own_the_machine() -> None:
+    from custom_components.xbloom.config_flow import _async_original_owns
+
+    def client(result):
+        return SimpleNamespace(async_list_devices=AsyncMock(**result))
+
+    owned = client({"return_value": [{"deviceId": "dev-1"}]})
+    assert asyncio.run(_async_original_owns(owned, "dev-1")) is None
+    other = client({"return_value": [{"deviceId": "dev-2"}]})
+    assert asyncio.run(_async_original_owns(other, "dev-1")) == "original_wrong_account"
+    down = client({"side_effect": J20ApiError("down")})
+    assert asyncio.run(_async_original_owns(down, "dev-1")) == "original_cannot_connect"

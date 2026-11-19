@@ -50,13 +50,14 @@ class J20PourButton(_J20Button):
 
 
 class J20StopButton(_J20Button):
-    """Stop the current pour (the app's ``bruw_curve: "FFFF11"`` sentinel)."""
+    """Cancel: drop a pending (LLM) arm, else stop a running pour (the app's
+    ``bruw_curve: "FFFF11"`` sentinel). Also the panel's Cancel button."""
 
     _attr_translation_key = "j20_stop"
     _attr_unique_id = "xbloom_j20_stop"
 
     async def async_press(self) -> None:
-        await self.coordinator.async_stop()
+        await self.coordinator.async_cancel()
 
 
 class J20CalibrateButton(_J20Button):

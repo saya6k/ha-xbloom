@@ -76,7 +76,8 @@
       "invalid_auth": "Invalid email or password.",
       "no_original_devices": "No xBloom Original found on this account.",
       "original_account_incomplete": "Enter both the xBloom email and password.",
-      "original_cannot_connect": "Cannot reach the xBloom cloud. Check the internet connection and try again."
+      "original_cannot_connect": "Cannot reach the xBloom cloud. Check the internet connection and try again.",
+      "original_wrong_account": "This xBloom account doesn't own this machine. Sign in with the account it was set up with."
     },
     "abort": {
       "already_configured": "xBloom device is already configured.",
@@ -162,7 +163,8 @@
       "account_password_required": "Enter the password to set or change the cloud account.",
       "account_email_required": "Enter the email to set the cloud account.",
       "invalid_auth": "Invalid email or password.",
-      "original_cannot_connect": "Cannot reach the xBloom cloud. Check the internet connection and try again."
+      "original_cannot_connect": "Cannot reach the xBloom cloud. Check the internet connection and try again.",
+      "original_wrong_account": "This xBloom account doesn't own this machine. Sign in with the account it was set up with."
     },
     "abort": {
       "no_recipes": "No recipes available. Use 'Add a recipe' to create one."

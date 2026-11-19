@@ -47,10 +47,9 @@ allowed-confusables = ["–", "×", "−"]
 # absolute imports, which would couple the packages to HA's loader path.
 "custom_components/xbloom/models/**/*.py" = ["TID252"]
 "custom_components/xbloom/{panel,recipes,cloud}/*.py" = ["TID252"]
-# The Studio-only platforms (no Original equivalent) re-export the j15
-# setup function, and the integration module re-exports its HA hooks; the
-# redundant alias marks the name as an explicit export.
-"custom_components/xbloom/{__init__,event,switch,update}.py" = ["PLC0414"]
+# The integration module re-exports its HA hooks (CONFIG_SCHEMA,
+# async_migrate_entry); the redundant alias marks them as explicit exports.
+"custom_components/xbloom/__init__.py" = ["PLC0414"]
 
 # The PLR complexity caps below are waived per file, not silenced globally.
 # Every one of them is a protocol- or API-shaped function whose size comes

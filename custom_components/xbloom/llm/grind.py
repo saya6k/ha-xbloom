@@ -15,18 +15,22 @@ from .base import XBloomBaseTool
 _LOGGER = logging.getLogger(__name__)
 
 
-def _parameters(limits: ManualLimits) -> vol.Schema:
+def _parameters(limits: ManualLimits, has_recipes: bool) -> vol.Schema:
     """The tool schema, bounded by the machine's own grind range."""
     size_min, size_max = limits.grind_size
+    reference = (
+        " — see xbloom__execute_recipe's GRIND SIZE REFERENCE for "
+        "recommended ranges per brew method."
+        if has_recipes
+        else ". Other machines' grind numbers don't carry over to this scale."
+    )
     fields: dict = {
         vol.Optional(
             "grind_size",
             description=(
                 f"Grind size on this machine's scale "
                 f"({size_min}=finest–{size_max}=coarsest). "
-                "Defaults to the machine's current setting — see "
-                "xbloom__execute_recipe's GRIND SIZE REFERENCE for "
-                "recommended ranges per brew method."
+                f"Defaults to the machine's current setting{reference}"
             ),
         ): vol.All(vol.Coerce(int), vol.Range(min=size_min, max=size_max)),
     }
@@ -77,9 +81,24 @@ class XBloomGrindTool(XBloomBaseTool):
         "manual pour, or xbloom__execute_recipe to grind and pour a full "
         "recipe in one call."
     )
+    # For a machine with no on-machine arm page and no recipes.
+    _local_arm_description = (
+        "Grind beans on the xBloom with a custom grind size. This is a "
+        "manual grind — it does NOT pour water. Two-phase flow: the first "
+        "call (without confirmed) only ARMS the request — nothing is sent "
+        "to the machine yet — and you must then ask the user to confirm. "
+        "Call again with confirmed=true to start the grind; if the user "
+        "declines, call xbloom__cancel. confirmed=true only starts a grind "
+        "that is still armed — otherwise it arms again and you must ask "
+        "again. Use xbloom__pour afterwards for a manual pour."
+    )
+
     def __init__(self, coordinator, hass: HomeAssistant) -> None:  # noqa: ANN001
         super().__init__(coordinator, hass)
-        self.parameters = _parameters(coordinator.limits)
+        has_recipes = Capability.RECIPES in coordinator.capabilities
+        self.parameters = _parameters(coordinator.limits, has_recipes)
+        if not (has_recipes and self._arms_on_machine):
+            self.description = self._local_arm_description
 
     async def async_call(
         self,
@@ -155,8 +174,8 @@ class XBloomGrindTool(XBloomBaseTool):
                             if confirmed
                             else ""
                         )
-                        + "The machine is now showing its grind page with these "
-                        "settings. Ask the user to confirm starting the grind; "
+                        + self._armed_text("grind")
+                        + "Ask the user to confirm starting the grind; "
                         "if they agree, call xbloom__grind again with "
                         "confirmed=true. If they decline, call xbloom__cancel."
                     ),

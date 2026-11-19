@@ -137,6 +137,43 @@ def test_catalog_offers_only_what_the_machine_can_do():
         grind_schema({"grind_size": 31})
     assert "rpm" not in {str(key) for key in grind_schema.schema}
     assert "flow_rate" not in {str(key) for key in tools["xbloom__pour"].parameters.schema}
+    # No arm page on the machine and no recipes: the tool text says so.
+    assert "nothing is sent" in tools["xbloom__grind"].description
+    assert "execute_recipe" not in tools["xbloom__grind"].description
+    assert "GRIND SIZE REFERENCE" not in str(grind_schema.schema)
+
+
+def test_prompt_only_describes_what_the_machine_can_do():
+    from custom_components.xbloom.llm.catalog import build_prompt
+    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+
+    assert build_prompt(FakeStudio()) == XBLOOM_LLM_PROMPT
+    original = SimpleNamespace(
+        capabilities=J20Coordinator.capabilities, limits=J20Coordinator.limits
+    )
+    prompt = build_prompt(original)
+    for absent in (
+        "xbloom__execute_recipe", "xbloom__list_recipes", "xbloom__tare_scale",
+        "xbloom__write_easy_slot", "Bluetooth", "RPM", "80=coarsest",
+    ):
+        assert absent not in prompt, absent
+    assert "1=finest to 30=coarsest" in prompt
+    assert "30–500 ml at 85–95 °C" in prompt
+    for tool in ("get_status", "grind", "pour", "cancel", "calibrate_grinder"):
+        assert f"xbloom__{tool}" in prompt
+
+
+def test_arm_reply_matches_where_the_arm_lives():
+    from custom_components.xbloom.llm.pour import XBloomPourTool
+    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+
+    studio = XBloomPourTool(FakeStudio(), None)
+    assert "showing its pour page" in studio._armed_text("pour")
+    original = XBloomPourTool(
+        SimpleNamespace(capabilities=J20Coordinator.capabilities, limits=J20Coordinator.limits),
+        None,
+    )
+    assert original._armed_text("pour") == "Nothing has been sent to the machine yet. "
 
 
 def test_catalog_builds_fresh_instances_per_call():

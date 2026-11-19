@@ -35,6 +35,9 @@ from ...const import (
     DEFAULT_J20_SCAN_INTERVAL,
     DOMAIN,
 )
+
+# The entity platform modules, found by models.async_setup_platform_entry.
+from . import binary_sensor, button, number, select, sensor  # noqa: F401
 from .client import J20ApiError, J20CloudClient
 from .coordinator import J20Coordinator
 
