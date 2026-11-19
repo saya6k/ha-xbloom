@@ -1,13 +1,13 @@
 {
   "device": {
     "grinder": {
-      "name": "그라인더"
+      "name": "{machine} 그라인더"
     },
     "scale": {
-      "name": "저울"
+      "name": "{machine} 저울"
     },
     "brewer": {
-      "name": "추출기"
+      "name": "{machine} 추출기"
     }
   },
   "config": {

@@ -51,17 +51,24 @@ def test_machines_without_the_capability_are_never_targeted():
     assert _coordinators_for_call(hass, targeted) == []
 
 
-def test_no_config_entry_id_returns_all_coordinators():
-    coord_a, coord_b = FakeStudio(), FakeStudio()
+def test_no_config_entry_id_with_one_machine_targets_it():
+    coord = FakeStudio()
+    hass = _hass_with_entries({"entryA": {DATA_COORDINATOR: coord}})
+    assert _coordinators_for_call(hass, SimpleNamespace(data={})) == [coord]
+
+
+def test_no_config_entry_id_with_several_machines_is_refused():
+    """Untargeted calls used to brew on every Studio at once."""
+    from homeassistant.exceptions import HomeAssistantError
+
     hass = _hass_with_entries(
         {
-            "entryA": {DATA_COORDINATOR: coord_a},
-            "entryB": {DATA_COORDINATOR: coord_b},
+            "entryA": {DATA_COORDINATOR: FakeStudio()},
+            "entryB": {DATA_COORDINATOR: FakeStudio()},
         }
     )
-    call = SimpleNamespace(data={})
-    result = _coordinators_for_call(hass, call)
-    assert {id(c) for c in result} == {id(coord_a), id(coord_b)}
+    with pytest.raises(HomeAssistantError):
+        _coordinators_for_call(hass, SimpleNamespace(data={}))
 
 
 def test_matching_config_entry_id_returns_that_coordinator():

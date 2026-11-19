@@ -29,6 +29,7 @@ raise ``J20ApiError`` (the shadow read logs non-auth API errors and returns
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import time
@@ -182,6 +183,10 @@ class J20CloudClient:
 
     def __init__(self, session: aiohttp.ClientSession) -> None:
         self._session = session
+        # One client per account is shared by every Original on it; this
+        # serializes their re-authentication so a rejected token is renewed
+        # once, not once per machine (each login may invalidate the last).
+        self.auth_lock = asyncio.Lock()
         self.member_id: int | None = None
         self.token: str | None = None
         self.project_token: str | None = None

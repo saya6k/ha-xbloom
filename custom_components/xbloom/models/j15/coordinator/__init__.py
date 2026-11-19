@@ -385,6 +385,13 @@ class XBloomCoordinator(
         return self.mac_address
 
     @property
+    def machine_name(self) -> str:
+        """Device name, told apart by the MAC's last two bytes ("xBloom
+        Studio F64F") so several Studios get distinct names and entity ids."""
+        suffix = self.mac_address.replace(":", "").upper()[-4:]
+        return f"xBloom Studio {suffix}"
+
+    @property
     def armed_operation(self) -> str | None:
         return self._armed_operation
 
@@ -469,7 +476,7 @@ class XBloomCoordinator(
         extra = {"sw_version": version} if version else {}
         return DeviceInfo(
             identifiers={(DOMAIN, self.entry_id)},
-            name="xBloom Coffee Machine",
+            name=self.machine_name,
             manufacturer="xBloom",
             serial_number=serial,
             **extra,
@@ -498,6 +505,9 @@ class XBloomCoordinator(
         return ChildDeviceInfo(
             identifiers={(DOMAIN, f"{self.entry_id}_{key}")},
             translation_key=key,
+            # "{machine} Grinder" — so a second Studio's parts (and the
+            # entity ids derived from them) don't collide with the first's.
+            translation_placeholders={"machine": self.machine_name},
             parent_device_id=self.parent_device_id,
         )
 

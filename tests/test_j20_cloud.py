@@ -349,9 +349,37 @@ def _coordinator(*, online=True, data=None, **attrs):
     coordinator._armed_at = 0.0
     coordinator.grind_size = 15
     coordinator.async_refresh = AsyncMock()
+    client = attrs.get("_client")
+    if client is not None and not hasattr(client, "auth_lock"):
+        client.auth_lock = asyncio.Lock()
+        client.project_token = getattr(client, "project_token", None)
     for name, value in attrs.items():
         setattr(coordinator, name, value)
     return coordinator
+
+
+def test_machines_sharing_an_account_renew_its_token_once() -> None:
+    """Two Originals on one account share a client: when both see the same
+    token rejected, only the first logs in again (a second login could
+    invalidate the first's new token)."""
+    async def login(email, password):
+        client.project_token = "new"
+        return True
+
+    client = SimpleNamespace(
+        project_token="old",
+        async_refresh_token=AsyncMock(return_value=False),
+        async_login=AsyncMock(side_effect=login),
+    )
+    first = _coordinator(_client=client, _email="e", _password="p")
+    second = _coordinator(_client=client, _email="e", _password="p")
+
+    async def both():
+        await first._async_reauthenticate("old")
+        await second._async_reauthenticate("old")
+
+    asyncio.run(both())
+    client.async_login.assert_awaited_once()
 
 
 def test_an_arm_lapses_instead_of_firing_later():

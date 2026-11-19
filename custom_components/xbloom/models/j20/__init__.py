@@ -54,18 +54,46 @@ J20_PLATFORMS = [
 
 type J20ConfigEntry = ConfigEntry[J20Coordinator]
 
+# account (lower-cased email) -> (shared client, entry ids using it). Several
+# Originals on one account share one session: a second login could
+# invalidate the first entry's token, and they'd keep logging each other out.
+_CLIENTS_KEY = f"{DOMAIN}_j20_clients"
+
+
+def _account(entry: ConfigEntry) -> str:
+    return str(entry.data.get(CONF_EMAIL, "")).strip().lower()
+
+
+def _release_client(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    clients = hass.data.get(_CLIENTS_KEY, {})
+    shared = clients.get(_account(entry))
+    if shared is not None:
+        shared[1].discard(entry.entry_id)
+        if not shared[1]:
+            clients.pop(_account(entry), None)
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool:
-    session = async_get_clientsession(hass)
-    client = J20CloudClient(session)
-    try:
-        logged_in = await client.async_login(
-            entry.data.get(CONF_EMAIL, ""), entry.data.get(CONF_PASSWORD, "")
+    clients = hass.data.setdefault(_CLIENTS_KEY, {})
+    shared = clients.get(_account(entry))
+    if shared is None:
+        shared = clients[_account(entry)] = (
+            J20CloudClient(async_get_clientsession(hass)),
+            set(),
         )
-    except J20ApiError as exc:
-        raise ConfigEntryNotReady(f"xBloom cloud unreachable: {exc}") from exc
-    if not logged_in:
-        raise ConfigEntryAuthFailed("XBloom Original login failed")
+    client, users = shared
+    users.add(entry.entry_id)
+    if not client.logged_in:
+        try:
+            logged_in = await client.async_login(
+                entry.data.get(CONF_EMAIL, ""), entry.data.get(CONF_PASSWORD, "")
+            )
+        except J20ApiError as exc:
+            _release_client(hass, entry)
+            raise ConfigEntryNotReady(f"xBloom cloud unreachable: {exc}") from exc
+        if not logged_in:
+            _release_client(hass, entry)
+            raise ConfigEntryAuthFailed("XBloom Original login failed")
 
     coordinator = J20Coordinator(
         hass,
@@ -76,7 +104,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool:
             entry.data.get(CONF_TELEMETRY_INTERVAL, DEFAULT_J20_SCAN_INTERVAL),
         ),
     )
-    await coordinator.async_config_entry_first_refresh()
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except Exception:
+        _release_client(hass, entry)
+        raise
 
     entry.runtime_data = coordinator
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {DATA_COORDINATOR: coordinator}
@@ -90,6 +122,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool
     unload_ok = await hass.config_entries.async_unload_platforms(entry, J20_PLATFORMS)
     if unload_ok:
         hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+        _release_client(hass, entry)
     return unload_ok
 
 

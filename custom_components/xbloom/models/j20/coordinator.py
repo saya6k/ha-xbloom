@@ -240,25 +240,33 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
     # Cloud plumbing
     # ------------------------------------------------------------------
 
-    async def _async_reauthenticate(self) -> None:
+    async def _async_reauthenticate(self, rejected_token: str | None = None) -> None:
         """Get a fresh token the way the app's ``TokenInterceptor`` does.
 
         Refresh token first; if that fails, log in again with the stored
         account. Raises ``ConfigEntryAuthFailed`` only when the account
         itself is rejected, and ``J20ApiError`` when the cloud is
         unreachable.
+
+        The client is shared by every Original on the account: if another
+        machine already renewed the token that was rejected here, reuse it.
         """
-        if await self._client.async_refresh_token():
-            return
-        if not await self._client.async_login(self._email, self._password):
-            raise ConfigEntryAuthFailed("XBloom Original login failed")
+        async with self._client.auth_lock:
+            current = self._client.project_token
+            if rejected_token is not None and current and current != rejected_token:
+                return
+            if await self._client.async_refresh_token():
+                return
+            if not await self._client.async_login(self._email, self._password):
+                raise ConfigEntryAuthFailed("XBloom Original login failed")
 
     async def _async_call(self, func: Callable[[], Awaitable[_T]]) -> _T:
         """Run one cloud call, re-authenticating once on a token rejection."""
+        token = self._client.project_token
         try:
             return await func()
         except J20AuthError:
-            await self._async_reauthenticate()
+            await self._async_reauthenticate(token)
         try:
             return await func()
         except J20AuthError as exc:

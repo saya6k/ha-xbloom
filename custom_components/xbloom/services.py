@@ -243,6 +243,14 @@ def _coordinators_for_call(
     all_coords = machines(hass, capability)
     entry_id = call.data.get("config_entry_id")
     if not entry_id:
+        # With several machines, an untargeted call used to run on all of
+        # them (execute_recipe brewed on every Studio at once) or on
+        # whichever came first — never what the caller meant. Ask instead.
+        if len(all_coords) > 1:
+            raise HomeAssistantError(
+                "Several xBloom machines are set up — choose one with "
+                "config_entry_id."
+            )
         return list(all_coords.values())
     coordinator = all_coords.get(entry_id)
     return [coordinator] if coordinator else []

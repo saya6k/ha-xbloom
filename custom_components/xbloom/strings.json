@@ -1,13 +1,13 @@
 {
   "device": {
     "grinder": {
-      "name": "Grinder"
+      "name": "{machine} Grinder"
     },
     "scale": {
-      "name": "Scale"
+      "name": "{machine} Scale"
     },
     "brewer": {
-      "name": "Brewer"
+      "name": "{machine} Brewer"
     }
   },
   "config": {
