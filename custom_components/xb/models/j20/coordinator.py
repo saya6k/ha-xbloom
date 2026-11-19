@@ -101,6 +101,11 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         "button.pour": "button.j20_pour",
         "button.cancel": "button.j20_stop",
         "button.calibrate_grinder": "button.j20_calibrate",
+        "sensor.warning": "sensor.j20_warning",
+        "sensor.brew_progress": "sensor.j20_brew_progress",
+        "sensor.pod": "sensor.j20_pod",
+        "sensor.panel_mcu": "sensor.j20_panel_mcu",
+        "sensor.power_mcu": "sensor.j20_power_mcu",
     }
 
     def __init__(
@@ -137,7 +142,7 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         mcu = (self.data or {}).get("mcu_versions") or {}
         return DeviceInfo(
             identifiers={(DOMAIN, f"j20_{self.device_id}")},
-            name=self.entry_title,
+            name=self.machine_name,
             manufacturer="xBloom",
             model="xBloom Original (J20)",
             sw_version=mcu.get("PannelMCU"),
@@ -154,6 +159,16 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
     @property
     def machine_label(self) -> str:
         return self._serial or self.device_id
+
+    @property
+    def machine_name(self) -> str:
+        """"xBloom Original <last six serial characters>", like the Studio's
+        name; the entry title when the serial isn't known."""
+        return f"xBloom Original {self._serial[-6:]}" if self._serial else self.entry_title
+
+    @property
+    def machine_serial(self) -> str | None:
+        return self._serial or None
 
     @property
     def armed_operation(self) -> str | None:

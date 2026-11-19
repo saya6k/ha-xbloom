@@ -80,6 +80,8 @@ const STRINGS = {
       "Press start for RINSE-2, then empty the container. The screen shows DONE when it's finished.",
     ],
     serial: "Serial number", firmware: "Firmware", mac: "Address",
+    status: "Status", warning: "Warning", brew_progress: "Brew progress", pod: "Pod",
+    panel_mcu: "Panel firmware", power_mcu: "Power board firmware",
     unavailable: "Unavailable",
     my_recipes: "My recipes", cloud: "Cloud",
     cloud_search: "Search the xBloom community", search_btn: "Search",
@@ -175,6 +177,8 @@ const STRINGS = {
       "시작을 눌러 RINSE-2를 진행한 뒤 용기를 비우세요. 끝나면 화면에 DONE이 나옵니다.",
     ],
     serial: "일련 번호", firmware: "펌웨어", mac: "주소",
+    status: "상태", warning: "경고", brew_progress: "추출 진행", pod: "팟",
+    panel_mcu: "패널 펌웨어", power_mcu: "전원 보드 펌웨어",
     unavailable: "사용 불가",
     my_recipes: "내 레시피", cloud: "클라우드",
     cloud_search: "xBloom 커뮤니티 검색", search_btn: "검색",
@@ -1838,6 +1842,7 @@ class XBloomPanel extends HTMLElement {
     return `
       ${this._machine.arm_buttons ? `<div class="hint">${this._t("arm_hint")}</div>` : ""}
       <div class="cols">
+      ${this._has("recipes") ? "" : this._statusCard()}
       ${this._has("grind") ? `
       <section class="card">
         <h2 class="with-icon">${ICONS.grind}${this._t("grinder")}</h2>
@@ -1870,6 +1875,23 @@ class XBloomPanel extends HTMLElement {
         </div>
       </section>` : ""}
       </div>`;
+  }
+
+  // A machine without the Brew tab (no recipes — the Original) gets its
+  // status at the top of Manual instead, like the app's machine screen.
+  _statusCard() {
+    const row = (key, label) => this._eid(key)
+      ? `<div class="kv"><span>${this._t(label)}</span><span>${esc(this._fmt(key))}</span></div>`
+      : "";
+    const warning = this._val("sensor.warning");
+    return `
+      <section class="card">
+        <h2>${this._t("status")}</h2>
+        ${row("sensor.state", "status")}
+        ${warning && warning !== "none" ? row("sensor.warning", "warning") : ""}
+        ${row("sensor.brew_progress", "brew_progress")}
+        ${row("sensor.pod", "pod")}
+      </section>`;
   }
 
   // ---- Settings
@@ -1991,9 +2013,12 @@ class XBloomPanel extends HTMLElement {
         ${this._has("photo") ? `
         <div class="kv"><span>${this._t("color")}</span>
           <span>${esc(this._t(m.detected_color ? `color_${m.detected_color}` : "color_unknown"))}</span></div>` : ""}
-        <div class="kv"><span>${this._t("mac")}</span><span>${esc(m.mac)}</span></div>
-        <div class="kv"><span>${this._t("serial")}</span><span>${esc(this._fmt("sensor.serial_number"))}</span></div>
-        <div class="kv"><span>${this._t("firmware")}</span><span>${esc(fw?.attributes.installed_version || "–")}</span></div>
+        ${this._eid("switch.connection") ? `<div class="kv"><span>${this._t("mac")}</span><span>${esc(m.mac)}</span></div>` : ""}
+        <div class="kv"><span>${this._t("serial")}</span><span>${esc(this._eid("sensor.serial_number") ? this._fmt("sensor.serial_number") : m.serial || "–")}</span></div>
+        ${this._eid("update.firmware") || !this._eid("sensor.panel_mcu") ? `
+        <div class="kv"><span>${this._t("firmware")}</span><span>${esc(fw?.attributes.installed_version || "–")}</span></div>` : ""}
+        ${["panel_mcu", "power_mcu"].map((k) => this._eid(`sensor.${k}`)
+          ? `<div class="kv"><span>${this._t(k)}</span><span>${esc(this._fmt(`sensor.${k}`))}</span></div>` : "").join("")}
       </section>
       </div>`;
   }
