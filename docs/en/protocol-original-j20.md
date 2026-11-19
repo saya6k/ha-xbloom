@@ -114,6 +114,32 @@ user picks. It is not the ongoing control channel either — control always goes
 through the thing-shadow endpoints below. A custom activation URL would at most
 intercept the one-time activation call, not redirect the machine's control path.
 
+### Wire protocol (MXChip `locklib`), implemented in `models/j20/provision.py`
+
+Home Assistant runs this onboarding itself when Bluetooth discovery finds an
+Original waiting for Wi-Fi (Add integration is not needed). **Unverified on
+hardware.**
+
+- **Advertisement**: 16-bit service `0x0922`; manufacturer data (after the
+  company id) = 1 byte, MAC (6), product id `53DDY4` (6 ASCII). The MAC is sent
+  to the cloud as 12 lower-case hex digits.
+- **GATT**: service `00000922-…`, write `0000aab1-…`, notify `0000aab2-…`.
+- **Framing**: 19-byte pieces behind a header byte — `0x00` whole message,
+  `0x01` first, `0x10` middle, `0x11` last (both directions).
+- **Exchange**: `POST /api/device/bind/code` → `bind_code`, `activation_url`;
+  `POST /api/device/ble/encryption/random/` → `random`, `random_key`;
+  BLE `{"type":"random","data":{"random"}}` → machine answers `data.cipher`;
+  `POST /api/device/ble/encryption/verify/` {mac, product_id, cipher,
+  random_key} → `ble_key`; BLE `{"type":"cipher_reply","data":{"error_code":0}}`;
+  BLE `WifiBean` `{"data":{ssid, activate_url, binding_code, password,
+  user_token}, "type":"apinfo"}` encrypted with AES-128-CBC/PKCS7 (key = hex
+  `ble_key`, IV = sixteen ASCII `0`); machine answers base64 of the encrypted
+  `{"type":"wifi_reply","data":{"error_code"}}` (0 ok, 1 network not found,
+  2 weak signal, 3 couldn't join). After 10 s, `POST /api/device/bind/status`
+  {mac, product_id, bind_code} every 3 s (10 tries) until `data.device_id`.
+  `user_token` is the IoT access token (`projectToken`). Finally the app lists
+  the machine on the account with `tuBindMachine.tuhtml`.
+
 ## Firmware / OTA
 
 **No app-side Original firmware download exists.** The `.bin` upgrade path —

@@ -341,6 +341,61 @@ class J20CloudClient:
                 f"code {code}: {payload.get('message') or 'unknown error'}"
             )
 
+    async def async_iot_data(
+        self, path: str, body: dict[str, Any] | None = None, *, method: str = "POST"
+    ) -> dict[str, Any]:
+        """A signed ``api-iot`` call's ``data`` object (onboarding endpoints).
+
+        Raises ``J20ApiError`` on a network error or a non-zero ``code``.
+        """
+        if not self.project_token:
+            raise J20AuthError("not logged in")
+        if method == "GET":
+            payload = await self._request(
+                "GET",
+                f"{J20_API_BASE}{path}",
+                params=body,
+                headers=signed_headers(self.project_token),
+            )
+        else:
+            payload = await self._signed_post(path, body or {})
+        if payload is None:
+            raise J20ApiError(f"{path}: network error")
+        code = _normalize_code(payload.get("code"))
+        if code not in (0, 200):
+            raise J20ApiError(f"{path}: code {code}: {payload.get('message')}")
+        data = payload.get("data")
+        return data if isinstance(data, dict) else {}
+
+    async def async_add_machine(self, bound: dict[str, Any], serial: str) -> bool:
+        """List a newly bound Original on the xBloom account, as the app's
+        ``MachineAddTransfer`` (``tuBindMachine.tuhtml``) does after binding,
+        so the official app shows it too. False when the call failed.
+        """
+        if not (self.token and self.project_token and self.member_id is not None):
+            return False
+        body = {
+            "interfaceVersion": _AUTH_INTERFACE_VERSION,
+            "skey": _AUTH_SKEY,
+            "phoneType": "Android",
+            "memberId": self.member_id,
+            "clientType": 2,
+            "languageType": _LANGUAGE_TYPE,
+            "token": self.token,
+            "accessToken": self.project_token,
+            "deviceId": bound.get("device_id"),
+            "productId": bound.get("product_id") or J20_PRODUCT_ID,
+            "macAddress": bound.get("mac") or "",
+            "theType": 2,  # DeviceType.DeviceJ20
+            "theName": "xBloom Original",
+            "serialNumber": serial,
+        }
+        url = f"{CLIENT_API_BASE}/tuBindMachine.tuhtml"
+        payload = await self._request("POST", url, body=_rsa_encrypt(body))
+        if not payload or payload.get("result") != "success":
+            payload = await self._request("POST", url, body=body)
+        return bool(payload and payload.get("result") == "success")
+
     async def _signed_post(
         self, path: str, body: dict[str, Any]
     ) -> dict[str, Any] | None:
@@ -358,12 +413,14 @@ class J20CloudClient:
         *,
         body: object | None = None,
         headers: dict[str, str] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
         try:
             async with self._session.request(
                 method,
                 url,
                 json=body,
+                params=params,
                 headers={**_HEADERS, **(headers or {})},
                 timeout=_TIMEOUT,
             ) as response:
