@@ -13,8 +13,10 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from custom_components.xbloom import _cloud_client, panel
-from custom_components.xbloom._cloud_client import XBloomCloudClient
+from custom_components.xbloom import panel
+from custom_components.xbloom.cloud import client as _cloud_client
+from custom_components.xbloom.cloud.client import XBloomCloudClient
+from tests.machine_fakes import FakeStudio
 
 # Trimmed from the live response for community recipe 70577 (2026-10-15).
 DETAIL_RESPONSE = {
@@ -154,7 +156,7 @@ def _coordinator(detail, product="https://xbloom.com/products/legacy"):
         return product
 
     client = SimpleNamespace(fetch_collective_detail=fetch, find_store_product=find)
-    return SimpleNamespace(cloud_client=client), looked_up
+    return FakeStudio(cloud_client=client), looked_up
 
 
 def test_official_recipe_gets_the_store_link():

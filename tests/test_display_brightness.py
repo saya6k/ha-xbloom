@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import asyncio
 
-from custom_components.xbloom.ble.client import XBloomClient
-from custom_components.xbloom.ble.constants import Command
+from custom_components.xbloom.models.j15.ble.client import XBloomClient
+from custom_components.xbloom.models.j15.ble.constants import Command
 
 
 class _FakeConnection:
@@ -48,7 +48,7 @@ def test_brightness_service_returns_the_machine_home_afterwards():
     callback, and hardware-reported 2026-08-24 the same shape on the
     water-source page left the machine waiting for a manual confirm.
     """
-    from custom_components.xbloom.coordinator.advanced_settings import (
+    from custom_components.xbloom.models.j15.coordinator.advanced_settings import (
         AdvancedSettingsMixin,
     )
 

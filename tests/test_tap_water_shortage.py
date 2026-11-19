@@ -16,8 +16,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from custom_components.xbloom.ble.models import DeviceState
-from custom_components.xbloom.coordinator.constants import (
+from custom_components.xbloom.models.j15.ble.models import DeviceState
+from custom_components.xbloom.models.j15.coordinator.constants import (
     WATER_SOURCE_DIRECT,
     WATER_SOURCE_TANK,
 )

@@ -486,6 +486,11 @@ class XBloomPanel extends HTMLElement {
     return this._machine?.entities?.[key];
   }
 
+  // Whether the current machine has a capability (see machine.py).
+  _has(capability) {
+    return (this._machine?.capabilities || []).includes(capability);
+  }
+
   _st(key) {
     const id = this._eid(key);
     return id ? this._hass?.states[id] : undefined;
@@ -507,7 +512,9 @@ class XBloomPanel extends HTMLElement {
   }
 
   get _connected() {
-    return this._val("switch.connection") === "on";
+    // BLE models expose a connection switch; cloud models an online sensor.
+    if (this._eid("switch.connection")) return this._val("switch.connection") === "on";
+    return this._val("binary_sensor.online") === "on";
   }
 
   async _loadMachines() {
@@ -1052,20 +1059,34 @@ class XBloomPanel extends HTMLElement {
     this._updateLive();
   }
 
+  // The tabs this machine's capabilities fill (recipes need a recipe
+  // store; the manual tab needs a grinder or a brewer to drive).
+  get _tabs() {
+    const tabs = [];
+    if (this._has("recipes")) tabs.push("home", "recipes");
+    if (this._has("grind") || this._has("pour")) tabs.push("manual");
+    tabs.push("settings");
+    return tabs;
+  }
+
   _renderShell() {
     const m = this._machine;
-    const tabs = ["home", "recipes", "manual", "settings"];
+    const tabs = this._tabs;
+    if (m && !tabs.includes(this._tab)) this._tab = tabs[0];
     const picker =
       (this._machines?.length || 0) > 1
         ? `<select class="machine-picker" data-machine>${this._machines
             .map((x) => `<option value="${esc(x.entry_id)}" ${x.entry_id === this._entryId ? "selected" : ""}>${esc(x.title)}</option>`)
             .join("")}</select>`
         : `<div class="title">${esc(m?.title || "")}</div>`;
-    const conn = m
-      ? `<button class="chip ${this._connected ? "on" : ""}" data-action="toggle-connection">
-           <span class="dot"></span>${esc(this._connected ? this._fmt("sensor.state") : this._t("offline"))}
-         </button>`
-      : "";
+    const chip = `<span class="dot"></span>${esc(this._connected ? this._fmt("sensor.state") : this._t("offline"))}`;
+    // A machine without a connection switch (cloud models) can't be
+    // connected from here — its chip only shows whether it is online.
+    const conn = !m
+      ? ""
+      : this._eid("switch.connection")
+        ? `<button class="chip ${this._connected ? "on" : ""}" data-action="toggle-connection">${chip}</button>`
+        : `<span class="chip ${this._connected ? "on" : ""}">${chip}</span>`;
     // The bar sits under the header on wide screens and docks to the
     // bottom on phones, like the app's tab bar (CSS decides).
     return `
@@ -1107,7 +1128,9 @@ class XBloomPanel extends HTMLElement {
   // going or paused — "brewing"/"paused" alone can't tell it from a recipe.
   _manualActive(kind) {
     return this._state === `standalone_${kind}`
-      || this._st("sensor.state")?.attributes.operation === `manual_${kind}`;
+      || this._st("sensor.state")?.attributes.operation === `manual_${kind}`
+      // Without recipes a plain grinding/brewing state can only be manual.
+      || (!this._has("recipes") && this._state === (kind === "pour" ? "brewing" : "grinding"));
   }
 
   get _pourActive() {
@@ -1190,7 +1213,7 @@ class XBloomPanel extends HTMLElement {
     const state = this._state;
     const active = this._manualActive(kind);
     const [go, start] = kind === "pour" ? ["pour", "start_pour"] : ["grind_btn", "start_grind"];
-    const [arg, label] = active && PAUSABLE_STATES.has(state)
+    const [arg, label] = active && PAUSABLE_STATES.has(state) && this._eid("button.pause")
       ? ["button.pause", state === "paused" ? "resume" : "pause"]
       : [`button.${kind === "pour" ? "pour" : "grind"}`, state === `standalone_${kind}` ? start : go];
     return `
@@ -1788,29 +1811,35 @@ class XBloomPanel extends HTMLElement {
   _renderManual() {
     const state = this._state;
     const busy = BUSY_STATES.has(state) || ARMED_STATES.has(state);
+    const live = (key, label) => this._eid(key)
+      ? `<div><span class="label">${this._t(label)}</span><span data-live="${key}">–</span></div>`
+      : "";
     return `
-      <div class="hint">${this._t("arm_hint")}</div>
+      ${this._machine.arm_buttons ? `<div class="hint">${this._t("arm_hint")}</div>` : ""}
       <div class="cols">
+      ${this._has("grind") ? `
       <section class="card">
         <h2 class="with-icon">${ICONS.grind}${this._t("grinder")}</h2>
         ${this._numberControl("number.grind_size", "grind_size")}
         ${this._numberControl("number.rpm", "rpm")}
         <div class="stats inline">
-          <div><span class="label">${this._t("grind")}</span><span data-live="sensor.live_grind_size">–</span></div>
-          <div><span class="label">${this._t("rpm")}</span><span data-live="sensor.live_grind_speed">–</span></div>
+          ${live("sensor.live_grind_size", "grind")}
+          ${live("sensor.live_grind_speed", "rpm")}
         </div>
         ${this._manualActions("grind", busy)}
-      </section>
+      </section>` : ""}
 
+      ${this._has("pour") ? `
       <section class="card">
         <h2 class="with-icon">${ICONS.pour}${this._t("brewer")}</h2>
-        ${this._pourActive ? this._pourRing() : ""}
+        ${this._pourActive && this._eid("sensor.weight") ? this._pourRing() : ""}
         ${this._numberControl("number.volume", "volume")}
         ${this._numberControl("number.temperature", "temperature")}
         ${this._patternControl()}
         ${this._manualActions("pour", busy)}
-      </section>
+      </section>` : ""}
 
+      ${this._has("tare") ? `
       <section class="card">
         <h2 class="with-icon">${ICONS.scale}${this._t("scale")}</h2>
         <div class="big center" data-live="sensor.weight" data-live-fmt="weight">–</div>
@@ -1818,7 +1847,7 @@ class XBloomPanel extends HTMLElement {
           <button class="btn" data-action="press" data-arg="button.tare_scale">${this._t("tare")}</button>
           <button class="btn" data-action="press" data-arg="button.scale_mode">${this._t(state === "standalone_scale" ? "exit_scale" : "scale_mode")}</button>
         </div>
-      </section>
+      </section>` : ""}
       </div>`;
   }
 
@@ -1858,12 +1887,14 @@ class XBloomPanel extends HTMLElement {
     const fw = this._st("update.firmware");
     return `
       <div class="cols">
+      ${this._eid("switch.connection") || modeState ? `
       <section class="card">
+        ${this._eid("switch.connection") ? `
         <div class="row">
           <span>${this._t("connection")}</span>
           <button class="btn small ${this._connected ? "" : "primary"}" data-action="toggle-connection">
             ${this._t(this._connected ? "disconnect" : "connect")}</button>
-        </div>
+        </div>` : ""}
         ${modeState ? `
         <div class="row">
           <span>${this._t("mode")}</span>
@@ -1871,8 +1902,9 @@ class XBloomPanel extends HTMLElement {
             .map((o) => `<button class="${modeState.state === o ? "active" : ""}" data-action="set-mode" data-arg="${esc(o)}">${this._t(o)}</button>`)
             .join("")}</div>
         </div>` : ""}
-      </section>
+      </section>` : ""}
 
+      ${this._has("easy_slots") ? `
       <section class="card">
         <h2>${this._t("easy_slots")}</h2>
         ${["A", "B", "C"].map((s) => {
@@ -1890,17 +1922,20 @@ class XBloomPanel extends HTMLElement {
             </div>
           </div>`;
         }).join("")}
-      </section>
+      </section>` : ""}
 
+      ${this._has("advanced_settings") ? `
       <section class="card">
         <h2>${this._t("advanced")}</h2>
         ${level("pour_radius_level", "sensor.pour_radius", 0, 4, "pour_radius")}
         ${level("vibration_amplitude_level", "sensor.vibration_amplitude", 0, 5, "vibration_amp")}
         ${level("display_brightness_level", "", 1, 3, "brightness")}
-      </section>
+      </section>` : ""}
 
+      ${this._has("calibrate_grinder") || this._has("tare") ? `
       <section class="card">
         <h2>${this._t("maintenance")}</h2>
+        ${this._has("calibrate_grinder") ? `
         <div class="row">
           <span>${this._t("calibrate_grinder")}</span>
           <span class="row-actions">
@@ -1909,10 +1944,11 @@ class XBloomPanel extends HTMLElement {
               ${BUSY_STATES.has(this._state) || !this._connected ? "disabled" : ""}>
               ${this._t(this._confirm === "calibrate" ? "confirm_calibrate" : "calibrate_grinder")}</button>
           </span>
-        </div>
+        </div>` : ""}
+        ${this._has("tare") ? `
         ${this._maintGuideRow("calibrate_scale", "calibrating_scale", "scale_cal_steps")}
-        ${this._maintGuideRow("descale", "descaling", "descale_steps")}
-      </section>
+        ${this._maintGuideRow("descale", "descaling", "descale_steps")}` : ""}
+      </section>` : ""}
 
       <section class="card">
         <h2>${this._t("store")}</h2>
@@ -1928,10 +1964,12 @@ class XBloomPanel extends HTMLElement {
       </section>
 
       <section class="card device-card">
-        <div class="device-stage"><img class="device-img${this._photoCut[machineImage(m)] ? " cut" : ""}" src="${esc(machineImage(m))}" alt="xBloom Studio"></div>
+        ${this._has("photo") ? `
+        <div class="device-stage"><img class="device-img${this._photoCut[machineImage(m)] ? " cut" : ""}" src="${esc(machineImage(m))}" alt="xBloom Studio"></div>` : ""}
         <h2>${this._t("device")}</h2>
+        ${this._has("photo") ? `
         <div class="kv"><span>${this._t("color")}</span>
-          <span>${esc(this._t(m.detected_color ? `color_${m.detected_color}` : "color_unknown"))}</span></div>
+          <span>${esc(this._t(m.detected_color ? `color_${m.detected_color}` : "color_unknown"))}</span></div>` : ""}
         <div class="kv"><span>${this._t("mac")}</span><span>${esc(m.mac)}</span></div>
         <div class="kv"><span>${this._t("serial")}</span><span>${esc(this._fmt("sensor.serial_number"))}</span></div>
         <div class="kv"><span>${this._t("firmware")}</span><span>${esc(fw?.attributes.installed_version || "–")}</span></div>

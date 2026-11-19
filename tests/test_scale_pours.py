@@ -1,7 +1,7 @@
 """Tests for schema.scale_pours_to_total."""
 from __future__ import annotations
 
-from custom_components.xbloom.schema import scale_pours_to_total
+from custom_components.xbloom.recipes.schema import scale_pours_to_total
 
 
 def _pours(*volumes):

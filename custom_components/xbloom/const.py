@@ -200,3 +200,20 @@ XBLOOM_LLM_PROMPT = (
     "share_url — pass that to xbloom__import_cloud_recipe to save one "
     "locally."
 )
+
+# ── Device type (config entry) ────────────────────────────────────────────
+# Studio (J15) is the original BLE path; Original (J20) is Wi-Fi + cloud
+# only. Entries created before this key existed are Studio entries.
+CONF_DEVICE_TYPE = "device_type"
+DEVICE_TYPE_STUDIO = "studio"
+DEVICE_TYPE_ORIGINAL = "original"
+
+# Original (J20) config-entry data. The account credentials are the same
+# xBloom app login; the password is only used to log in again when the
+# app's refresh-token exchange fails (refresh tokens expire too).
+CONF_J20_DEVICE_ID = "j20_device_id"
+CONF_J20_PRODUCT_ID = "j20_product_id"
+CONF_J20_SERIAL_NUMBER = "j20_serial_number"
+CONF_J20_NAME = "j20_name"
+
+DEFAULT_J20_SCAN_INTERVAL = 15  # seconds between thing-shadow polls

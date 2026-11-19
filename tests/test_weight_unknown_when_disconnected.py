@@ -15,9 +15,9 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
-from custom_components.xbloom.ble.models import DeviceStatus
-from custom_components.xbloom.coordinator.constants import DEFAULT_STATE
-from custom_components.xbloom.sensor import XBloomWeightSensor
+from custom_components.xbloom.models.j15.ble.models import DeviceStatus
+from custom_components.xbloom.models.j15.coordinator.constants import DEFAULT_STATE
+from custom_components.xbloom.models.j15.sensor import XBloomWeightSensor
 from tests.test_connection_idle_standby import (
     _AsleepClient,
     _full_path_coordinator,

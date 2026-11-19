@@ -8,7 +8,7 @@ sides read the identical float32 (WeightBleModel.intBitsToFloat).
 """
 from __future__ import annotations
 
-from custom_components.xbloom.ble.client import XBloomClient
+from custom_components.xbloom.models.j15.ble.client import XBloomClient
 
 
 def _client() -> XBloomClient:
@@ -70,7 +70,7 @@ def test_counter_resets_on_an_in_range_reading():
 def test_wake_retry_matches_the_app():
     # AppBleManager resends while retryCount < 3, starting at 1 —
     # 3 total sends, and mode-switch rides the same mechanism.
-    from custom_components.xbloom.coordinator.constants import (
+    from custom_components.xbloom.models.j15.coordinator.constants import (
         _MODE_SWITCH_MAX_ATTEMPTS,
         _WAKE_RETRY_MAX_ATTEMPTS,
     )

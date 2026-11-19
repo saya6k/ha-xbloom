@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from custom_components.xbloom.coordinator.state import StateMixin
+from custom_components.xbloom.models.j15.coordinator.state import StateMixin
 
 
 class _FakeHass:

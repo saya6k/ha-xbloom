@@ -13,6 +13,7 @@ from custom_components.xbloom.llm.cloud_recipe import _cloud_failure
 from custom_components.xbloom.llm.grind import XBloomGrindTool
 from custom_components.xbloom.llm.local_recipe import XBloomDeleteRecipeTool
 from custom_components.xbloom.llm.status import XBloomStatusTool
+from tests.machine_fakes import FakeStudio
 
 
 def call(tool, args=None):
@@ -22,7 +23,7 @@ def call(tool, args=None):
 
 
 def test_device_error_is_status_data_not_tool_failure():
-    coord = SimpleNamespace(
+    coord = FakeStudio(
         client=SimpleNamespace(is_connected=True), mac_address="test", data={"error": "water_low"}
     )
     result = call(XBloomStatusTool(coord, None))
@@ -33,7 +34,7 @@ def test_device_error_is_status_data_not_tool_failure():
 
 
 def test_connection_failure_is_tool_error():
-    coord = SimpleNamespace(
+    coord = FakeStudio(
         client=None, async_connect=AsyncMock(return_value=False), mac_address="test"
     )
     result = call(XBloomStatusTool(coord, None))
@@ -49,7 +50,7 @@ def test_cloud_failure_preserves_details():
 
 
 def test_delete_confirmation_is_not_a_failed_call_or_a_delete():
-    coord = SimpleNamespace(delete_local_recipe=Mock())
+    coord = FakeStudio(delete_local_recipe=Mock())
     result = call(XBloomDeleteRecipeTool(coord, None), {"recipe": "coffee", "confirmed": False})
     assert not result.error
     assert result.data["confirmation_required"]
@@ -57,7 +58,7 @@ def test_delete_confirmation_is_not_a_failed_call_or_a_delete():
 
 
 def test_grind_arm_does_not_start_grinding():
-    coord = SimpleNamespace(
+    coord = FakeStudio(
         client=SimpleNamespace(is_connected=True),
         grind_size=50,
         rpm=80,
@@ -75,7 +76,7 @@ def test_grind_arm_does_not_start_grinding():
 
 
 def test_grind_confirmed_without_arm_rearms_instead_of_starting():
-    coord = SimpleNamespace(
+    coord = FakeStudio(
         client=SimpleNamespace(is_connected=True),
         grind_size=50,
         rpm=80,
@@ -94,7 +95,7 @@ def test_grind_confirmed_without_arm_rearms_instead_of_starting():
 
 
 def test_catalog_metadata_distinguishes_side_effects():
-    tools = {tool.name: tool for tool in build_tools(None, None)}
+    tools = {tool.name: tool for tool in build_tools(FakeStudio(), None)}
     for tool in tools.values():
         assert tool.name.startswith("xbloom__"), tool.name
         assert tool.integration == "xbloom"

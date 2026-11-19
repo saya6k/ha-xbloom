@@ -17,8 +17,8 @@ import asyncio
 import struct
 from unittest.mock import AsyncMock, patch
 
-from custom_components.xbloom.ble.client import XBloomClient
-from custom_components.xbloom.ble.constants import Command, Response
+from custom_components.xbloom.models.j15.ble.client import XBloomClient
+from custom_components.xbloom.models.j15.ble.constants import Command, Response
 
 
 class _FakeConnection:
@@ -507,6 +507,6 @@ def test_connect_sends_only_the_handshake():
     only 8100 after connecting (AppBleManager.mtuSuccess)."""
     connection = _ConnectingConnection()
     client = XBloomClient(mac_address="AA:BB:CC:DD:EE:FF", connection=connection)
-    with patch("custom_components.xbloom.ble.client.asyncio.sleep", AsyncMock()):
+    with patch("custom_components.xbloom.models.j15.ble.client.asyncio.sleep", AsyncMock()):
         assert asyncio.run(client.connect()) is True
     assert connection.sent == [Command.HANDSHAKE]

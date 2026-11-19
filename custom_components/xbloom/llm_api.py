@@ -21,7 +21,6 @@ from homeassistant.helpers import llm
 from homeassistant.helpers.importlib import async_import_module
 
 from .const import (
-    CONF_MAC_ADDRESS,
     DOMAIN,
     XBLOOM_LLM_API_ID,
     XBLOOM_LLM_API_NAME,
@@ -30,17 +29,18 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 _PLATFORM = f"custom_components.{DOMAIN}.llm"
+_CATALOG = f"{_PLATFORM}.catalog"
 
 
 class XBloomCoffeeAPI(llm.API):
-    """Expose XBloom Studio control as an LLM API."""
+    """Expose one xBloom machine (any model) as an LLM API."""
 
-    def __init__(self, hass: HomeAssistant, entry_id: str, mac_address: str) -> None:
+    def __init__(self, hass: HomeAssistant, entry_id: str, machine_label: str) -> None:
         # Use a per-entry id so multiple machines can each register their own API.
         super().__init__(
             hass=hass,
             id=f"{XBLOOM_LLM_API_ID}_{entry_id}",
-            name=f"{XBLOOM_LLM_API_NAME} ({mac_address})",
+            name=f"{XBLOOM_LLM_API_NAME} ({machine_label})",
         )
 
     async def async_get_api_instance(
@@ -49,7 +49,7 @@ class XBloomCoffeeAPI(llm.API):
         # Pre-import in the executor so the platform callback's function-level
         # imports are cache hits — HA's block_async_io flags a module's first
         # import inside the event loop.
-        await async_import_module(self.hass, f"{_PLATFORM}.catalog")
+        await async_import_module(self.hass, _CATALOG)
         platform = await async_import_module(self.hass, _PLATFORM)
         llm_tools = platform.async_get_tools(self.hass, llm_context, self.id)
         if llm_tools is None:
@@ -63,8 +63,11 @@ class XBloomCoffeeAPI(llm.API):
         )
 
 
-def register_llm_api(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Register the XBloom LLM API for a config entry (auto-unregisters on unload)."""
-    api = XBloomCoffeeAPI(hass, entry.entry_id, entry.data[CONF_MAC_ADDRESS])
+def register_llm_api(hass: HomeAssistant, entry: ConfigEntry, machine_label: str) -> None:
+    """Register the XBloom LLM API for a config entry (auto-unregisters on unload).
+
+    ``machine_label`` is the machine's stable id (a Studio's MAC — pinned by
+    test, since changing it breaks existing agent configs)."""
+    api = XBloomCoffeeAPI(hass, entry.entry_id, machine_label)
     entry.async_on_unload(llm.async_register_api(hass, api))
     _LOGGER.debug("Registered XBloom LLM API for entry %s", entry.entry_id)

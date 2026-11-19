@@ -52,6 +52,7 @@ def test_prompt_does_not_mention_removed_tools(tool_name):
 def test_registered_tools_match_catalog():
     """REGISTERED_TOOLS must stay in lockstep with the actual catalog."""
     from custom_components.xbloom.llm.catalog import build_tools
+    from tests.machine_fakes import FakeStudio
 
-    names = {tool.name for tool in build_tools(SimpleNamespace(), SimpleNamespace())}
+    names = {tool.name for tool in build_tools(FakeStudio(), SimpleNamespace())}
     assert names == set(REGISTERED_TOOLS)

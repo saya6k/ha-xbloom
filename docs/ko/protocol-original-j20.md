@@ -6,12 +6,13 @@
 > (`xbloom_coffee_release.apk`, 패키지 `com.chisalsoft.andite`)을 `jadx`로
 > 정적 디컴파일한 결과(zip/dex/소스 덤프로만 확인 — 배포·재배포된 적 없음)를
 > 바탕으로 작성되었습니다. **[`protocol.md`](./protocol.md)(Studio BLE)와 달리,
-> 여기 내용은 실기로 검증된 것이 하나도 없습니다** — 이 통합은 xBloom Original
-> 기기가 없고, Original은 이 통합의 범위 밖이므로
-> Original은 범위 밖입니다. 이 문서는 나중에 Original 하드웨어를 가진
-> 기여자가 출발점으로 쓸 수 있도록 남기는 디컴파일 기반 지도이지, 이 통합이
-> 따르는 스펙이 아닙니다. 모든 주장은 특정 클래스/메서드로 추적 가능하며,
-> 교차 확인되지 않은 내용은 unconfirmed로 표시했습니다.
+> 여기 내용은 실기로 검증된 것이 하나도 없습니다.** 이제 이 통합에는
+> `custom_components/xbloom/j20/`의 클라우드 전용 J20 경로(config entry 유형
+> `original`: 계정 로그인, thing shadow 폴링, 분쇄/중지/캘리브레이션)가
+> 포함되어 있지만, 이 저장소에는 여전히 Original 실기와 실제 계정이 없어
+> 그 코드도 미검증입니다. 이 문서는 그 구현의 근거가 되는 디컴파일 기반
+> 지도이며, 모든 주장은 특정 클래스/메서드로 추적 가능하고 교차 확인되지
+> 않은 내용은 unconfirmed로 표시했습니다.
 
 ## Original이 별도 문서인 이유
 
@@ -53,27 +54,34 @@ IoT 백엔드 베이스 URL은 `ServiceConfig`(글로벌 vs 중국)가 선택하
 
 - **글로벌**: `https://api-iot.xbloom.com/`
 - **중국**: `https://api-iot.xbloomcoffee.cn/`
-- **WebSocket**: `ServiceConfig.getWebSocketUrl()` (호스트가 디컴파일에서 문자열
-  리터럴로 안 나옴 — 같은 config 객체에서 해석됨, **정확한 URL unconfirmed**)
+- **WebSocket(글로벌)**: `wss://15qmk9hof3.execute-api.us-east-1.amazonaws.com/prod/`
+  (`ConfigBean`); 중국: `wss://lx2wz1fksl.execute-api.cn-north-1.amazonaws.com.cn/prod/`
 
 인증은 앱의 나머지 부분이 쓰는 것과 동일한 서명 헤더 스킴입니다
-(`http/j15/RetrofitManager2.java`, 공유 OkHttp 클라이언트의 `TokenInterceptor`
+(`cn.com.library.net.RetrofitManager`, 공유 OkHttp 클라이언트의 인터셉터
 — J20의 `ApiDevice`도 같은 매니저를 탑니다):
 
 ```
 platform: android
-appid: <ServiceConfig.getAppId()>
-version: <앱 버전>
-ts: <epoch millis>
-nonce: <랜덤, 소문자화>
-accept-language: <로케일>
-Authorization: token <bearer 토큰>
+appid: 94a98bca981d11eb9c0824418c29779a
+version: 2.2.5
+accept-language: en
+ts: <epoch 초>                 # currentTimeMillis / 1000
+nonce: <대시 없는 uuid4, 소문자>
+sign: <MD5(appid,secret,nonce,ts) 대문자 hex>
+Authorization: token <projectToken>
 ```
 
-`ts` + `nonce` + `appid` 조합은 HMAC 방식 요청 서명을 시사합니다(정확한 서명
-입력은 **unconfirmed** — 인터셉터 본문은 여기서 완전히 추적하지 않음.
-Studio 쪽 메모리 `[[xbloom-collective-hub-and-backend-api]]`가 유사한
-`backend-api.xbloom.com` 서명 스킴을 문서화하고 있으며 가장 가까운 단서입니다).
+secret은 `de77d4d97ecf9003eaa5f372fd9a616b`(`ServiceConfig.configBeanRelease`)이며,
+서명 입력은 `appId,appSecret,nonce,ts`를 콤마로 이은 문자열입니다. 로그인은
+`client-api.xbloom.com`의 `tMemberLogin.thtml`이고, 응답에는 `token`(레시피 API),
+`projectToken`(이 헤더의 bearer), `projectRefreshToken`이 들어 있습니다.
+
+`api-iot` 호출이 `code: 10001`을 돌려주면 `TokenInterceptor`가
+`PUT /api/enduser/refresh_token/`을 `{"refresh_token": <projectRefreshToken>}`로
+호출합니다. `code: 0` 응답의 `data`에 새 `access_token` / `refresh_token`이
+들어 있고, 원래 요청을 새 토큰으로 다시 보냅니다. 앱은 refresh token이 없거나
+갱신이 실패할 때만 로그아웃합니다.
 
 ## 온보딩 / 페어링 (Original이 BLE를 쓰는 유일한 곳)
 
@@ -93,6 +101,30 @@ BleLockManager.getInstance().connect(retrofit, deviceFindBean.getBean(), wifiBea
 자격증명과 함께 번들됩니다. 프로비저닝 후 BLE는 다시는 사용되지 않으며, 모든
 제어는 클라우드를 경유합니다.
 
+저 두 빈 문자열은 **생성자 자리표시자일 뿐, 실제 전송 값이 아닙니다.**
+`BleLockManager.AnonymousClass3`는 JSON 직렬화 직전에 두 필드를
+SharedPreferences 값으로 덮어쓰고(`setActivate_url(SP.ACTIVATION_URL)` /
+`setBinding_code(SP.BIND_CODE)`), 그 값들은 `POST /api/device/bind/code`
+응답의 `BindDeviceInfoBean.activation_url` / `.bind_code`에서 기록됩니다
+(`LockViewModel`). 즉 `activate_url`은 앱이나 사용자가 고르는 서버가 아니라
+**클라우드가 발급하는 일회성 activation/binding 엔드포인트**이며, 지속적인
+제어 채널도 아닙니다 — 제어는 항상 아래의 thing-shadow 엔드포인트로 갑니다.
+커스텀 activation URL은 잘해야 일회성 activation 호출만 가로챌 뿐, 기기의
+제어 경로를 바꾸지 못합니다.
+
+## 펌웨어 / OTA
+
+**앱에서 Original 펌웨어를 내려받는 경로는 없습니다.** `.bin` 업그레이드
+경로 — `tUpToDateFirmwareVersion.thtml` → `resourceLinks` → 로컬
+`FW_J15<version>.bin` → `AppBleManager.initYModem` → BLE `8101` — 는
+`MachinesActivity.getUpToDateFirmwareVersionTransfer()`의 `device.isJ15()`
+가드에 걸려 있고, `MachineAdvancedFeaturesJ15Activity` / `FwUpgradeActivity`
+에서만 도달할 수 있습니다. J20 쪽에는 업그레이드 화면도 OTA 호출도 없고,
+thing shadow의 `multimcuotainfo.mcu_info[].{mcu_name, mcu_version}`
+(PowerMCU / PannelMCU)를 읽어 `J20Firmware.isLegacyFirmware()`로 구형 펌웨어의
+기능만 숨깁니다. 따라서 Original 펌웨어 업데이트는 기기/클라우드 주도이며,
+앱의 업그레이드 경로로 Original 이미지를 받아낼 수는 없습니다.
+
 ## REST 엔드포인트 (`http/j20/ApiDevice.java`)
 
 ```
@@ -105,6 +137,8 @@ POST /api/device/thing_shadow/  body: { device_id, product_id } → BaseResp<Dev
 - **`/detail/`** — 일회성 기기 메타데이터(`sn`, `device_id`).
 - **`/thing_shadow/`** — 전체 현재 섀도우(보고 상태 읽기 경로,
   `deviceFullProperties`); WebSocket이 실시간 갱신을 넘겨받기 전 초기 스냅샷용.
+  `/command`와 달리 `product_id`로 기기 목록의 해당 기기 `productId`를
+  보냅니다(`getJ20Info`).
 
 ## 명령 모델 (쓰기 경로)
 
@@ -131,20 +165,28 @@ DeviceCommandReq {
 
 | 동작 | Desired 페이로드 | 구성 위치 |
 |---|---|---|
-| **분쇄(Grind)** | `{ "grinding_start": 1, "setting_grind_size": <int> }` | `GrinderJ20Activity` L374 |
+| **분쇄(Grind)** | `{ "grinding_start": 1, "setting_grind_size": <1–30, 기본 15> }` | `GrinderJ20Activity` L374 |
 | **그라인더 캘리브레이션**(오토 제로) | `{ "auto_calibrate": 1 }` | `CalibrateGrinderJ20Activity` L84 |
-| **추출(Pour/brew)** | `{ "bruw_curve": "FFFF1005<hex><hex>1E<outWaterType>" }` | `BrewerJ20Activity` L852 |
+| **추출(Pour/brew)** | `{ "bruw_curve": "FFFF1005<vol:4><temp:2>1E<pattern>" }` | `BrewerJ20Activity` L852 |
 | **급수 정지** | `{ "bruw_curve": "FFFF11" }` | `BrewerJ20Activity` L878 |
 
 참고:
 
-- `setting_grind_size`는 UI 텍스트 필드에서 바로 파싱한 분쇄 숫자입니다(Studio
-  그라인더와 같은 0–x 스케일 — **정확한 범위 unconfirmed**).
+- `setting_grind_size`는 UI 텍스트 필드에서 바로 파싱한 분쇄 숫자입니다.
+  `CoffeeConstantUtil.getGrindSizeJ20`가 시크바를 **1–30, 기본 15**로
+  고정합니다(Studio의 1–80과 다름).
 - `bruw_curve`(sic — 앱 자체의 "brew curve" 오타)는 구조체가 아니라 hex
-  문자열입니다. `"FFFF1005" + <hex 필드 2개> + "1E" + outWaterType` 레이아웃이
-  추출을 인코딩하며, 중간 hex 필드 2개는 추출 양/온도 UI 값에서 계산됩니다
-  (`upperCase`/`upperCase2` 로컬 변수 — **정확한 인코딩 unconfirmed**). `"1E"` =
-  30은 관측된 빌더의 고정 리터럴입니다. `"FFFF11"`은 정지 센티넬입니다.
+  문자열입니다. `BrewerJ20Activity.startWater`가 정확히
+  `"FFFF1005" + volumeHex4 + temperatureHex2 + "1E" + patternCode`로 만듭니다:
+  - volume은 **ml** 시크바 값, 범위 **30–500**, 기본 **225**, 대문자 hex로
+    4자리 zero-pad;
+  - temperature는 **°C** 시크바 값, 범위 **85–96**, 기본 **85**; 85 이하이면
+    고정 `RTJ20 = 85`, 96 이상이면 고정 `BPJ20 = 95`, 그 사이는 정수값을
+    대문자 hex 2자리 zero-pad;
+  - `"1E"`는 고정 리터럴 30;
+  - 패턴: 중앙 `"00"`, 원형 `"01"`, 나선 `"02"`.
+  예: 225 ml, 93 °C, 중앙 → `FFFF100500E15D1E00`.
+  `"FFFF11"`은 정지 센티넬입니다.
 - `home_id`는 data 클래스 필드지만 추적된 모든 호출 지점에서 null입니다.
 
 ## 상태 / 텔레메트리 (읽기 경로)
@@ -156,8 +198,8 @@ DeviceCommandReq {
 | `state.reported.*` | 의미 | 비고 |
 |---|---|---|
 | `is_online` | 기기 온라인 플래그 | → `DeviceJ20OnlineEvent` |
-| `work_mode` | 전원/깨어남 + 활동 상태 | → `DeviceJ20SleepingEvent`; `==5` 팟 삽입(`capsule_rfid_tag` 동반), `==7` `AppJ20AutoManager`에서 처리, 깨어남 판정은 `isJ20WakeUp` |
-| `warning` | 오류/경고 코드 | → `DeviceJ20WarningEvent`; 관측 코드 `162 / 169 / 171 / 176 / 182`가 특수 분기(**의미 unconfirmed**), `182`는 오토 플로우 완료 |
+| `work_mode` | 전원/깨어남 + 활동 상태 | `0` 유휴, `1` 깨어남, `4/7/11/13` 분쇄, `5` 준비(팟 삽입), `6/8/14/15` 추출, `9` 절전, `10/12` 완료 |
+| `warning` | 오류/경고 코드 | `162/176` 분쇄 설정 경고, `169` 물 부족, `171` xPod 도크 경고, `182` 원두 없음, `190` 급수 부족, `191–193` 전압 불일치; `166/183/185`는 앱이 무시 |
 | `grinding_start` | 그라인더 동작 상태 | → `DeviceJ20GrinderStartEvent` |
 | `auto_calibrate` | 캘리브레이션 상태 | 캘리브레이션 명령 필드와 대칭 |
 | `capsule_rfid_tag` | 삽입된 팟의 RFID/`xid` | `"IF0002"`는 "팟 없음"으로 취급, 다른 값은 팟 상세 페이지를 엶 |
@@ -187,16 +229,11 @@ DeviceCommandReq {
 
 따라서 Original 지원은 사실상 레시피 스토어와 `_cloud_client.py` 스타일의 HTTP
 배관만 공유하는 **두 번째 클라우드 전용 통합**입니다 — BLE 코디네이터에 얹는
-작은 분기가 아닙니다. Original을 범위 밖으로 둔 이유가 이것이며, 이 문서는
-그 결정을 뒤집으려는 계획이 아니라 그 결정의 근거입니다.
+작은 분기가 아닙니다. 현재 `j20/`의 별도 config-entry 유형으로 구현되어
+있으며, 이 문서는 그 구현의 디컴파일 기반 지도입니다.
 
 ## 미해결 질문 (Original 하드웨어 없이는 막힘)
 
-- `api-iot.xbloom.com`의 정확한 요청 서명 입력(`ts`/`nonce`/`appid` HMAC).
 - WebSocket URL, 서브프로토콜, subscribe/인증 핸드셰이크, 재연결/ping 주기
   (`WsManager`는 벤더 라이브러리 `com.mixchip.websocketclient`).
-- `bruw_curve` hex 인코딩(추출 양/온도/급수원이 중간 hex 필드 2개와
-  `outWaterType`에 어떻게 매핑되는지).
-- `setting_grind_size` 유효 범위와 Studio 스케일과의 일치 여부.
-- 전체 `warning` 및 `work_mode` 코드 테이블.
 - Tea 레시피가 J20 desired-state 형태를 갖는지 여부.

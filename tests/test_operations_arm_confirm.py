@@ -10,8 +10,8 @@ import asyncio
 
 import pytest
 
-from custom_components.xbloom.coordinator import operations
-from custom_components.xbloom.coordinator.operations import OperationsMixin
+from custom_components.xbloom.models.j15.coordinator import operations
+from custom_components.xbloom.models.j15.coordinator.operations import OperationsMixin
 
 
 @pytest.fixture(autouse=True)
@@ -145,7 +145,7 @@ def test_confirm_grind_starts_and_clears_armed_state():
 
 def test_grinder_start_sends_the_apps_payload():
     """3500 [1000, size, speed] — GrinderActivity's CodeModule (jadx)."""
-    from custom_components.xbloom.ble.components import GrinderController
+    from custom_components.xbloom.models.j15.ble.components import GrinderController
 
     sent = []
 

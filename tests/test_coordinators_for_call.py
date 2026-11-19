@@ -1,4 +1,4 @@
-"""Tests for __init__._coordinators_for_call.
+"""Tests for services._coordinators_for_call.
 
 Hardware-reported 2026-07-17: a real `xbloom.advanced_settings` call with a
 real `config_entry_id` failed with "No XBloom machine matched the service
@@ -17,16 +17,42 @@ import pytest
 
 pytest.importorskip("homeassistant.core")
 
-from custom_components.xbloom import _coordinators_for_call
 from custom_components.xbloom.const import DATA_COORDINATOR, DOMAIN
+from custom_components.xbloom.machine import Capability
+from custom_components.xbloom.services import _coordinators_for_call
+from tests.machine_fakes import FakeStudio
 
 
 def _hass_with_entries(entries: dict):
     return SimpleNamespace(data={DOMAIN: entries})
 
 
+def test_a_recipe_named_coordinator_is_not_a_machine():
+    """hass.data[DOMAIN] also holds name-keyed recipe maps."""
+    studio = FakeStudio()
+    hass = _hass_with_entries(
+        {
+            "studio": {DATA_COORDINATOR: studio},
+            "yaml_recipes": {DATA_COORDINATOR: {"name": DATA_COORDINATOR, "pours": []}},
+        }
+    )
+    assert _coordinators_for_call(hass, SimpleNamespace(data={})) == [studio]
+
+
+def test_machines_without_the_capability_are_never_targeted():
+    """An Original (no recipes) must not receive a recipe service call."""
+    studio = FakeStudio()
+    original = SimpleNamespace(capabilities=frozenset({Capability.GRIND}))
+    hass = _hass_with_entries(
+        {"studio": {DATA_COORDINATOR: studio}, "original": {DATA_COORDINATOR: original}}
+    )
+    assert _coordinators_for_call(hass, SimpleNamespace(data={})) == [studio]
+    targeted = SimpleNamespace(data={"config_entry_id": "original"})
+    assert _coordinators_for_call(hass, targeted) == []
+
+
 def test_no_config_entry_id_returns_all_coordinators():
-    coord_a, coord_b = object(), object()
+    coord_a, coord_b = FakeStudio(), FakeStudio()
     hass = _hass_with_entries(
         {
             "entryA": {DATA_COORDINATOR: coord_a},
@@ -35,11 +61,11 @@ def test_no_config_entry_id_returns_all_coordinators():
     )
     call = SimpleNamespace(data={})
     result = _coordinators_for_call(hass, call)
-    assert set(result) == {coord_a, coord_b}
+    assert {id(c) for c in result} == {id(coord_a), id(coord_b)}
 
 
 def test_matching_config_entry_id_returns_that_coordinator():
-    coord_a, coord_b = object(), object()
+    coord_a, coord_b = FakeStudio(), FakeStudio()
     hass = _hass_with_entries(
         {
             "entryA": {DATA_COORDINATOR: coord_a},
@@ -53,7 +79,7 @@ def test_matching_config_entry_id_returns_that_coordinator():
 def test_config_entry_id_is_treated_as_a_single_id_not_a_list():
     # Regression: a real 26-char ULID-style entry id must not be iterated
     # character-by-character.
-    coord = object()
+    coord = FakeStudio()
     entry_id = "01KXK8PT32CSRH875VJAYHZAEC"
     hass = _hass_with_entries({entry_id: {DATA_COORDINATOR: coord}})
     call = SimpleNamespace(data={"config_entry_id": entry_id})
@@ -61,6 +87,6 @@ def test_config_entry_id_is_treated_as_a_single_id_not_a_list():
 
 
 def test_unknown_config_entry_id_returns_empty():
-    hass = _hass_with_entries({"entryA": {DATA_COORDINATOR: object()}})
+    hass = _hass_with_entries({"entryA": {DATA_COORDINATOR: FakeStudio()}})
     call = SimpleNamespace(data={"config_entry_id": "does-not-exist"})
     assert _coordinators_for_call(hass, call) == []

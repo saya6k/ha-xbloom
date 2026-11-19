@@ -22,7 +22,6 @@ from custom_components.xbloom.const import (
     DATA_COORDINATOR,
     DOMAIN,
     XBLOOM_LLM_API_ID,
-    XBLOOM_LLM_PROMPT,
 )
 
 if TYPE_CHECKING:
@@ -55,9 +54,7 @@ def async_get_tools(
     # path would defeat that lazy loading.
     from homeassistant.components.llm import LLMTools  # noqa: PLC0415
 
-    from .catalog import build_tools  # noqa: PLC0415
+    from .catalog import build_prompt, build_tools  # noqa: PLC0415
 
-    return LLMTools(
-        tools=build_tools(entry_data[DATA_COORDINATOR], hass),
-        prompt=XBLOOM_LLM_PROMPT,
-    )
+    machine = entry_data[DATA_COORDINATOR]
+    return LLMTools(tools=build_tools(machine, hass), prompt=build_prompt(machine))

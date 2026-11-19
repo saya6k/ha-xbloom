@@ -11,6 +11,7 @@ from homeassistant import config_entries
 from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
@@ -20,11 +21,13 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from .ble.client import XBloomClient
-from .ble.connection import HABleakConnection
-from .ble.scanner import discover_devices
 from .const import (
+    CONF_DEVICE_TYPE,
     CONF_EMAIL,
+    CONF_J20_DEVICE_ID,
+    CONF_J20_NAME,
+    CONF_J20_PRODUCT_ID,
+    CONF_J20_SERIAL_NUMBER,
     CONF_MAC_ADDRESS,
     CONF_PASSWORD,
     CONF_RECIPES,
@@ -33,15 +36,26 @@ from .const import (
     CONF_TEMP_UNIT,
     CONF_WATER_SOURCE,
     CONF_WEIGHT_UNIT,
+    DEFAULT_J20_SCAN_INTERVAL,
     DEFAULT_SESSION_TIMEOUT,
     DEFAULT_TELEMETRY_INTERVAL,
     DEFAULT_TEMP_UNIT,
     DEFAULT_WATER_SOURCE,
     DEFAULT_WEIGHT_UNIT,
+    DEVICE_TYPE_ORIGINAL,
     DOMAIN,
 )
-from .coordinator import WATER_SOURCE_OPTIONS
-from .schema import (
+from .models.j15.ble.client import XBloomClient
+from .models.j15.ble.connection import HABleakConnection
+from .models.j15.ble.scanner import discover_devices
+from .models.j15.coordinator import WATER_SOURCE_OPTIONS
+from .models.j20.client import (
+    J20_PRODUCT_ID,
+    J20ApiError,
+    J20CloudClient,
+    is_original_device,
+)
+from .recipes.schema import (
     RECIPE_PROTECTED_FIELDS,
     RECIPE_SCHEMA,
     new_recipe_uid,
@@ -51,6 +65,29 @@ from .schema import (
 _LOGGER = logging.getLogger(__name__)
 
 MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+
+
+async def _async_original_login(
+    client: J20CloudClient, email: str, password: str
+) -> str | None:
+    """Log in for an Original flow step; return a form error key, or None."""
+    try:
+        if await client.async_login(email, password):
+            return None
+    except J20ApiError:
+        return "original_cannot_connect"
+    return "invalid_auth"
+
+
+async def _async_original_owns(client: J20CloudClient, device_id: str) -> str | None:
+    """After a login: a form error key unless that account owns ``device_id``."""
+    try:
+        devices = await client.async_list_devices()
+    except J20ApiError:
+        return "original_cannot_connect"
+    if any(str(d.get("deviceId")) == device_id for d in devices):
+        return None
+    return "original_wrong_account"
 
 
 def _valid_mac(mac: str) -> bool:
@@ -87,6 +124,10 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._mac_step_data: dict[str, Any] = {}
         self._discovered_mac: str | None = None
         self._discovered_name: str | None = None
+        self._j20_devices: list[dict[str, Any]] = []
+        self._j20_email: str = ""
+        self._j20_password: str = ""
+        self._reauth_entry: config_entries.ConfigEntry | None = None
 
     async def async_step_bluetooth(
         self, discovery_info: BluetoothServiceInfoBleak
@@ -138,6 +179,13 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Pick the machine family before either family's setup starts."""
+        return self.async_show_menu(
+            step_id="user",
+            menu_options=["studio", "original"],
+        )
+
+    async def async_step_studio(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -203,7 +251,188 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
         )
 
-        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
+        return self.async_show_form(step_id="studio", data_schema=schema, errors=errors)
+
+    # ── Original (J20) — cloud-only setup ─────────────────────────────
+
+    async def async_step_original(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Log in with the xBloom app account and list Original machines."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            email = (user_input.get(CONF_EMAIL) or "").strip()
+            password = user_input.get(CONF_PASSWORD) or ""
+            if not email or not password:
+                errors["base"] = "original_account_incomplete"
+            else:
+                client = J20CloudClient(async_get_clientsession(self.hass))
+                login = await _async_original_login(client, email, password)
+                if login is not None:
+                    errors["base"] = login
+                else:
+                    try:
+                        devices = [
+                            d
+                            for d in await client.async_list_devices()
+                            if is_original_device(d)
+                        ]
+                    except J20ApiError:
+                        devices = None
+                    if devices is None:
+                        errors["base"] = "original_cannot_connect"
+                    elif not devices:
+                        errors["base"] = "no_original_devices"
+                    elif len(devices) == 1:
+                        return await self._async_create_original_entry(
+                            devices[0], email, password
+                        )
+                    else:
+                        self._j20_devices = devices
+                        self._j20_email = email
+                        self._j20_password = password
+                        return await self.async_step_original_device()
+
+        return self.async_show_form(
+            step_id="original",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_EMAIL): str,
+                    vol.Required(CONF_PASSWORD): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                    ),
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_original_device(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Pick one machine when the account owns more than one Original."""
+        if user_input is not None:
+            device_id = user_input[CONF_J20_DEVICE_ID]
+            device = next(
+                (d for d in self._j20_devices if str(d.get("deviceId")) == device_id),
+                None,
+            )
+            if device is None:
+                return self.async_abort(reason="unknown_device")
+            return await self._async_create_original_entry(
+                device, self._j20_email, self._j20_password
+            )
+
+        options = {
+            str(d["deviceId"]): self._original_label(d)
+            for d in self._j20_devices
+            if d.get("deviceId")
+        }
+        return self.async_show_form(
+            step_id="original_device",
+            data_schema=vol.Schema({vol.Required(CONF_J20_DEVICE_ID): vol.In(options)}),
+        )
+
+    @staticmethod
+    def _original_label(device: dict[str, Any]) -> str:
+        name = (
+            device.get("theName")
+            or device.get("serialNumber")
+            or device.get("deviceId")
+            or "xBloom Original"
+        )
+        serial = device.get("serialNumber")
+        if serial and str(serial) != str(name):
+            return f"{name} ({serial})"
+        return str(name)
+
+    async def _async_create_original_entry(
+        self, device: dict[str, Any], email: str, password: str
+    ) -> FlowResult:
+        device_id = str(device.get("deviceId") or "")
+        if not device_id:
+            return self.async_abort(reason="unknown_device")
+        await self.async_set_unique_id(f"j20_{device_id}")
+        self._abort_if_unique_id_configured()
+        name = (
+            device.get("theName")
+            or device.get("serialNumber")
+            or "xBloom Original"
+        )
+        return self.async_create_entry(
+            title=f"xBloom Original — {name}",
+            data={
+                CONF_DEVICE_TYPE: DEVICE_TYPE_ORIGINAL,
+                CONF_EMAIL: email,
+                CONF_PASSWORD: password,
+                CONF_J20_DEVICE_ID: device_id,
+                CONF_J20_PRODUCT_ID: device.get("productId") or J20_PRODUCT_ID,
+                CONF_J20_SERIAL_NUMBER: device.get("serialNumber") or "",
+                CONF_J20_NAME: str(device.get("theName") or ""),
+                CONF_TELEMETRY_INTERVAL: DEFAULT_J20_SCAN_INTERVAL,
+            },
+        )
+
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
+        """Cloud token rejected — ask for the account password again."""
+        entry_id = self.context.get("entry_id")
+        self._reauth_entry = (
+            self.hass.config_entries.async_get_entry(entry_id) if entry_id else None
+        )
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        entry = self._reauth_entry
+        if entry is None:
+            return self.async_abort(reason="reauth_failed")
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            email = (user_input.get(CONF_EMAIL) or "").strip()
+            password = user_input.get(CONF_PASSWORD) or ""
+            if not email or not password:
+                errors["base"] = "original_account_incomplete"
+            else:
+                client = J20CloudClient(async_get_clientsession(self.hass))
+                error = await _async_original_login(client, email, password)
+                if error is None:
+                    error = await _async_original_owns(
+                        client, entry.data.get(CONF_J20_DEVICE_ID, "")
+                    )
+                if error is not None:
+                    errors["base"] = error
+                else:
+                    self.hass.config_entries.async_update_entry(
+                        entry,
+                        data={
+                            **entry.data,
+                            CONF_EMAIL: email,
+                            CONF_PASSWORD: password,
+                        },
+                    )
+                    # A loaded entry's update listener already reloads it;
+                    # one that failed setup (the usual reauth case) has no
+                    # listener, so reload it here — exactly once either way.
+                    if entry.state is not config_entries.ConfigEntryState.LOADED:
+                        self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                    return self.async_abort(reason="reauth_successful")
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_EMAIL, default=entry.data.get(CONF_EMAIL, "")
+                    ): str,
+                    vol.Required(CONF_PASSWORD): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                    ),
+                }
+            ),
+            errors=errors,
+        )
 
     async def async_step_account(
         self, user_input: dict[str, Any] | None = None
@@ -328,9 +557,84 @@ class XBloomOptionsFlow(config_entries.OptionsFlow):
         self._editing: str | None = None
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        if self._entry.data.get(CONF_DEVICE_TYPE) == DEVICE_TYPE_ORIGINAL:
+            return await self.async_step_original(user_input)
         return self.async_show_menu(
             step_id="init",
             menu_options=["settings", "account", "add_recipe", "edit_recipe", "delete_recipe"],
+        )
+
+    # ── Original (J20) options: poll interval + account credentials ──
+
+    async def async_step_original(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Scan interval and (optional) credential update for a J20 entry."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            new_data = dict(self._entry.data)
+            changed = False
+            email = (user_input.get(CONF_EMAIL) or "").strip()
+            password = user_input.get(CONF_PASSWORD) or ""
+            test_email = email or self._entry.data.get(CONF_EMAIL, "")
+            test_password = password or self._entry.data.get(CONF_PASSWORD, "")
+            client = J20CloudClient(async_get_clientsession(self.hass))
+            login = (
+                await _async_original_login(client, test_email, test_password)
+                if email or password
+                else None
+            )
+            if login is None and email and email != self._entry.data.get(CONF_EMAIL):
+                login = await _async_original_owns(
+                    client, self._entry.data.get(CONF_J20_DEVICE_ID, "")
+                )
+            if login is not None:
+                errors["base"] = login
+            else:
+                if email and email != self._entry.data.get(CONF_EMAIL):
+                    new_data[CONF_EMAIL] = email
+                    changed = True
+                if password:
+                    new_data[CONF_PASSWORD] = password
+                    changed = True
+                new_options = {
+                    **self._entry.options,
+                    CONF_TELEMETRY_INTERVAL: user_input.get(
+                        CONF_TELEMETRY_INTERVAL, DEFAULT_J20_SCAN_INTERVAL
+                    ),
+                }
+                if changed:
+                    # Data and options in one update, so the entry's
+                    # listener reloads it once; the create_entry below
+                    # then writes the same options and changes nothing.
+                    self.hass.config_entries.async_update_entry(
+                        self._entry, data=new_data, options=new_options
+                    )
+                return self.async_create_entry(title="", data=new_options)
+
+        current = self._entry.options.get(
+            CONF_TELEMETRY_INTERVAL,
+            self._entry.data.get(
+                CONF_TELEMETRY_INTERVAL, DEFAULT_J20_SCAN_INTERVAL
+            ),
+        )
+        return self.async_show_form(
+            step_id="original",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_TELEMETRY_INTERVAL, default=current
+                    ): vol.All(int, vol.Range(min=5, max=300)),
+                    vol.Optional(
+                        CONF_EMAIL,
+                        default=self._entry.data.get(CONF_EMAIL, ""),
+                    ): str,
+                    vol.Optional(CONF_PASSWORD): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.PASSWORD)
+                    ),
+                }
+            ),
+            errors=errors,
         )
 
     # ── Cloud account (add / update / clear) ─────────────────────────

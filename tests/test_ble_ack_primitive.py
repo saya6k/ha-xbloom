@@ -12,12 +12,12 @@ import asyncio
 
 import pytest
 
-from custom_components.xbloom.ble.client import (
+from custom_components.xbloom.models.j15.ble.client import (
     ACK_TIMEOUT_S,
     AckTimeout,
     XBloomClient,
 )
-from custom_components.xbloom.ble.framing import TYPE1_MARKER_BYTE
+from custom_components.xbloom.models.j15.ble.framing import TYPE1_MARKER_BYTE
 
 
 def _ack_frame(command: int, marker: int = TYPE1_MARKER_BYTE) -> bytes:

@@ -8,27 +8,73 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
 
+from custom_components.xbloom.machine import Capability, ManualLimits
+
 from .base import XBloomBaseTool
 
 _LOGGER = logging.getLogger(__name__)
 
-# Safety limits.
-# Temperature has a controlled range of 40–95°C plus a special "boiling"
-# mode: the 96 setpoint is the slider's BP endpoint, which
-# coordinator._wire_temperature transmits as the machine's 98°C boiling
-# constant (T11).
-TEMPERATURE_MIN_C = 40
-TEMPERATURE_MAX_C = 95
-TEMPERATURE_BOILING_C = 96
-VOLUME_MIN_ML = 10
-VOLUME_MAX_ML = 500
-FLOW_RATE_MIN = 3.0
-FLOW_RATE_MAX = 3.5
+
+def _parameters(limits: ManualLimits) -> vol.Schema:
+    """The tool schema, bounded by the machine's own pour ranges.
+
+    Temperature has a controlled range plus, where the model has one, a
+    special "boiling" mode: ``limits.boiling_c`` is the slider's BP end,
+    which the model transmits as its boiling constant (Studio: 96 -> 98 °C;
+    see coordinator._wire_temperature, T11).
+    """
+    temp_min, temp_max = limits.temperature_c
+    vol_min, vol_max = limits.volume_ml
+    fields: dict = {
+        vol.Optional(
+            "temperature",
+            description=(
+                f"Water temperature in Celsius ({temp_min}–{temp_max}). "
+                "Required unless boiling=true."
+            ),
+        ): vol.All(vol.Coerce(float), vol.Range(min=temp_min, max=temp_max)),
+        vol.Optional(
+            "boiling",
+            description=(
+                "Set to true to use the boiling-point mode instead of a "
+                "specific temperature. When true, the temperature field "
+                "is ignored."
+            ),
+            default=False,
+        ): bool,
+        vol.Required(
+            "volume",
+            description=f"Volume of water in milliliters ({vol_min}–{vol_max}).",
+        ): vol.All(vol.Coerce(int), vol.Range(min=vol_min, max=vol_max)),
+    }
+    if limits.flow_rate is not None:
+        flow_min, flow_max = limits.flow_rate
+        fields[
+            vol.Optional(
+                "flow_rate",
+                description=(
+                    f"Flow rate in ml/s ({flow_min}–{flow_max}). "
+                    "Defaults to the machine's current setting."
+                ),
+            )
+        ] = vol.All(vol.Coerce(float), vol.Range(min=flow_min, max=flow_max))
+    fields[
+        vol.Optional(
+            "confirmed",
+            default=False,
+            description=(
+                "Set to true ONLY after the user has confirmed starting "
+                "the pour the first (arming) call announced."
+            ),
+        )
+    ] = bool
+    return vol.Schema(fields)
 
 
 class XBloomPourTool(XBloomBaseTool):
     """Start a manual pour with the requested temperature and volume."""
 
+    required = frozenset({Capability.POUR})
     name = "xbloom__pour"
     title = "Pour xBloom"
     annotations = llm.ToolAnnotations(
@@ -37,8 +83,9 @@ class XBloomPourTool(XBloomBaseTool):
     description = (
         "Pour water from the xBloom with a custom temperature and volume. "
         "This is a manual pour — it does NOT grind beans. Temperature is in "
-        "degrees Celsius (40–95) or set boiling=true for the boiling-point "
-        "mode (used for tea or descaling). Volume is in milliliters. "
+        "degrees Celsius (see the temperature parameter's range) or set "
+        "boiling=true for the boiling-point mode (used for tea or "
+        "descaling). Volume is in milliliters. "
         "Two-phase flow: the first call (without confirmed) ARMS the "
         "machine — it opens its pour page showing the requested "
         "temperature and pattern without pouring — and you must then ask "
@@ -48,46 +95,25 @@ class XBloomPourTool(XBloomBaseTool):
         "that is still armed — otherwise it arms again and you must ask "
         "again."
     )
-    parameters = vol.Schema(
-        {
-            vol.Optional(
-                "temperature",
-                description=(
-                    f"Water temperature in Celsius "
-                    f"({TEMPERATURE_MIN_C}–{TEMPERATURE_MAX_C}). Required "
-                    "unless boiling=true."
-                ),
-            ): vol.All(vol.Coerce(float), vol.Range(min=TEMPERATURE_MIN_C, max=TEMPERATURE_MAX_C)),
-            vol.Optional(
-                "boiling",
-                description=(
-                    "Set to true to use the boiling-point mode instead of a "
-                    "specific temperature. When true, the temperature field "
-                    "is ignored."
-                ),
-                default=False,
-            ): bool,
-            vol.Required(
-                "volume",
-                description=(f"Volume of water in milliliters ({VOLUME_MIN_ML}–{VOLUME_MAX_ML})."),
-            ): vol.All(vol.Coerce(int), vol.Range(min=VOLUME_MIN_ML, max=VOLUME_MAX_ML)),
-            vol.Optional(
-                "flow_rate",
-                description=(
-                    f"Flow rate in ml/s ({FLOW_RATE_MIN}–{FLOW_RATE_MAX}). "
-                    "Defaults to the machine's current setting."
-                ),
-            ): vol.All(vol.Coerce(float), vol.Range(min=FLOW_RATE_MIN, max=FLOW_RATE_MAX)),
-            vol.Optional(
-                "confirmed",
-                default=False,
-                description=(
-                    "Set to true ONLY after the user has confirmed starting "
-                    "the pour the first (arming) call announced."
-                ),
-            ): bool,
-        }
+    # For a machine with no on-machine arm page.
+    _local_arm_description = (
+        "Pour water from the xBloom with a custom temperature and volume. "
+        "This is a manual pour — it does NOT grind beans. Temperature is in "
+        "degrees Celsius (see the temperature parameter's range) or set "
+        "boiling=true for the boiling-point mode. Volume is in milliliters. "
+        "Two-phase flow: the first call (without confirmed) only ARMS the "
+        "request — nothing is sent to the machine yet — and you must then "
+        "ask the user to confirm (and to place a cup). Call again with "
+        "confirmed=true to start the pour; if the user declines, call "
+        "xbloom__cancel. confirmed=true only starts a pour that is still "
+        "armed — otherwise it arms again and you must ask again."
     )
+
+    def __init__(self, coordinator, hass: HomeAssistant) -> None:  # noqa: ANN001
+        super().__init__(coordinator, hass)
+        self.parameters = _parameters(coordinator.limits)
+        if not self._arms_on_machine:
+            self.description = self._local_arm_description
 
     async def async_call(
         self,
@@ -96,9 +122,11 @@ class XBloomPourTool(XBloomBaseTool):
         llm_context: llm.LLMContext,
     ) -> llm.ToolResult:
         args = tool_input.tool_args
-        boiling = bool(args.get("boiling", False))
+        limits = self.coordinator.limits
+        temp_min, temp_max = limits.temperature_c
+        boiling = bool(args.get("boiling", False)) and limits.boiling_c is not None
         if boiling:
-            temperature = float(TEMPERATURE_BOILING_C)
+            temperature = float(limits.boiling_c)
         elif "temperature" in args:
             temperature = float(args["temperature"])
         else:
@@ -108,7 +136,7 @@ class XBloomPourTool(XBloomBaseTool):
                     "error": "missing_temperature",
                     "instruction": (
                         "Ask the user what temperature they want, between "
-                        f"{TEMPERATURE_MIN_C}°C and {TEMPERATURE_MAX_C}°C, or "
+                        f"{temp_min}°C and {temp_max}°C, or "
                         "whether they want boiling-point water."
                     ),
                 },
@@ -117,26 +145,8 @@ class XBloomPourTool(XBloomBaseTool):
         volume = int(args["volume"])
         flow_rate = args.get("flow_rate")
 
-        client = self.coordinator.client
-        if client is None or not client.is_connected:
-            try:
-                ok = await self.coordinator.async_connect()
-            except Exception as exc:
-                _LOGGER.exception("auto-connect before pour failed: %s", exc)
-                ok = False
-            if not ok:
-                return llm.ToolResult(
-                    data={
-                        "success": False,
-                        "error": "connect_failed",
-                        "instruction": (
-                            "Tell the user the xBloom could not be reached over "
-                            "Bluetooth. Ask them to check the machine is powered "
-                            "on and in range."
-                        ),
-                    },
-                    error=True,
-                )
+        if (unavailable := await self._unavailable()) is not None:
+            return unavailable
 
         # Mirror the slider state so the corresponding number entities reflect
         # what was actually requested.
@@ -148,7 +158,7 @@ class XBloomPourTool(XBloomBaseTool):
         confirmed = bool(args.get("confirmed", False))
         # Only a standing arm can be started; confirmed=true without one
         # arms again and asks again — never a one-shot start.
-        start = confirmed and self.coordinator._armed_operation == "pour"
+        start = confirmed and self.coordinator.armed_operation == "pour"
         try:
             if start:
                 ok = await self.coordinator.async_confirm_pour()
@@ -199,8 +209,8 @@ class XBloomPourTool(XBloomBaseTool):
                             if confirmed
                             else ""
                         )
-                        + "The machine is now showing its pour page with these "
-                        "settings. Ask the user to confirm starting the pour "
+                        + self._armed_text("pour")
+                        + "Ask the user to confirm starting the pour "
                         "and to place a cup under the dispenser; if they "
                         "agree, call xbloom__pour again with confirmed=true "
                         "(same arguments). If they decline, call xbloom__cancel."
@@ -213,7 +223,7 @@ class XBloomPourTool(XBloomBaseTool):
                 "temperature_c": temperature,
                 "boiling": boiling,
                 "volume_ml": volume,
-                "flow_rate_ml_s": self.coordinator.flow_rate,
+                "flow_rate_ml_s": getattr(self.coordinator, "flow_rate", None),
                 "instruction": (
                     "Briefly confirm to the user that the pour has started. If "
                     "boiling=true, describe it as 'boiling water'; otherwise "

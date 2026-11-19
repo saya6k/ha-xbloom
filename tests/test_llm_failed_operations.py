@@ -10,13 +10,14 @@ from unittest.mock import AsyncMock, Mock
 
 from custom_components.xbloom.llm.grind import XBloomGrindTool
 from custom_components.xbloom.llm.pour import XBloomPourTool
+from tests.machine_fakes import FakeStudio
 from tests.test_llm_recipe_prearm import _call
 from tests.test_llm_recipe_prearm import _coordinator as _recipe_coordinator
 from tests.test_llm_results import call
 
 
 def _ops_coordinator(*, armed=None, ok=True):
-    return SimpleNamespace(
+    return FakeStudio(
         client=SimpleNamespace(is_connected=True),
         grind_size=50,
         rpm=80,

@@ -10,7 +10,7 @@ values down.
 """
 from __future__ import annotations
 
-from custom_components.xbloom.coordinator import TEMP_UNIT_OPTIONS, WEIGHT_UNIT_OPTIONS
+from custom_components.xbloom.models.j15.coordinator import TEMP_UNIT_OPTIONS, WEIGHT_UNIT_OPTIONS
 
 
 def test_weight_unit_codes_match_protocol():
@@ -24,7 +24,7 @@ def test_temp_unit_codes_match_protocol():
 def test_machine_report_uses_the_same_codes():
     """8015 carries the same codes: the app stores them as-is
     (DeviceUnitBleModel) and reads them with the tables above."""
-    from custom_components.xbloom.coordinator.constants import (
+    from custom_components.xbloom.models.j15.coordinator.constants import (
         _RAW_TO_TEMP_UNIT,
         _RAW_TO_WEIGHT_UNIT,
     )

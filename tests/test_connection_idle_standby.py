@@ -13,9 +13,9 @@ from __future__ import annotations
 import asyncio
 import time
 
-from custom_components.xbloom.ble.models import DeviceStatus
-from custom_components.xbloom.coordinator.connection import ConnectionMixin
-from custom_components.xbloom.coordinator.state import StateMixin
+from custom_components.xbloom.models.j15.ble.models import DeviceStatus
+from custom_components.xbloom.models.j15.coordinator.connection import ConnectionMixin
+from custom_components.xbloom.models.j15.coordinator.state import StateMixin
 
 
 class _FakeHass:

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 
-from custom_components.xbloom._cloud_client import XBloomCloudClient
+from custom_components.xbloom.cloud.client import XBloomCloudClient
 
 SERIAL = "J15A04B4CV030"
 

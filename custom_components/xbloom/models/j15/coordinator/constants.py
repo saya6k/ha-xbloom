@@ -9,6 +9,10 @@ from __future__ import annotations
 import re
 from typing import Any
 
+# Pour pattern names ↔ ints (shared recipe vocabulary), used by the
+# manual-pour select entity.
+from custom_components.xbloom.recipes.schema import POUR_PATTERN_OPTIONS  # noqa: F401
+
 _MACHINE_INFO_RETRY_DELAYS_S = (3.0, 5.0, 10.0, 20.0, 30.0)
 
 # Connection-supervisor watchdog: if a still-"connected" client hasn't seen a
@@ -252,21 +256,3 @@ _WAKE_RETRY_MAX_ATTEMPTS = 3
 # the 2026-10-28 reconnect, 8011 came 0.9 s after the 8100 was sent; on
 # the 2026-10-14 Mac capture the 8100 ACK alone took 3.1 s.
 _WAKE_WAIT_S = 3.0
-
-# Pour pattern names ↔ ints, shared by the manual-pour select entity and
-# the per-pour LLM override. Mirrors schema.py's _PATTERN_NAME_TO_INT and
-# PourPattern (0=center, 1=circular, 2=spiral).
-POUR_PATTERN_OPTIONS = {"center": 0, "circular": 1, "spiral": 2}
-
-# Cloud-only fields the local RECIPE_SCHEMA doesn't model (color swatch,
-# app placement, etc.) — an edit must preserve these verbatim from the
-# fetched current recipe rather than resetting them to create's defaults.
-_CLOUD_EDIT_PRESERVE_KEYS = (
-    "theColor", "theSubsetId", "isShortcuts", "appPlace", "adaptedModel", "subSetType",
-)
-
-# Cap on how many of XBloom's official public recipes the one-time seed
-# (async_seed_recipes) pulls in when no cloud account is configured. Each
-# one needs its own fetch_shared_recipe() round-trip (the collective hub's
-# list endpoint only returns summaries, no pourList).
-_OFFICIAL_RECIPE_SYNC_LIMIT = 20

@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from custom_components.xbloom.brewing import (
+from custom_components.xbloom.models.j15.brewing import (
     BrewStartUnconfirmed,
     _async_verify_brew_started,
 )

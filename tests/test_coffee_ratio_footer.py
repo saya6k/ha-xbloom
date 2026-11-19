@@ -11,8 +11,8 @@ bounded overshoot (< 0.1 × dose) is tolerated while any undershoot is fatal.
 """
 from __future__ import annotations
 
-from custom_components.xbloom.ble.models import CupType, PourStep, XBloomRecipe
-from custom_components.xbloom.brewing import _build_coffee_recipe_payload
+from custom_components.xbloom.models.j15.ble.models import CupType, PourStep, XBloomRecipe
+from custom_components.xbloom.models.j15.brewing import _build_coffee_recipe_payload
 
 
 def _recipe(dose: float, volumes: list[int]) -> XBloomRecipe:

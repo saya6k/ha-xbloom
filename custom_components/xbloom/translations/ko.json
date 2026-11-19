@@ -18,14 +18,10 @@
       },
       "user": {
         "title": "xBloom 커피 머신",
-        "description": "xBloom 기기의 블루투스 MAC 주소를 입력하세요. 터미널에서 `xbloom scan`을 실행하거나, xBloom Studio 앱에서 확인할 수 있습니다.",
-        "data": {
-          "mac_address": "MAC 주소 (XX:XX:XX:XX:XX:XX)",
-          "telemetry_interval": "텔레메트리 업데이트 간격 (초)",
-          "session_timeout": "유휴 연결 해제 시간 (초)"
-        },
-        "data_description": {
-          "session_timeout": "이 시간 동안 아무 동작이 없으면 블루투스 연결을 끊고, 다음 동작이 있을 때 자동으로 다시 연결합니다. 0으로 두면 연결을 계속 유지하며, 쉬는 동안에도 팟·레시피 카드 감지와 절전 상태 표시를 받으려면 0이 필요합니다. 연결이 유지돼도 기기는 스스로 절전 모드에 들어갑니다. 다만 장시간 연결의 안정성은 아직 검증되지 않았습니다 — 연결된 채 밤새 방치된 기기가 먹통이 된 사례가 있었습니다."
+        "description": "추가할 xBloom 기기를 선택하세요.",
+        "menu_options": {
+          "studio": "Studio (블루투스)",
+          "original": "Original (Wi-Fi / 클라우드)"
         }
       },
       "account": {
@@ -35,17 +31,60 @@
           "email": "이메일 (선택 사항)",
           "password": "비밀번호 (선택 사항)"
         }
+      },
+      "studio": {
+        "title": "xBloom Studio (블루투스)",
+        "description": "xBloom Studio의 블루투스 MAC 주소를 입력하세요. 터미널에서 `xbloom scan`으로 찾거나 xBloom 앱에서 확인할 수 있습니다.",
+        "data": {
+          "mac_address": "MAC 주소 (XX:XX:XX:XX:XX:XX)",
+          "telemetry_interval": "텔레메트리 갱신 주기 (초)",
+          "session_timeout": "유휴 연결 해제 시간 (초)"
+        },
+        "data_description": {
+          "session_timeout": "이 시간 동안 아무 동작이 없으면 블루투스 연결을 끊고, 다음 동작이 있을 때 자동으로 다시 연결합니다. 0으로 두면 연결을 계속 유지하며, 쉬는 동안에도 팟·레시피 카드 감지와 절전 상태 표시를 받으려면 0이 필요합니다. 연결이 유지돼도 기기는 스스로 절전 모드에 들어갑니다. 다만 장시간 연결의 안정성은 아직 검증되지 않았습니다 — 연결된 채 밤새 방치된 기기가 먹통이 된 사례가 있었습니다."
+        }
+      },
+      "original": {
+        "title": "xBloom Original (클라우드)",
+        "description": "Original을 소유한 xBloom 앱 계정으로 로그인하세요. 기기는 공식 앱과 동일하게 xBloom 클라우드를 통해 제어됩니다 — 로컬 API는 없습니다.",
+        "data": {
+          "email": "이메일",
+          "password": "비밀번호"
+        }
+      },
+      "original_device": {
+        "title": "Original 선택",
+        "description": "이 계정에 Original이 여러 대 있습니다. 추가할 기기를 선택하세요.",
+        "data": {
+          "j20_device_id": "기기"
+        }
+      },
+      "reauth_confirm": {
+        "title": "xBloom Original 재인증",
+        "description": "클라우드 토큰이 거부되었습니다. 기기를 계속 제어하려면 다시 로그인하세요.",
+        "data": {
+          "email": "이메일",
+          "password": "비밀번호"
+        }
       }
     },
     "error": {
       "cannot_connect": "xBloom 기기에 연결할 수 없습니다. MAC 주소를 확인하고 블루투스가 켜져 있는지 확인하세요.",
       "invalid_mac": "올바르지 않은 MAC 주소 형식입니다.",
       "account_incomplete": "이메일과 비밀번호를 모두 입력하거나, 클라우드 설정을 건너뛰려면 둘 다 비워두세요.",
-      "unknown": "알 수 없는 오류가 발생했습니다."
+      "unknown": "알 수 없는 오류가 발생했습니다.",
+      "invalid_auth": "이메일 또는 비밀번호가 올바르지 않습니다.",
+      "no_original_devices": "이 계정에서 xBloom Original을 찾지 못했습니다.",
+      "original_account_incomplete": "xBloom 이메일과 비밀번호를 모두 입력하세요.",
+      "original_cannot_connect": "xBloom 클라우드에 연결할 수 없습니다. 인터넷 연결을 확인한 뒤 다시 시도하세요.",
+      "original_wrong_account": "이 xBloom 계정에는 이 기기가 없습니다. 기기를 등록한 계정으로 로그인하세요."
     },
     "abort": {
       "already_configured": "xBloom 기기가 이미 설정되어 있습니다.",
-      "no_devices_found": "주변에서 xBloom 기기를 찾을 수 없습니다. 머신 전원을 확인하세요."
+      "no_devices_found": "주변에서 xBloom 기기를 찾을 수 없습니다. 머신 전원을 확인하세요.",
+      "unknown_device": "선택한 기기를 더 이상 이 계정에서 찾을 수 없습니다.",
+      "reauth_successful": "재인증에 성공했습니다.",
+      "reauth_failed": "재인증에 실패했습니다."
     }
   },
   "options": {
@@ -106,6 +145,15 @@
         "data": {
           "recipe_name": "삭제할 레시피"
         }
+      },
+      "original": {
+        "title": "xBloom Original 옵션",
+        "description": "비밀번호를 비워 두면 기존 비밀번호를 유지합니다.",
+        "data": {
+          "telemetry_interval": "Thing shadow 폴링 주기 (초)",
+          "email": "이메일",
+          "password": "새 비밀번호 (선택)"
+        }
       }
     },
     "error": {
@@ -113,7 +161,10 @@
       "invalid_recipe": "스키마와 맞지 않음 — {error}",
       "recipe_exists": "{error} 이름의 레시피가 이미 존재합니다. '레시피 수정'을 사용하거나 다른 이름을 선택하세요.",
       "account_password_required": "클라우드 계정을 설정하거나 변경하려면 비밀번호를 입력하세요.",
-      "account_email_required": "클라우드 계정을 설정하려면 이메일을 입력하세요."
+      "account_email_required": "클라우드 계정을 설정하려면 이메일을 입력하세요.",
+      "invalid_auth": "이메일 또는 비밀번호가 올바르지 않습니다.",
+      "original_cannot_connect": "xBloom 클라우드에 연결할 수 없습니다. 인터넷 연결을 확인한 뒤 다시 시도하세요.",
+      "original_wrong_account": "이 xBloom 계정에는 이 기기가 없습니다. 기기를 등록한 계정으로 로그인하세요."
     },
     "abort": {
       "no_recipes": "사용 가능한 레시피가 없습니다. '레시피 추가'로 새로 만드세요."
@@ -132,6 +183,15 @@
       },
       "problem": {
         "name": "문제"
+      },
+      "j20_online": {
+        "name": "온라인"
+      },
+      "j20_problem": {
+        "name": "문제"
+      },
+      "j20_grinding": {
+        "name": "분쇄 중"
       }
     },
     "button": {
@@ -167,6 +227,18 @@
       },
       "write_slot_c": {
         "name": "이지 슬롯 C에 저장"
+      },
+      "j20_grind": {
+        "name": "분쇄"
+      },
+      "j20_stop": {
+        "name": "추출 중지"
+      },
+      "j20_calibrate": {
+        "name": "그라인더 캘리브레이션"
+      },
+      "j20_pour": {
+        "name": "추출"
       }
     },
     "number": {
@@ -181,6 +253,15 @@
       },
       "volume": {
         "name": "토출량"
+      },
+      "j20_grind_size": {
+        "name": "분쇄도"
+      },
+      "j20_volume": {
+        "name": "물량"
+      },
+      "j20_temperature": {
+        "name": "온도"
       }
     },
     "sensor": {
@@ -254,6 +335,43 @@
       },
       "vibration_amplitude": {
         "name": "진동 진폭"
+      },
+      "j20_warning": {
+        "name": "경고",
+        "state": {
+          "none": "없음",
+          "grind_setting": "분쇄 설정",
+          "water_low": "물 부족",
+          "dock": "xPod 도크",
+          "no_beans": "원두 없음",
+          "water_shortage": "급수 부족",
+          "voltage": "전압",
+          "unknown": "알 수 없음"
+        }
+      },
+      "j20_brew_progress": {
+        "name": "추출 진행"
+      },
+      "j20_pod": {
+        "name": "팟"
+      },
+      "j20_power_mcu": {
+        "name": "Power MCU 펌웨어"
+      },
+      "j20_panel_mcu": {
+        "name": "Panel MCU 펌웨어"
+      },
+      "j20_state": {
+        "name": "상태",
+        "state": {
+          "idle": "대기",
+          "awake": "깨어 있음",
+          "ready": "준비됨",
+          "grinding": "분쇄 중",
+          "brewing": "추출 중",
+          "complete": "완료",
+          "sleeping": "절전"
+        }
       }
     },
     "select": {
@@ -276,6 +394,14 @@
         "state": {
           "pro": "Pro",
           "easy": "Easy"
+        }
+      },
+      "j20_pattern": {
+        "name": "추출 패턴",
+        "state": {
+          "center": "중앙",
+          "circular": "원형",
+          "spiral": "나선"
         }
       }
     },

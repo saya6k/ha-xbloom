@@ -11,6 +11,9 @@ paged collective-hub search, and ``xbloom/pods*`` for the pod library
 
 Registered once from ``async_setup`` — the panel is global, not per entry;
 it lists every configured machine and lets the user switch between them.
+It knows machines only through ``machine.py``: each one's ``capabilities``
+are sent along, and the frontend shows only the tabs and controls they
+cover.
 """
 from __future__ import annotations
 
@@ -25,14 +28,12 @@ from homeassistant.components import panel_custom, websocket_api
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.http.auth import async_sign_path
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.http import KEY_HASS, HomeAssistantView
 
-from .const import CONF_MAC_ADDRESS, CONF_STORE_REGION, DATA_COORDINATOR, DOMAIN
-from .machine_color import color_code, color_from_serial
-from .machine_photo import async_read_photo
-from .schema import find_recipe
+from ..const import CONF_STORE_REGION, DOMAIN
+from ..machine import Capability, get_machine, machines
+from ..recipes.schema import find_recipe
 from .stores import STORE_REGIONS, STORES, effective_region, region_for_country
 
 PANEL_URL_PATH = "xbloom"
@@ -42,24 +43,14 @@ _WEBCOMPONENT = "xbloom-panel"
 _STATIC_URL = "/xbloom_static"
 _FRONTEND_DIR = Path(__file__).parent / "frontend"
 _PANEL_FILE = "xbloom-panel.js"
-_BRAND_DIR = Path(__file__).parent / "brand"
+_BRAND_DIR = Path(__file__).parent.parent / "brand"
 # How long a signed photo URL stays valid, and how long the browser caches it.
 _PHOTO_URL_TTL = timedelta(days=1)
 
-def _machine_serial(hass: HomeAssistant, coordinator: Any) -> str | None:
-    """Live serial when connected, else the one kept on the device entry
-    (the link is dropped in idle standby)."""
-    serial = (coordinator.data or {}).get("serial_number")
-    if serial:
-        return serial
-    device_id = getattr(coordinator, "parent_device_id", None)
-    device = dr.async_get(hass).async_get(device_id) if device_id else None
-    return device.serial_number if device else None
-
 
 class MachinePhotoView(HomeAssistantView):
-    """The machine photo the panel shows, served from HA's own cache
-    (machine_photo.py) so it loads without internet access."""
+    """The machine photo the panel shows, served from HA's own cache (the
+    model's ``async_read_photo``) so it loads without internet access."""
 
     url = "/api/xbloom/machine_photo/{entry_id}"
     name = "api:xbloom:machine_photo"
@@ -69,11 +60,10 @@ class MachinePhotoView(HomeAssistantView):
 
     async def get(self, request: web.Request, entry_id: str) -> web.Response:
         hass: HomeAssistant = request.app[KEY_HASS]
-        coordinator = _coordinator(hass, entry_id)
-        if coordinator is None:
+        machine = get_machine(hass, entry_id, Capability.PHOTO)
+        if machine is None:
             return web.Response(status=404)
-        serial = _machine_serial(hass, coordinator)
-        photo = await async_read_photo(hass, color_code(serial), color_from_serial(serial))
+        photo = await machine.async_read_photo()
         if photo is None:
             return web.Response(status=404)
         data, content_type = photo
@@ -84,16 +74,15 @@ class MachinePhotoView(HomeAssistantView):
         )
 
 
-def _photo_url(hass: HomeAssistant, entry_id: str, coordinator: Any, serial: str | None) -> str:
+def _photo_url(hass: HomeAssistant, entry_id: str, machine: Any) -> str:
     """The panel's signed photo URL; the query changes when a newer server
     cover is cached, so the browser doesn't keep showing the older one.
 
     Signed for the websocket caller and valid as long as the browser caches
     the photo, so a re-render of a long-open panel still hits the cache."""
-    version = coordinator.machine_cover_version
     return async_sign_path(
         hass,
-        f"{MachinePhotoView.url.format(entry_id=entry_id)}?v={color_code(serial)}-{version}",
+        f"{MachinePhotoView.url.format(entry_id=entry_id)}?v={machine.photo_version}",
         _PHOTO_URL_TTL,
     )
 
@@ -134,9 +123,9 @@ async def async_register_panel(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_pod_refresh)
 
 
-def _machine_payload(hass: HomeAssistant, entry_id: str, coordinator: Any) -> dict:
+def _machine_payload(hass: HomeAssistant, entry_id: str, machine: Any) -> dict:
     entry = hass.config_entries.async_get_entry(entry_id)
-    serial = _machine_serial(hass, coordinator)
+    caps = machine.capabilities
     # "<domain>.<translation_key>" -> entity_id, so the panel never has to
     # guess (or hardcode) entity ids the user may have renamed.
     entities = {
@@ -144,32 +133,50 @@ def _machine_payload(hass: HomeAssistant, entry_id: str, coordinator: Any) -> di
         for ent in er.async_entries_for_config_entry(er.async_get(hass), entry_id)
         if ent.translation_key and not ent.disabled_by
     }
-    recipes = [
-        {**recipe, "name": name}
-        for name, recipe in (coordinator.recipes or {}).items()
-        if isinstance(recipe, dict)
-    ]
-    return {
+    # A model whose entities use other translation keys maps the panel's
+    # generic keys onto its own (e.g. "number.volume" -> "number.j20_volume").
+    for generic, own in getattr(machine, "panel_entity_aliases", {}).items():
+        if own in entities:
+            entities.setdefault(generic, entities[own])
+    payload = {
         "entry_id": entry_id,
-        "title": entry.title if entry else coordinator.mac_address,
-        "mac": entry.data.get(CONF_MAC_ADDRESS) if entry else coordinator.mac_address,
+        "title": entry.title if entry else machine.machine_label,
+        "mac": machine.machine_label,
+        "capabilities": sorted(caps),
+        # Whether the grind/pour/recipe buttons arm first and start on a
+        # second press (the Studio) or act on the first press.
+        "arm_buttons": bool(getattr(machine, "arming_buttons", False)),
         "entities": entities,
-        "recipes": recipes,
-        "selected_recipe": coordinator.selected_recipe,
-        "easy_slots": {
-            letter: coordinator.easy_slot_contents(letter) for letter in ("A", "B", "C")
-        },
-        "cloud_login": coordinator.cloud_login_configured,
-        # None when the code is unknown — the panel falls back to black.
-        "detected_color": color_from_serial(serial),
-        # Served by HA from its own cache — the server cover for the serial
-        # when one is cached, else the store photo for its colour.
-        "photo_url": _photo_url(hass, entry_id, coordinator, serial),
+        "recipes": [],
+        "selected_recipe": None,
+        "easy_slots": {},
+        "cloud_login": False,
+        "detected_color": None,
+        "photo_url": None,
         # The machine's own display unit (g/oz/ml) — the scale sensor is
         # always grams, so the panel converts to match the machine screen.
-        "weight_unit": getattr(coordinator, "_weight_unit", "g"),
+        "weight_unit": getattr(machine, "_weight_unit", "g"),
         **_store_payload(hass, entry),
     }
+    if Capability.RECIPES in caps:
+        payload["recipes"] = [
+            {**recipe, "name": name}
+            for name, recipe in (machine.recipes or {}).items()
+            if isinstance(recipe, dict)
+        ]
+        payload["selected_recipe"] = machine.selected_recipe
+        payload["cloud_login"] = machine.cloud_login_configured
+    if Capability.EASY_SLOTS in caps:
+        payload["easy_slots"] = {
+            letter: machine.easy_slot_contents(letter) for letter in ("A", "B", "C")
+        }
+    if Capability.PHOTO in caps:
+        # None when the code is unknown — the panel falls back to black.
+        payload["detected_color"] = machine.detected_color
+        # Served by HA from its own cache — the server cover for the serial
+        # when one is cached, else the store photo for its colour.
+        payload["photo_url"] = _photo_url(hass, entry_id, machine)
+    return payload
 
 
 def _store_payload(hass: HomeAssistant, entry: Any) -> dict:
@@ -214,18 +221,18 @@ def ws_set_store_region(
 def ws_machines(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
 ) -> None:
-    """Every configured machine with its entity map and full recipe store."""
-    machines = [
-        _machine_payload(hass, entry_id, data[DATA_COORDINATOR])
-        for entry_id, data in hass.data.get(DOMAIN, {}).items()
-        if isinstance(data, dict) and DATA_COORDINATOR in data
+    """Every configured machine with its capabilities, entity map and (for
+    recipe-capable models) full recipe store."""
+    payloads = [
+        _machine_payload(hass, entry_id, machine)
+        for entry_id, machine in machines(hass).items()
     ]
-    connection.send_result(msg["id"], {"machines": machines})
+    connection.send_result(msg["id"], {"machines": payloads})
 
 
-def _coordinator(hass: HomeAssistant, entry_id: str) -> Any | None:
-    data = hass.data.get(DOMAIN, {}).get(entry_id)
-    return data[DATA_COORDINATOR] if isinstance(data, dict) and DATA_COORDINATOR in data else None
+def _coordinator(hass: HomeAssistant, entry_id: str, capability: Capability) -> Any | None:
+    """The machine for a websocket call, if it has the capability the call needs."""
+    return get_machine(hass, entry_id, capability)
 
 
 @websocket_api.websocket_command(
@@ -234,7 +241,7 @@ def _coordinator(hass: HomeAssistant, entry_id: str) -> Any | None:
 @callback
 def ws_pods(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
     """The machine's pod library — every pod scanned, newest first."""
-    coordinator = _coordinator(hass, msg["entry_id"])
+    coordinator = _coordinator(hass, msg["entry_id"], Capability.PODS)
     if coordinator is None:
         connection.send_error(msg["id"], "not_found", "No xBloom machine with that entry id.")
         return
@@ -254,7 +261,9 @@ def ws_pod_save_recipe(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
 ) -> None:
     """Save one of a pod's recipes to the local recipes ("save to my recipes")."""
-    coordinator = _coordinator(hass, msg["entry_id"])
+    coordinator = _coordinator(hass, msg["entry_id"], Capability.PODS)
+    if coordinator is not None and Capability.RECIPES not in coordinator.capabilities:
+        coordinator = None
     pod = coordinator.pod_library.get(msg["xid"]) if coordinator else None
     recipes = (pod or {}).get("recipes") or []
     if msg["index"] >= len(recipes):
@@ -280,7 +289,7 @@ async def ws_pod_refresh(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
 ) -> None:
     """Retry the cloud lookup for a pod scanned while it failed."""
-    coordinator = _coordinator(hass, msg["entry_id"])
+    coordinator = _coordinator(hass, msg["entry_id"], Capability.PODS)
     if coordinator is None or coordinator.pod_library.get(msg["xid"]) is None:
         connection.send_error(msg["id"], "not_found", "No such pod.")
         return
@@ -301,7 +310,7 @@ async def ws_pod_delete(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
 ) -> None:
     """Forget a pod (its saved recipes, if any, stay)."""
-    coordinator = _coordinator(hass, msg["entry_id"])
+    coordinator = _coordinator(hass, msg["entry_id"], Capability.PODS)
     if coordinator is None:
         connection.send_error(msg["id"], "not_found", "No xBloom machine with that entry id.")
         return
@@ -322,7 +331,7 @@ async def ws_cloud_detail(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
 ) -> None:
     """A hub recipe's detail page, plus the store link for an official one."""
-    coordinator = _coordinator(hass, msg["entry_id"])
+    coordinator = _coordinator(hass, msg["entry_id"], Capability.RECIPES)
     if coordinator is None:
         connection.send_error(msg["id"], "not_found", "No xBloom machine with that entry id.")
         return
@@ -364,11 +373,11 @@ async def ws_cloud_search(
     page; the panel's "load more" needs ``page``. Importing a result goes
     through the regular ``cloud_import_recipe`` service.
     """
-    data = hass.data.get(DOMAIN, {}).get(msg["entry_id"])
-    if not isinstance(data, dict) or DATA_COORDINATOR not in data:
+    coordinator = _coordinator(hass, msg["entry_id"], Capability.RECIPES)
+    if coordinator is None:
         connection.send_error(msg["id"], "not_found", "No xBloom machine with that entry id.")
         return
-    result = await data[DATA_COORDINATOR].async_search_collective_recipes(
+    result = await coordinator.async_search_collective_recipes(
         keyword=msg.get("keyword") or None,
         category=msg.get("category"),
         src=msg.get("src"),

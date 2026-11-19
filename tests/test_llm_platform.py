@@ -26,6 +26,7 @@ from custom_components.xbloom.const import (
     XBLOOM_LLM_API_ID,
     XBLOOM_LLM_PROMPT,
 )
+from tests.machine_fakes import FakeStudio
 from tests.test_llm_prompt import REGISTERED_TOOLS
 
 COMPONENT_ROOT = (
@@ -33,7 +34,8 @@ COMPONENT_ROOT = (
 )
 
 # Modules that hold tool implementations (plus the catalog that aggregates
-# them). None of these may be imported at module level by llm/__init__.py.
+# them), all under llm/. None of these may be imported at module level
+# by the platform hook llm/__init__.py.
 TOOL_MODULES = {
     "base",
     "catalog",
@@ -104,7 +106,7 @@ def test_non_entry_domain_key_gets_none():
 def test_catalog_builds_the_full_tool_set():
     from custom_components.xbloom.llm.catalog import build_tools
 
-    coordinator, hass = SimpleNamespace(), SimpleNamespace()
+    coordinator, hass = FakeStudio(), SimpleNamespace()
     tools = build_tools(coordinator, hass)
     assert len(tools) == len(REGISTERED_TOOLS)
     assert {tool.name for tool in tools} == set(REGISTERED_TOOLS)
@@ -112,10 +114,72 @@ def test_catalog_builds_the_full_tool_set():
     assert all(tool.hass is hass for tool in tools)
 
 
+def test_catalog_offers_only_what_the_machine_can_do():
+    """A model without recipes (the Original) gets no recipe/slot/tare tools,
+    and its own ranges in the grind/pour schemas."""
+    from custom_components.xbloom.llm.catalog import build_tools
+    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+
+    original = SimpleNamespace(
+        capabilities=J20Coordinator.capabilities, limits=J20Coordinator.limits
+    )
+    tools = {tool.name: tool for tool in build_tools(original, SimpleNamespace())}
+    assert set(tools) == {
+        "xbloom__get_status",
+        "xbloom__grind",
+        "xbloom__pour",
+        "xbloom__cancel",
+        "xbloom__calibrate_grinder",
+    }
+    grind_schema = tools["xbloom__grind"].parameters
+    assert grind_schema({"grind_size": 30})["grind_size"] == 30
+    with pytest.raises(Exception):  # noqa: B017 — voluptuous Invalid
+        grind_schema({"grind_size": 31})
+    assert "rpm" not in {str(key) for key in grind_schema.schema}
+    assert "flow_rate" not in {str(key) for key in tools["xbloom__pour"].parameters.schema}
+    # No arm page on the machine and no recipes: the tool text says so.
+    assert "nothing is sent" in tools["xbloom__grind"].description
+    assert "execute_recipe" not in tools["xbloom__grind"].description
+    assert "GRIND SIZE REFERENCE" not in str(grind_schema.schema)
+
+
+def test_prompt_only_describes_what_the_machine_can_do():
+    from custom_components.xbloom.llm.catalog import build_prompt
+    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+
+    assert build_prompt(FakeStudio()) == XBLOOM_LLM_PROMPT
+    original = SimpleNamespace(
+        capabilities=J20Coordinator.capabilities, limits=J20Coordinator.limits
+    )
+    prompt = build_prompt(original)
+    for absent in (
+        "xbloom__execute_recipe", "xbloom__list_recipes", "xbloom__tare_scale",
+        "xbloom__write_easy_slot", "Bluetooth", "RPM", "80=coarsest",
+    ):
+        assert absent not in prompt, absent
+    assert "1=finest to 30=coarsest" in prompt
+    assert "30–500 ml at 85–95 °C" in prompt
+    for tool in ("get_status", "grind", "pour", "cancel", "calibrate_grinder"):
+        assert f"xbloom__{tool}" in prompt
+
+
+def test_arm_reply_matches_where_the_arm_lives():
+    from custom_components.xbloom.llm.pour import XBloomPourTool
+    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+
+    studio = XBloomPourTool(FakeStudio(), None)
+    assert "showing its pour page" in studio._armed_text("pour")
+    original = XBloomPourTool(
+        SimpleNamespace(capabilities=J20Coordinator.capabilities, limits=J20Coordinator.limits),
+        None,
+    )
+    assert original._armed_text("pour") == "Nothing has been sent to the machine yet. "
+
+
 def test_catalog_builds_fresh_instances_per_call():
     from custom_components.xbloom.llm.catalog import build_tools
 
-    coord_a, coord_b = SimpleNamespace(), SimpleNamespace()
+    coord_a, coord_b = FakeStudio(), FakeStudio()
     hass = SimpleNamespace()
     tools_a = build_tools(coord_a, hass)
     tools_b = build_tools(coord_b, hass)
@@ -133,7 +197,7 @@ def test_own_api_returns_tools_and_prompt():
     )
     from custom_components.xbloom import llm as llm_platform
 
-    coordinator = SimpleNamespace()
+    coordinator = FakeStudio()
     hass = _fake_hass({"entry1": _entry(coordinator)})
     result = llm_platform.async_get_tools(hass, None, _api_id("entry1"))
     assert result is not None
@@ -148,7 +212,7 @@ def test_two_entries_each_bind_their_own_coordinator():
     )
     from custom_components.xbloom import llm as llm_platform
 
-    coord_a, coord_b = SimpleNamespace(), SimpleNamespace()
+    coord_a, coord_b = FakeStudio(), FakeStudio()
     hass = _fake_hass({"entry_a": _entry(coord_a), "entry_b": _entry(coord_b)})
     result_a = llm_platform.async_get_tools(hass, None, _api_id("entry_a"))
     result_b = llm_platform.async_get_tools(hass, None, _api_id("entry_b"))
@@ -188,7 +252,7 @@ def test_api_shell_builds_instance_via_platform():
     )
     from custom_components.xbloom.llm_api import XBloomCoffeeAPI
 
-    coordinator = SimpleNamespace()
+    coordinator = FakeStudio()
     hass = _ShellHass({"entry1": _entry(coordinator)})
     api = XBloomCoffeeAPI(hass, "entry1", "AA:BB:CC:DD:EE:FF")
     instance = asyncio.run(api.async_get_api_instance(None))
@@ -242,6 +306,9 @@ def test_platform_entry_module_stays_light():
     at module level — a foreign API's collection would load them otherwise."""
     relative, absolute = _module_level_imports(COMPONENT_ROOT / "llm" / "__init__.py")
     heavy = {mod for mod in relative if mod.split(".")[0] in TOOL_MODULES}
+    # Reaching a machine model at module level would load the tools' deps.
+    heavy |= {mod for mod in absolute if ".models" in mod}
+    heavy |= {mod for mod in relative if mod.split(".")[0] == "models"}
     assert not heavy, f"llm/__init__.py imports tool modules at module level: {heavy}"
     assert "homeassistant.components.llm" not in absolute, (
         "llm/__init__.py must import homeassistant.components.llm inside "
@@ -251,12 +318,20 @@ def test_platform_entry_module_stays_light():
 
 
 def test_setup_path_never_imports_the_platform_package():
-    """__init__.py / llm_api.py must not import .llm or any .llm.* submodule
-    at module level — a submodule import executes llm/__init__.py (and the
-    catalog pulls every tool), defeating lazy loading."""
-    for fname in ("__init__.py", "llm_api.py"):
-        relative, _ = _module_level_imports(COMPONENT_ROOT / fname)
-        offending = {
-            mod for mod in relative if mod == "llm" or mod.startswith("llm.")
+    """The setup path (__init__.py, the model packages' __init__, llm_api.py)
+    must not import the llm package or any llm.* submodule at module level —
+    a submodule import executes llm/__init__.py (and the catalog pulls every
+    tool), defeating lazy loading."""
+    platform = "custom_components.xbloom.llm"
+    for fname in (
+        "__init__.py",
+        "models/j15/__init__.py",
+        "models/j20/__init__.py",
+        "llm_api.py",
+    ):
+        relative, absolute = _module_level_imports(COMPONENT_ROOT / fname)
+        offending = {mod for mod in relative if mod == "llm" or mod.startswith("llm.")}
+        offending |= {
+            mod for mod in absolute if mod == platform or mod.startswith(f"{platform}.")
         }
         assert not offending, f"{fname} imports the llm/ package: {offending}"

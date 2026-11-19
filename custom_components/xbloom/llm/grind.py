@@ -8,27 +8,68 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
 
+from custom_components.xbloom.machine import Capability, ManualLimits
+
 from .base import XBloomBaseTool
 
 _LOGGER = logging.getLogger(__name__)
 
-# Mirrors number.py's XBloomGrindSizeNumber/XBloomRPMNumber bounds.
-GRIND_SIZE_MIN = 1
-GRIND_SIZE_MAX = 80
-RPM_MIN = 60
-RPM_MAX = 120
+
+def _parameters(limits: ManualLimits, has_recipes: bool) -> vol.Schema:
+    """The tool schema, bounded by the machine's own grind range."""
+    size_min, size_max = limits.grind_size
+    reference = (
+        " — see xbloom__execute_recipe's GRIND SIZE REFERENCE for "
+        "recommended ranges per brew method."
+        if has_recipes
+        else ". Other machines' grind numbers don't carry over to this scale."
+    )
+    fields: dict = {
+        vol.Optional(
+            "grind_size",
+            description=(
+                f"Grind size on this machine's scale "
+                f"({size_min}=finest–{size_max}=coarsest). "
+                f"Defaults to the machine's current setting{reference}"
+            ),
+        ): vol.All(vol.Coerce(int), vol.Range(min=size_min, max=size_max)),
+    }
+    if limits.rpm is not None:
+        rpm_min, rpm_max = limits.rpm
+        fields[
+            vol.Optional(
+                "rpm",
+                description=(
+                    f"Grinder speed in RPM ({rpm_min}–{rpm_max}). Defaults "
+                    "to the machine's current setting."
+                ),
+            )
+        ] = vol.All(vol.Coerce(int), vol.Range(min=rpm_min, max=rpm_max))
+    fields[
+        vol.Optional(
+            "confirmed",
+            default=False,
+            description=(
+                "Set to true ONLY after the user has confirmed starting "
+                "the grind the first (arming) call announced."
+            ),
+        )
+    ] = bool
+    return vol.Schema(fields)
 
 
 class XBloomGrindTool(XBloomBaseTool):
-    """Start a manual grind with the requested grind size and RPM."""
+    """Start a manual grind with the requested grind size (and RPM)."""
 
+    required = frozenset({Capability.GRIND})
     name = "xbloom__grind"
     title = "Grind xBloom"
     annotations = llm.ToolAnnotations(
         read_only=False, destructive=True, idempotent=False, open_world=True
     )
     description = (
-        "Grind beans on the xBloom with a custom grind size and RPM. This "
+        "Grind beans on the xBloom with a custom grind size (and RPM where "
+        "the machine supports it). This "
         "is a manual grind — it does NOT pour water. Two-phase flow: the "
         "first call (without confirmed) ARMS the machine — it opens its "
         "grind page showing the requested settings without starting — and "
@@ -40,35 +81,24 @@ class XBloomGrindTool(XBloomBaseTool):
         "manual pour, or xbloom__execute_recipe to grind and pour a full "
         "recipe in one call."
     )
-    parameters = vol.Schema(
-        {
-            vol.Optional(
-                "grind_size",
-                description=(
-                    f"Grind size on the xBloom Studio scale "
-                    f"({GRIND_SIZE_MIN}=finest–{GRIND_SIZE_MAX}=coarsest). "
-                    "Defaults to the machine's current setting — see "
-                    "xbloom__execute_recipe's GRIND SIZE REFERENCE for "
-                    "recommended ranges per brew method."
-                ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=GRIND_SIZE_MIN, max=GRIND_SIZE_MAX)),
-            vol.Optional(
-                "rpm",
-                description=(
-                    f"Grinder speed in RPM ({RPM_MIN}–{RPM_MAX}). Defaults "
-                    "to the machine's current setting."
-                ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=RPM_MIN, max=RPM_MAX)),
-            vol.Optional(
-                "confirmed",
-                default=False,
-                description=(
-                    "Set to true ONLY after the user has confirmed starting "
-                    "the grind the first (arming) call announced."
-                ),
-            ): bool,
-        }
+    # For a machine with no on-machine arm page and no recipes.
+    _local_arm_description = (
+        "Grind beans on the xBloom with a custom grind size. This is a "
+        "manual grind — it does NOT pour water. Two-phase flow: the first "
+        "call (without confirmed) only ARMS the request — nothing is sent "
+        "to the machine yet — and you must then ask the user to confirm. "
+        "Call again with confirmed=true to start the grind; if the user "
+        "declines, call xbloom__cancel. confirmed=true only starts a grind "
+        "that is still armed — otherwise it arms again and you must ask "
+        "again. Use xbloom__pour afterwards for a manual pour."
     )
+
+    def __init__(self, coordinator, hass: HomeAssistant) -> None:  # noqa: ANN001
+        super().__init__(coordinator, hass)
+        has_recipes = Capability.RECIPES in coordinator.capabilities
+        self.parameters = _parameters(coordinator.limits, has_recipes)
+        if not (has_recipes and self._arms_on_machine):
+            self.description = self._local_arm_description
 
     async def async_call(
         self,
@@ -80,26 +110,8 @@ class XBloomGrindTool(XBloomBaseTool):
         grind_size = args.get("grind_size")
         rpm = args.get("rpm")
 
-        client = self.coordinator.client
-        if client is None or not client.is_connected:
-            try:
-                ok = await self.coordinator.async_connect()
-            except Exception as exc:
-                _LOGGER.exception("auto-connect before grind failed: %s", exc)
-                ok = False
-            if not ok:
-                return llm.ToolResult(
-                    data={
-                        "success": False,
-                        "error": "connect_failed",
-                        "instruction": (
-                            "Tell the user the xBloom could not be reached over "
-                            "Bluetooth. Ask them to check the machine is powered "
-                            "on and in range."
-                        ),
-                    },
-                    error=True,
-                )
+        if (unavailable := await self._unavailable()) is not None:
+            return unavailable
 
         # Mirror the slider state so the corresponding number entities
         # reflect what was actually requested.
@@ -112,7 +124,7 @@ class XBloomGrindTool(XBloomBaseTool):
         # Only a standing arm can be started. confirmed=true without one
         # (fresh conversation, or the arm was cleared machine-side) arms
         # again and asks again — never a one-shot start.
-        start = confirmed and self.coordinator._armed_operation == "grind"
+        start = confirmed and self.coordinator.armed_operation == "grind"
         try:
             if start:
                 # Phase 2: the arm is still standing — bare start.
@@ -154,7 +166,7 @@ class XBloomGrindTool(XBloomBaseTool):
                     "success": True,
                     "armed": True,
                     "grind_size": self.coordinator.grind_size,
-                    "rpm": self.coordinator.rpm,
+                    "rpm": getattr(self.coordinator, "rpm", None),
                     "instruction": (
                         (
                             "Grinding has NOT started: there was no standing arm "
@@ -162,8 +174,8 @@ class XBloomGrindTool(XBloomBaseTool):
                             if confirmed
                             else ""
                         )
-                        + "The machine is now showing its grind page with these "
-                        "settings. Ask the user to confirm starting the grind; "
+                        + self._armed_text("grind")
+                        + "Ask the user to confirm starting the grind; "
                         "if they agree, call xbloom__grind again with "
                         "confirmed=true. If they decline, call xbloom__cancel."
                     ),
@@ -173,7 +185,7 @@ class XBloomGrindTool(XBloomBaseTool):
             data={
                 "success": True,
                 "grind_size": self.coordinator.grind_size,
-                "rpm": self.coordinator.rpm,
+                "rpm": getattr(self.coordinator, "rpm", None),
                 "instruction": "Briefly confirm to the user that grinding has started.",
             }
         )

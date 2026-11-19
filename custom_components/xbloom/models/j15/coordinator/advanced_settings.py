@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from custom_components.xbloom.ble.client import XBloomClient
+from custom_components.xbloom.models.j15.ble.client import XBloomClient
 
 from .constants import _pour_radius_level_to_raw, _vibration_level_to_raw
 
