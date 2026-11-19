@@ -60,6 +60,22 @@ BP 95 constants at the ends.
 The poll interval defaults to 15 s and can be changed in the entry's options
 (5–300 s).
 
+## Sidebar panel and voice / chat agents
+
+The xBloom sidebar panel lists the Original next to any Studio. It shows
+the **Manual** tab (grind size, pour volume / temperature / pattern, start
+and stop) and **Settings** (grinder calibration, store region); the Brew and
+Recipes tabs, Easy slots and the scale only appear for a Studio.
+
+The Original also gets its own LLM API ("XBloom Coffee Machine (<serial>)"),
+selectable in a conversation agent's settings. It offers only the tools the
+machine supports: `xbloom__get_status`, `xbloom__grind` (1–30),
+`xbloom__pour` (85–95 °C or boiling, 30–500 ml), `xbloom__cancel` and
+`xbloom__calibrate_grinder`. Grind and pour ask for confirmation first, as
+on the Studio; the Original has no "armed" page, so nothing reaches the
+machine until the confirmed call. `xbloom__cancel` stops a pour, but a
+running grind can't be stopped — the app has no command for it either.
+
 ## What is not implemented
 
 - **Recipes.** Starting a saved recipe goes through a server-generated
@@ -69,8 +85,8 @@ The poll interval defaults to 15 s and can be changed in the entry's options
   polls the thing shadow instead.
 - **Local discovery.** Port scanning and LAN control were not attempted; the
   firmware is closed and the machine is cloud-bound.
-- **Services and LLM tools.** The J20 entry exposes only the entities above;
-  the Studio services and Assist tools are not wired to it.
+- **Recipe services.** The `xbloom.*` services are all about recipes, so
+  they don't target an Original.
 
 ## Troubleshooting
 
