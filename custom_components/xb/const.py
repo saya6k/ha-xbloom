@@ -215,6 +215,11 @@ CONF_J20_DEVICE_ID = "j20_device_id"
 CONF_J20_PRODUCT_ID = "j20_product_id"
 CONF_J20_SERIAL_NUMBER = "j20_serial_number"
 CONF_J20_NAME = "j20_name"
+CONF_J20_MAC = "j20_mac"  # 12 lower-case hex digits, when known
+
+# Original Wi-Fi onboarding form (never stored in the entry).
+CONF_WIFI_SSID = "wifi_ssid"
+CONF_WIFI_PASSWORD = "wifi_password"
 
 DEFAULT_J20_SCAN_INTERVAL = 15  # seconds between thing-shadow polls
 

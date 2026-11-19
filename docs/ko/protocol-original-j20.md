@@ -112,6 +112,31 @@ SharedPreferences 값으로 덮어쓰고(`setActivate_url(SP.ACTIVATION_URL)` /
 커스텀 activation URL은 잘해야 일회성 activation 호출만 가로챌 뿐, 기기의
 제어 경로를 바꾸지 못합니다.
 
+### 전송 프로토콜(MXChip `locklib`), `models/j20/provision.py`에 구현
+
+블루투스 검색에서 Wi-Fi 설정을 기다리는 Original을 찾으면 Home Assistant가 이
+온보딩을 직접 진행합니다(통합 구성요소 추가가 필요 없음). **실제 하드웨어에서
+검증하지 않았습니다.**
+
+- **광고**: 16비트 서비스 `0x0922`. 제조사 데이터(회사 ID 뒤)는 1바이트, MAC(6),
+  제품 ID `53DDY4`(ASCII 6). MAC은 클라우드에 소문자 16진수 12자리로 보냅니다.
+- **GATT**: 서비스 `00000922-…`, 쓰기 `0000aab1-…`, 알림 `0000aab2-…`.
+- **분할**: 19바이트 조각 앞에 헤더 바이트 — `0x00` 메시지 전체, `0x01` 처음,
+  `0x10` 중간, `0x11` 마지막(양방향 동일).
+- **절차**: `POST /api/device/bind/code` → `bind_code`, `activation_url`;
+  `POST /api/device/ble/encryption/random/` → `random`, `random_key`;
+  BLE `{"type":"random","data":{"random"}}` → 기기가 `data.cipher`로 응답;
+  `POST /api/device/ble/encryption/verify/` {mac, product_id, cipher,
+  random_key} → `ble_key`; BLE `{"type":"cipher_reply","data":{"error_code":0}}`;
+  BLE `WifiBean` `{"data":{ssid, activate_url, binding_code, password,
+  user_token}, "type":"apinfo"}`을 AES-128-CBC/PKCS7(키 = 16진수 `ble_key`,
+  IV = ASCII `0` 16개)로 암호화해 전송; 기기는 암호화한
+  `{"type":"wifi_reply","data":{"error_code"}}`의 base64로 응답(0 성공, 1 네트워크
+  없음, 2 신호 약함, 3 접속 실패). 10초 뒤 `POST /api/device/bind/status`
+  {mac, product_id, bind_code}를 3초마다(10회) `data.device_id`가 나올 때까지
+  호출. `user_token`은 IoT 액세스 토큰(`projectToken`). 마지막으로 앱은
+  `tuBindMachine.tuhtml`로 계정의 기기 목록에 추가합니다.
+
 ## 펌웨어 / OTA
 
 **앱에서 Original 펌웨어를 내려받는 경로는 없습니다.** `.bin` 업그레이드
