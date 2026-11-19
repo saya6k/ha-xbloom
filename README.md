@@ -167,7 +167,7 @@ For tea recipes, each pour represents one steep cycle: `volume_ml` is the steep 
 
 The LLM tools are **opt-in per conversation agent**: in your agent's settings
 (Settings → Voice assistants → *your assistant* → conversation agent options)
-enable the **"xBloom Coffee Machine (MAC)"** API under the LLM API selection.
+enable the machine's API (named like the machine, e.g. **"xBloom Studio 4CV030"** or **"xBloom Original 9XY123"**) under the LLM API selection.
 The tools never ride along in the plain Assist API — an agent without the
 xBloom API selected sees none of them, and the tool code isn't even loaded
 until the API is first used. One API is registered per machine, so

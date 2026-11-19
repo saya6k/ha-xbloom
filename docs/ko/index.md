@@ -132,7 +132,7 @@ xb:
 
 LLM 도구는 **대화 에이전트별 옵트인**입니다: 에이전트 설정(설정 → 음성
 비서 → *해당 어시스턴트* → 대화 에이전트 옵션)의 LLM API 선택에서
-**"xBloom Coffee Machine (MAC)"** API를 켜세요. 도구는 순정 Assist API에
+기기 이름과 같은 API(예: **"xBloom Studio 4CV030"**, **"xBloom Original 9XY123"**)를 켜세요. 도구는 순정 Assist API에
 절대 끼어들지 않습니다 — xBloom API를 선택하지 않은 에이전트에는 도구가
 전혀 보이지 않고, API가 처음 사용되기 전까지는 도구 코드가 로딩조차 되지
 않습니다. 머신마다 API가 하나씩 등록되므로 여러 대라면 에이전트별로

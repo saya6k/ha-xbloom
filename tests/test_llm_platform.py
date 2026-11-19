@@ -259,12 +259,13 @@ class _ShellHass(SimpleNamespace):
 
 
 def test_api_shell_keeps_id_and_name_format():
-    from custom_components.xb.const import XBLOOM_LLM_API_NAME
+    """The id is what agent configs store (never changes); the name is the
+    machine's own name, so Studios and Originals are told apart."""
     from custom_components.xb.llm_api import XBloomCoffeeAPI
 
-    api = XBloomCoffeeAPI(_ShellHass({}), "entry1", "AA:BB:CC:DD:EE:FF")
+    api = XBloomCoffeeAPI(_ShellHass({}), "entry1", "xBloom Studio 4CV030")
     assert api.id == f"{XBLOOM_LLM_API_ID}_entry1"
-    assert api.name == f"{XBLOOM_LLM_API_NAME} (AA:BB:CC:DD:EE:FF)"
+    assert api.name == "xBloom Studio 4CV030"
 
 
 def test_api_shell_builds_instance_via_platform():

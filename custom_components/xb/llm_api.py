@@ -23,7 +23,6 @@ from homeassistant.helpers.importlib import async_import_module
 from .const import (
     DOMAIN,
     XBLOOM_LLM_API_ID,
-    XBLOOM_LLM_API_NAME,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -35,12 +34,15 @@ _CATALOG = f"{_PLATFORM}.catalog"
 class XBloomCoffeeAPI(llm.API):
     """Expose one xBloom machine (any model) as an LLM API."""
 
-    def __init__(self, hass: HomeAssistant, entry_id: str, machine_label: str) -> None:
-        # Use a per-entry id so multiple machines can each register their own API.
+    def __init__(self, hass: HomeAssistant, entry_id: str, machine_name: str) -> None:
+        # A per-entry id so several machines each register their own API. The
+        # id is what a conversation agent stores, so it never changes; the
+        # name is display only — the machine's own name ("xBloom Studio
+        # 4CV030", "xBloom Original 9XY123"), like the panel and the device.
         super().__init__(
             hass=hass,
             id=f"{XBLOOM_LLM_API_ID}_{entry_id}",
-            name=f"{XBLOOM_LLM_API_NAME} ({machine_label})",
+            name=machine_name,
         )
 
     async def async_get_api_instance(
@@ -63,11 +65,11 @@ class XBloomCoffeeAPI(llm.API):
         )
 
 
-def register_llm_api(hass: HomeAssistant, entry: ConfigEntry, machine_label: str) -> None:
+def register_llm_api(hass: HomeAssistant, entry: ConfigEntry, machine_name: str) -> None:
     """Register the XBloom LLM API for a config entry (auto-unregisters on unload).
 
-    ``machine_label`` is the machine's stable id (a Studio's MAC — pinned by
-    test, since changing it breaks existing agent configs)."""
-    api = XBloomCoffeeAPI(hass, entry.entry_id, machine_label)
+    Its id (``xbloom_coffee_<entry_id>``, pinned by test) is what existing
+    agent configs reference; ``machine_name`` is only the display name."""
+    api = XBloomCoffeeAPI(hass, entry.entry_id, machine_name)
     entry.async_on_unload(llm.async_register_api(hass, api))
     _LOGGER.debug("Registered XBloom LLM API for entry %s", entry.entry_id)
