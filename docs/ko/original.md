@@ -104,8 +104,7 @@ xBloom 사이드바 패널은 Original도 Studio와 함께 보여주며, **추�
 번 눌러(준비 후 시작) 실행하고, 분쇄와 추출 진행을 따라갑니다. Easy 슬롯과
 저울은 Studio에서만 보입니다.
 
-Original에도 대화 에이전트 설정에서 고를 수 있는 LLM API("XBloom Coffee
-Machine (<시리얼>)")가 생깁니다. 기기가 지원하는 도구만 제공합니다: 상태,
+Original에도 대화 에이전트 설정에서 고를 수 있는 LLM API("xBloom Original <일련번호 뒤 6자리>")가 생깁니다. 기기가 지원하는 도구만 제공합니다: 상태,
 레시피 도구(목록, 조회, 생성, 수정, 삭제, 실행, 가져오기, 내보내기, 커뮤니티
 검색), `xbloom__grind`(1–30), `xbloom__pour`(85–95 °C 또는 끓는 물, 30–500
 ml), `xbloom__cancel`, `xbloom__calibrate_grinder`. 레시피·분쇄·추출은

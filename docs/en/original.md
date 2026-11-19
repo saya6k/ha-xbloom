@@ -116,7 +116,7 @@ selected recipe in two presses (prepare, then start) and follows the
 machine through grinding and brewing; Easy slots and the scale only appear
 for a Studio.
 
-The Original also gets its own LLM API ("XBloom Coffee Machine (<serial>)"),
+The Original also gets its own LLM API, named like the machine ("xBloom Original <last six serial characters>"),
 selectable in a conversation agent's settings. It offers only the tools the
 machine supports: status, the recipe tools (list, get, create, edit, delete,
 execute, import, export, community search), `xbloom__grind` (1–30),

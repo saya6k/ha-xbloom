@@ -44,7 +44,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Voice/chat agents can drive any model through the LLM API; the
         # tool set follows the machine's capabilities. Unregistered by
         # entry.async_on_unload.
-        register_llm_api(hass, entry, machine.machine_label)
+        register_llm_api(
+            hass, entry, getattr(machine, "machine_name", None) or machine.machine_label
+        )
         if Capability.RECIPES in machine.capabilities:
             async_register_services(hass)  # idempotent across entries
     return True

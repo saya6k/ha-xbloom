@@ -116,7 +116,6 @@ ATTR_SORT_DIRECTION = "sort_direction"
 
 # LLM API identifiers
 XBLOOM_LLM_API_ID = "xbloom_coffee"
-XBLOOM_LLM_API_NAME = "xBloom Coffee Machine"
 
 # ── Device type (config entry) ────────────────────────────────────────────
 # Studio (J15) is the original BLE path; Original (J20) is Wi-Fi + cloud
