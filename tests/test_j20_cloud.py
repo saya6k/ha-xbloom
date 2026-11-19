@@ -533,3 +533,14 @@ def test_reauth_account_must_own_the_machine() -> None:
     assert asyncio.run(_async_original_owns(other, "dev-1")) == "original_wrong_account"
     down = client({"side_effect": J20ApiError("down")})
     assert asyncio.run(_async_original_owns(down, "dev-1")) == "original_cannot_connect"
+
+
+def test_original_is_named_by_its_serial_suffix() -> None:
+    """Like the Studio ("xBloom Studio 4CV030"): the panel header and the
+    device use "xBloom Original <last six serial characters>"."""
+    named = _coordinator(_serial="J20A01B9XY123", entry_title="xBloom Original — x")
+    assert named.machine_name == "xBloom Original 9XY123"
+    assert named.machine_serial == "J20A01B9XY123"
+    unnamed = _coordinator(_serial="", entry_title="xBloom Original — x")
+    assert unnamed.machine_name == "xBloom Original — x"
+    assert unnamed.machine_serial is None
