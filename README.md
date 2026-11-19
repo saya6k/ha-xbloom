@@ -45,6 +45,7 @@ It drives the same entities and services as everything else, so nothing it does 
 ## Features
 
 - **Sidebar dashboard** — an app-style page for brewing, recipes, manual control and machine settings (see [Dashboard](#dashboard)).
+- **xBloom Original (J20) cloud mode — unverified** — add an Original by signing in with the xBloom app account; the integration polls its thing shadow and exposes online/state/warning/pod/MCU-version sensors plus manual pour (volume/temperature/pattern), grind, stop-pour, and calibrate. Cloud-only, no local API; see [docs/en/original.md](docs/en/original.md).
 - **Local recipes are the source of truth** — every recipe gets a stable local `uid` and lives in HA; that's what the Recipe dropdown shows and brews. Seeded once at install (from your cloud account if linked, else xBloom's official public recipes), then no background sync — manage it from the HA UI, the recipe services, or `configuration.yaml`.
 - **Cross-identifier addressing** — every service/tool takes one `recipe` field: local uid, cloud table id, share URL/id, or exact name.
 - **Manual control** — pour with custom temperature/volume/flow rate/pour pattern, grind with custom size/RPM, **tare** the scale, vibrate the tray.
@@ -259,7 +260,7 @@ Through Assist (LLM), the same surface is exposed as tools: `xbloom__list_recipe
 
 ## Known limitations
 
-- **xBloom Original is not supported**: this integration only talks to xBloom **Studio** over Bluetooth LE (see `manifest.json`'s `bluetooth` matcher) — Original uses an entirely different Wi-Fi protocol, and the maintainer has no Original unit to test. The cloud API also hardcodes `adaptedModel: 1` (Studio), so the account recipe seed and `cloud_export_recipe` are unverified for an Original-only account.
+- **xBloom Original is cloud-only and unverified**: an Original is added as a separate config-entry type that talks to xBloom's cloud (account login required), not to the machine. It exposes thing-shadow sensors plus grind, stop-pour, calibrate, and grind-size entities; there is no local API. The cloud calls come from decompiling app 2.2.5 and have not been tested with hardware or a live account.
 - **MachineInfo on some firmwares**: certain firmware revisions never push `RD_MachineInfo`, so the Model / Serial / Firmware sensors may stay `unknown`. The water-level binary sensor falls back to event-driven detection on those firmwares.
 - **Manual cup detection**: the scale auto-tares any weight present at power-on, so a cup placed before boot reads as 0 g — when this happens the LLM `xbloom__execute_recipe` tool adds the cup to the checklist it returns when it arms the recipe.
 - **Weight reads unknown while the machine sleeps or is disconnected**: asleep, the machine reports a fixed 50 g with nothing on the scale, so the weight sensor shows unknown instead of a made-up reading. The same applies while the Bluetooth link is down (idle standby, out of range). Wake the machine (a button press or a pod insert) to get a live reading.

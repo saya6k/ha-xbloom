@@ -10,12 +10,13 @@ from homeassistant.helpers.device_registry import ChildDeviceInfo, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DATA_COORDINATOR, DOMAIN
+from .const import CONF_DEVICE_TYPE, DATA_COORDINATOR, DEVICE_TYPE_ORIGINAL, DOMAIN
 from .coordinator import (
     POUR_PATTERN_OPTIONS,
     XBloomCoordinator,
 )
 from .entity import scope_unique_ids
+from .j20.select import async_setup_entry as async_setup_j20_select
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,6 +24,9 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
+    if entry.data.get(CONF_DEVICE_TYPE) == DEVICE_TYPE_ORIGINAL:
+        await async_setup_j20_select(hass, entry, async_add_entities)
+        return
     coordinator: XBloomCoordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
     async_add_entities(scope_unique_ids(entry.entry_id, [
         XBloomRecipeSelect(coordinator, entry),

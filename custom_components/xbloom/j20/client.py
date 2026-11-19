@@ -1,0 +1,339 @@
+"""Cloud client for XBloom Original (J20).
+
+The Original is a Wi-Fi appliance with no local control path: the app talks
+to xBloom's cloud, and the machine talks to the same cloud over its own
+IoT link (AWS IoT thing shadow). This client is the app's side of that
+conversation — it is deliberately separate from ``_cloud_client.py``
+(recipe sync on ``client-api.xbloom.com``) and from the BLE stack used by
+Studio (J15).
+
+Two auth schemes are involved:
+
+* ``tMemberLogin.thtml`` returns both ``token`` (recipe API) and
+  ``projectToken`` (the IoT/device API bearer token).
+* ``api-iot.xbloom.com`` requests carry the app's signed headers:
+  ``platform``, ``appid``, ``version``, ``accept-language``, ``ts``,
+  ``nonce``, ``sign``, and ``Authorization: token <projectToken>``.
+  ``sign`` is ``MD5(appid,appsecret,nonce,ts)`` upper-cased; see
+  ``signed_headers``. The values were read from the 2.2.5 APK's
+  ``cn.com.library.net.RetrofitManager`` / ``ServiceConfig``.
+
+Everything here is derived from decompiling app 2.2.5 and has **not** been
+verified against a real Original (the maintainer has none). Network and
+parse failures are logged and return ``None``; token/API rejections raise
+``J20AuthError`` / ``J20ApiError`` for the coordinator to handle.
+"""
+from __future__ import annotations
+
+import hashlib
+import logging
+import time
+import uuid
+from typing import Any
+
+import aiohttp
+
+from .._cloud_client import _rsa_encrypt
+
+_LOGGER = logging.getLogger(__name__)
+
+CLIENT_API_BASE = "https://client-api.xbloom.com"
+J20_API_BASE = "https://api-iot.xbloom.com"
+
+# App 2.2.5 constants (ServiceConfig.configBeanRelease).
+J20_APP_ID = "94a98bca981d11eb9c0824418c29779a"
+J20_APP_SECRET = "de77d4d97ecf9003eaa5f372fd9a616b"
+J20_APP_VERSION = "2.2.5"
+J20_PRODUCT_ID = "53DDY4"
+
+# The app's ProjectForm defaults: interfaceVersion / skey / phoneType /
+# clientType / languageType. Only one value of languageType is sent; the
+# server localizes response messages with it, nothing we parse.
+_AUTH_INTERFACE_VERSION = 20240918
+_AUTH_SKEY = "testskey"
+_LANGUAGE_TYPE = 0
+
+_TIMEOUT = aiohttp.ClientTimeout(total=15)
+_HEADERS = {
+    "Content-Type": "application/json",
+    "User-Agent": "okhttp/4.12.0",
+}
+
+
+class J20AuthError(Exception):
+    """The bearer token is missing or rejected — log in again."""
+
+
+class J20ApiError(Exception):
+    """The cloud accepted the request but returned a non-zero code."""
+
+
+def signed_headers(
+    project_token: str,
+    *,
+    now: float | None = None,
+    nonce: str | None = None,
+) -> dict[str, str]:
+    """Return the app's signed headers for an ``api-iot`` request.
+
+    ``ts`` is epoch **seconds** (``currentTimeMillis / 1000`` in the app),
+    ``nonce`` is a dash-stripped lower-case UUID, and ``sign`` is the
+    upper-case MD5 of ``appid,appsecret,nonce,ts``.
+    """
+    timestamp = str(int(time.time() if now is None else now))
+    nonce = nonce or uuid.uuid4().hex
+    sign = hashlib.md5(
+        f"{J20_APP_ID},{J20_APP_SECRET},{nonce},{timestamp}".encode(),
+        usedforsecurity=False,
+    ).hexdigest().upper()
+    return {
+        "platform": "android",
+        "appid": J20_APP_ID,
+        "version": J20_APP_VERSION,
+        "accept-language": "en",
+        "ts": timestamp,
+        "nonce": nonce,
+        "sign": sign,
+        "Authorization": f"token {project_token}",
+    }
+
+
+def is_original_device(device: dict[str, Any]) -> bool:
+    """True for a J20 entry in ``tuMachineList.tuhtml``'s ``machineList``."""
+    try:
+        device_type = int(device.get("theType"))
+    except (TypeError, ValueError):
+        device_type = 0
+    return device_type == 2 or device.get("productId") == J20_PRODUCT_ID
+
+
+def command_payload(device_id: str, desired: dict[str, Any]) -> dict[str, Any]:
+    """Build the ``POST /api/device/command`` body.
+
+    The app's ``DeviceCommandReq`` wraps a shadow document one level deeper
+    than its name suggests: ``{"state": {"desired": {...}}}``. ``home_id``
+    is null at every traced call site and Gson drops nulls, so it is omitted
+    rather than sent as JSON null.
+    """
+    return {
+        "device_id": device_id,
+        "product_id": J20_PRODUCT_ID,
+        "desired": {"state": {"desired": desired}},
+    }
+
+
+def _normalize_code(value: Any) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_shadow(data: dict[str, Any]) -> dict[str, Any]:
+    """Normalize ``DeviceJ20DetailModel`` into the coordinator's data dict.
+
+    Kept pure so the mapping can be tested without HA. Unknown / missing
+    fields become ``None`` — never a placeholder string (HA localizes
+    ``None`` itself; see the repo's entity-translation note).
+    """
+    raw_mcus = data.get("multimcuotainfo") or {}
+    if not isinstance(raw_mcus, dict):
+        raw_mcus = {}
+    mcu_versions: dict[str, str] = {}
+    for mcu in raw_mcus.get("mcu_info") or []:
+        if not isinstance(mcu, dict):
+            continue
+        name = mcu.get("mcu_name")
+        version = mcu.get("mcu_version")
+        if name and version:
+            mcu_versions[str(name)] = str(version)
+
+    warning = data.get("warning")
+    try:
+        warning = int(warning) if warning is not None else None
+    except (TypeError, ValueError):
+        warning = None
+
+    def _int_or_none(value: Any) -> int | None:
+        try:
+            return int(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    def _bool_or_none(value: Any) -> bool | None:
+        if value is None:
+            return None
+        return bool(value)
+
+    pod = data.get("capsule_rfid_tag")
+    if pod in ("", "IF0002"):
+        pod = None
+
+    return {
+        "online": bool(data.get("is_online", False)),
+        "work_mode": _int_or_none(data.get("work_mode")),
+        "warning": warning,
+        "disp_reserve": _int_or_none(data.get("disp_reserve")),
+        "pod": str(pod) if pod else None,
+        "mcu_versions": mcu_versions,
+        "grinding": _bool_or_none(data.get("grinding_start")),
+        "calibrating": _bool_or_none(data.get("auto_calibrate")),
+        "serial_number": data.get("DM_SN"),
+    }
+
+
+class J20CloudClient:
+    """Async client for one Original account/device pair."""
+
+    def __init__(self, session: aiohttp.ClientSession) -> None:
+        self._session = session
+        self.member_id: int | None = None
+        self.token: str | None = None
+        self.project_token: str | None = None
+
+    @property
+    def logged_in(self) -> bool:
+        return bool(self.project_token)
+
+    async def async_login(self, email: str, password: str) -> bool:
+        """Log in and cache both tokens. Returns False, never raises."""
+        payload = await self._request(
+            "POST",
+            f"{CLIENT_API_BASE}/tMemberLogin.thtml",
+            body={
+                "interfaceVersion": _AUTH_INTERFACE_VERSION,
+                "skey": _AUTH_SKEY,
+                "clientType": 2,
+                "phoneType": "Android",
+                "languageType": _LANGUAGE_TYPE,
+                "email": email,
+                "password": password,
+            },
+        )
+        if not payload or payload.get("result") != "success":
+            return False
+        member = payload.get("member") or {}
+        try:
+            self.member_id = int(member["tableId"])
+        except (KeyError, TypeError, ValueError):
+            return False
+        self.token = str(payload.get("token") or "")
+        self.project_token = str(
+            payload.get("projectToken") or payload.get("project_token") or ""
+        )
+        return bool(self.token and self.project_token)
+
+    async def async_list_devices(self) -> list[dict[str, Any]]:
+        """The account's machines from ``tuMachineList.tuhtml``.
+
+        Uses the recipe-cloud session token plus the IoT ``accessToken``
+        the app's ``MachineListForm`` sends. Returns an empty list on any
+        failure.
+        """
+        if not (self.token and self.project_token and self.member_id is not None):
+            return []
+        body = {
+            "interfaceVersion": _AUTH_INTERFACE_VERSION,
+            "skey": _AUTH_SKEY,
+            "phoneType": "Android",
+            "memberId": self.member_id,
+            "clientType": 2,
+            "languageType": _LANGUAGE_TYPE,
+            "token": self.token,
+            "accessToken": self.project_token,
+        }
+        # ``BaseTransfer.post`` RSA-encrypts the whole form for the JSON
+        # content type the app uses; fall back to plain JSON because we
+        # cannot verify which content type ``tuMachineList`` negotiated.
+        payload = await self._request(
+            "POST",
+            f"{CLIENT_API_BASE}/tuMachineList.tuhtml",
+            body=_rsa_encrypt(body),
+        )
+        if not payload or payload.get("result") != "success":
+            payload = await self._request(
+                "POST",
+                f"{CLIENT_API_BASE}/tuMachineList.tuhtml",
+                body=body,
+            )
+        if not payload or payload.get("result") != "success":
+            return []
+        machines = payload.get("machineList")
+        if not machines and isinstance(payload.get("data"), dict):
+            machines = payload["data"].get("machineList")
+        machines = machines or []
+        return [m for m in machines if isinstance(m, dict)]
+
+    async def async_get_shadow(self, device_id: str) -> dict[str, Any] | None:
+        """Fetch the full thing shadow (``POST /api/device/thing_shadow/``)."""
+        if not self.project_token:
+            raise J20AuthError("not logged in")
+        payload = await self._signed_post(
+            "/api/device/thing_shadow/",
+            {"device_id": device_id, "product_id": J20_PRODUCT_ID},
+        )
+        if payload is None:
+            return None
+        code = _normalize_code(payload.get("code"))
+        if code in (401, 10001):
+            raise J20AuthError(f"token rejected (code {code})")
+        if code not in (0, 200):
+            _LOGGER.warning(
+                "XBloom Original shadow failed: code=%s message=%s",
+                code,
+                payload.get("message"),
+            )
+            return None
+        data = payload.get("data")
+        return data if isinstance(data, dict) else None
+
+    async def async_send_desired(self, device_id: str, desired: dict[str, Any]) -> None:
+        """Push a desired-state document (``POST /api/device/command``)."""
+        if not desired:
+            raise ValueError("desired state must not be empty")
+        if not self.project_token:
+            raise J20AuthError("not logged in")
+        payload = await self._signed_post(
+            "/api/device/command", command_payload(device_id, desired)
+        )
+        if payload is None:
+            raise J20ApiError("network error")
+        code = _normalize_code(payload.get("code"))
+        if code in (401, 10001):
+            raise J20AuthError(f"token rejected (code {code})")
+        if code not in (0, 200):
+            raise J20ApiError(
+                f"code {code}: {payload.get('message') or 'unknown error'}"
+            )
+
+    async def _signed_post(
+        self, path: str, body: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        return await self._request(
+            "POST",
+            f"{J20_API_BASE}{path}",
+            body=body,
+            headers=signed_headers(self.project_token or ""),
+        )
+
+    async def _request(
+        self,
+        method: str,
+        url: str,
+        *,
+        body: object | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any] | None:
+        try:
+            async with self._session.request(
+                method,
+                url,
+                json=body,
+                headers={**_HEADERS, **(headers or {})},
+                timeout=_TIMEOUT,
+            ) as response:
+                payload = await response.json(content_type=None)
+        except (aiohttp.ClientError, TimeoutError, ValueError) as exc:
+            _LOGGER.warning("XBloom Original cloud call to %s failed: %s", url, exc)
+            return None
+        return payload if isinstance(payload, dict) else None

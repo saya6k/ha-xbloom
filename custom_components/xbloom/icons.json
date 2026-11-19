@@ -18,6 +18,21 @@
         "state": {
           "on": "mdi:alert-circle"
         }
+      },
+      "j20_online": {
+        "default": "mdi:cloud-check"
+      },
+      "j20_problem": {
+        "default": "mdi:check-circle",
+        "state": {
+          "on": "mdi:alert-circle"
+        }
+      },
+      "j20_grinding": {
+        "default": "mdi:grain"
+      },
+      "j20_calibrating": {
+        "default": "mdi:cog-refresh"
       }
     },
     "button": {
@@ -53,6 +68,18 @@
       },
       "write_slot_c": {
         "default": "mdi:alpha-c-box-outline"
+      },
+      "j20_grind": {
+        "default": "mdi:grain"
+      },
+      "j20_stop": {
+        "default": "mdi:stop-circle"
+      },
+      "j20_calibrate": {
+        "default": "mdi:cog-refresh"
+      },
+      "j20_pour": {
+        "default": "mdi:water"
       }
     },
     "number": {
@@ -67,6 +94,15 @@
       },
       "volume": {
         "default": "mdi:cup-water"
+      },
+      "j20_grind_size": {
+        "default": "mdi:grain"
+      },
+      "j20_volume": {
+        "default": "mdi:water"
+      },
+      "j20_temperature": {
+        "default": "mdi:thermometer"
       }
     },
     "sensor": {
@@ -122,6 +158,24 @@
       },
       "vibration_amplitude": {
         "default": "mdi:vibrate"
+      },
+      "j20_warning": {
+        "default": "mdi:alert-outline"
+      },
+      "j20_brew_progress": {
+        "default": "mdi:water-percent"
+      },
+      "j20_pod": {
+        "default": "mdi:coffee-outline"
+      },
+      "j20_power_mcu": {
+        "default": "mdi:chip"
+      },
+      "j20_panel_mcu": {
+        "default": "mdi:chip"
+      },
+      "j20_state": {
+        "default": "mdi:state-machine"
       }
     },
     "select": {
@@ -137,6 +191,9 @@
       },
       "pour_pattern": {
         "default": "mdi:rotate-orbit"
+      },
+      "j20_pattern": {
+        "default": "mdi:shape-outline"
       }
     },
     "switch": {

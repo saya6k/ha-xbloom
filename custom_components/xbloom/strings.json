@@ -18,14 +18,10 @@
       },
       "user": {
         "title": "xBloom Coffee Machine",
-        "description": "Enter the Bluetooth MAC address of your xBloom device. Run `xbloom scan` from a terminal to discover it, or check the xBloom Studio app.",
-        "data": {
-          "mac_address": "MAC Address (XX:XX:XX:XX:XX:XX)",
-          "telemetry_interval": "Telemetry update interval (seconds)",
-          "session_timeout": "Idle disconnect timeout (seconds)"
-        },
-        "data_description": {
-          "session_timeout": "Disconnect Bluetooth after this long with nothing happening, and reconnect automatically on the next action. Set to 0 to stay connected — needed to detect pods and recipe cards and to show the sleep state while idle. The machine still goes to sleep on its own while connected. Long-term stability of an always-on connection is not yet proven: a machine once locked up after being left connected overnight."
+        "description": "Choose which xBloom machine to add.",
+        "menu_options": {
+          "studio": "Studio (Bluetooth)",
+          "original": "Original (Wi-Fi / cloud)"
         }
       },
       "account": {
@@ -35,17 +31,58 @@
           "email": "Email (optional)",
           "password": "Password (optional)"
         }
+      },
+      "studio": {
+        "title": "xBloom Studio (Bluetooth)",
+        "description": "Enter the Bluetooth MAC address of your xBloom Studio. Run `xbloom scan` from a terminal to discover it, or check the xBloom app.",
+        "data": {
+          "mac_address": "MAC Address (XX:XX:XX:XX:XX:XX)",
+          "telemetry_interval": "Telemetry update interval (seconds)",
+          "session_timeout": "Idle disconnect timeout (seconds)"
+        },
+        "data_description": {
+          "session_timeout": "Disconnect Bluetooth after this long with nothing happening, and reconnect automatically on the next action. Set to 0 to stay connected — needed to detect pods and recipe cards and to show the sleep state while idle. The machine still goes to sleep on its own while connected. Long-term stability of an always-on connection is not yet proven: a machine once locked up after being left connected overnight."
+        }
+      },
+      "original": {
+        "title": "xBloom Original (cloud)",
+        "description": "Sign in with the same xBloom app account that owns the Original. The machine is controlled through xBloom's cloud, exactly like the official app — it has no local API.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
+      },
+      "original_device": {
+        "title": "Choose an Original",
+        "description": "This account owns more than one Original. Pick the one to add.",
+        "data": {
+          "j20_device_id": "Machine"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate xBloom Original",
+        "description": "The cloud token was rejected. Sign in again to keep controlling the machine.",
+        "data": {
+          "email": "Email",
+          "password": "Password"
+        }
       }
     },
     "error": {
       "cannot_connect": "Cannot connect to the xBloom device. Check the MAC address and ensure Bluetooth is enabled.",
       "invalid_mac": "Invalid MAC address format.",
       "account_incomplete": "Enter both email and password, or leave both blank to skip cloud setup.",
-      "unknown": "Unexpected error."
+      "unknown": "Unexpected error.",
+      "invalid_auth": "Invalid email or password.",
+      "no_original_devices": "No xBloom Original found on this account.",
+      "original_account_incomplete": "Enter both the xBloom email and password."
     },
     "abort": {
       "already_configured": "xBloom device is already configured.",
-      "no_devices_found": "No xBloom devices found nearby. Make sure the machine is powered on."
+      "no_devices_found": "No xBloom devices found nearby. Make sure the machine is powered on.",
+      "unknown_device": "The selected machine is no longer available on this account.",
+      "reauth_successful": "Reauthentication successful.",
+      "reauth_failed": "Reauthentication failed."
     }
   },
   "options": {
@@ -106,6 +143,15 @@
         "data": {
           "recipe_name": "Recipe to delete"
         }
+      },
+      "original": {
+        "title": "xBloom Original options",
+        "description": "Leave the password blank to keep the current one.",
+        "data": {
+          "telemetry_interval": "Thing-shadow poll interval (seconds)",
+          "email": "Email",
+          "password": "New password (optional)"
+        }
       }
     },
     "error": {
@@ -132,6 +178,18 @@
       },
       "problem": {
         "name": "Problem"
+      },
+      "j20_online": {
+        "name": "Online"
+      },
+      "j20_problem": {
+        "name": "Problem"
+      },
+      "j20_grinding": {
+        "name": "Grinding"
+      },
+      "j20_calibrating": {
+        "name": "Calibrating"
       }
     },
     "button": {
@@ -167,6 +225,18 @@
       },
       "write_slot_c": {
         "name": "Write to Easy Slot C"
+      },
+      "j20_grind": {
+        "name": "Grind"
+      },
+      "j20_stop": {
+        "name": "Stop pour"
+      },
+      "j20_calibrate": {
+        "name": "Calibrate grinder"
+      },
+      "j20_pour": {
+        "name": "Pour"
       }
     },
     "number": {
@@ -181,6 +251,15 @@
       },
       "volume": {
         "name": "Volume"
+      },
+      "j20_grind_size": {
+        "name": "Grind size"
+      },
+      "j20_volume": {
+        "name": "Volume"
+      },
+      "j20_temperature": {
+        "name": "Temperature"
       }
     },
     "sensor": {
@@ -254,6 +333,44 @@
       },
       "vibration_amplitude": {
         "name": "Vibration Amplitude"
+      },
+      "j20_warning": {
+        "name": "Warning",
+        "state": {
+          "none": "None",
+          "grind_setting": "Grind setting",
+          "water_low": "Water low",
+          "dock": "xPod dock",
+          "no_beans": "No beans",
+          "water_shortage": "Water shortage",
+          "voltage": "Voltage",
+          "unknown": "Unknown"
+        }
+      },
+      "j20_brew_progress": {
+        "name": "Brew progress"
+      },
+      "j20_pod": {
+        "name": "Pod"
+      },
+      "j20_power_mcu": {
+        "name": "Power MCU firmware"
+      },
+      "j20_panel_mcu": {
+        "name": "Panel MCU firmware"
+      },
+      "j20_state": {
+        "name": "State",
+        "state": {
+          "idle": "Idle",
+          "awake": "Awake",
+          "ready": "Ready",
+          "grinding": "Grinding",
+          "brewing": "Brewing",
+          "complete": "Complete",
+          "sleeping": "Sleeping",
+          "unknown": "Unknown"
+        }
       }
     },
     "select": {
@@ -276,6 +393,14 @@
         "state": {
           "pro": "Pro",
           "easy": "Easy"
+        }
+      },
+      "j20_pattern": {
+        "name": "Pour pattern",
+        "state": {
+          "center": "Center",
+          "circular": "Circular",
+          "spiral": "Spiral"
         }
       }
     },

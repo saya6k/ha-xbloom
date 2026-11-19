@@ -42,6 +42,11 @@ allowed-confusables = ["–", "×", "−"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ANN", "PL", "S"]
 
+# The J20 subpackage is a child of the integration, so it must reach its
+# parent's const/entity modules with ".." imports. Ruff's TID252 wants
+# absolute imports, which would couple the package to HA's loader path.
+"custom_components/xbloom/j20/*.py" = ["TID252"]
+
 # The PLR complexity caps below are waived per file, not silenced globally.
 # Every one of them is a protocol- or API-shaped function whose size comes
 # from the surface it mirrors, so splitting it would scatter one contract

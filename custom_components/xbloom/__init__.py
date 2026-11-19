@@ -50,6 +50,7 @@ from .const import (
     ATTR_VARIETAL,
     ATTR_VIBRATION_AMPLITUDE_LEVEL,
     CONF_ACCOUNT_RECIPES_SEEDED,
+    CONF_DEVICE_TYPE,
     CONF_EASY_SLOTS,
     CONF_EMAIL,
     CONF_MAC_ADDRESS,
@@ -70,6 +71,7 @@ from .const import (
     DEFAULT_TEMP_UNIT,
     DEFAULT_WATER_SOURCE,
     DEFAULT_WEIGHT_UNIT,
+    DEVICE_TYPE_ORIGINAL,
     DOMAIN,
     SERVICE_ADVANCED_SETTINGS,
     SERVICE_CLOUD_EXPORT_RECIPE,
@@ -86,6 +88,7 @@ from .const import (
 from .coordinator import XBloomCoordinator
 from .default_recipes import DEFAULT_RECIPES
 from .entity import scoped_unique_id
+from .j20 import async_setup_j20_entry, async_unload_j20_entry
 from .llm_api import register_llm_api
 from .panel import async_register_panel
 from .pods import PodLibrary
@@ -818,6 +821,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up XBloom from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
+    if entry.data.get(CONF_DEVICE_TYPE) == DEVICE_TYPE_ORIGINAL:
+        # Cloud-only J20 path — separate coordinator, entities, and entry
+        # data. No BLE, recipes, services, or LLM tools are registered.
+        return await async_setup_j20_entry(hass, entry)
+
     mac = entry.data[CONF_MAC_ADDRESS]
     telemetry_interval = entry.options.get(
         CONF_TELEMETRY_INTERVAL,
@@ -969,6 +977,9 @@ async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> Non
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry and disconnect BLE."""
+    if entry.data.get(CONF_DEVICE_TYPE) == DEVICE_TYPE_ORIGINAL:
+        return await async_unload_j20_entry(hass, entry)
+
     coordinator: XBloomCoordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
     await coordinator.async_disconnect()
 
@@ -1006,4 +1017,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """The machine was removed — drop its pod library store."""
+    if entry.data.get(CONF_DEVICE_TYPE) == DEVICE_TYPE_ORIGINAL:
+        return
     await PodLibrary(hass, entry.entry_id).async_remove()
