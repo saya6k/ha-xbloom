@@ -46,19 +46,12 @@ class J20StateSensor(_J20Sensor):
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options = [  # noqa: RUF012  HA entity-attribute convention
         "idle", "awake", "ready", "grinding", "brewing", "complete",
-        "sleeping", "armed_recipe",
+        "sleeping",
     ]
 
     @property
     def native_value(self) -> str | None:
-        state = work_mode_state(self.coordinator.live.get("work_mode"))
-        # A recipe waiting for its confirm (the panel's Start), as the
-        # Studio reports it — only while the machine itself is not busy.
-        if self.coordinator.armed_operation == "recipe" and state not in (
-            "grinding", "brewing"
-        ):
-            return "armed_recipe"
-        return state
+        return work_mode_state(self.coordinator.live.get("work_mode"))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

@@ -65,21 +65,6 @@
       },
       "write_slot_c": {
         "default": "mdi:alpha-c-box-outline"
-      },
-      "j20_grind": {
-        "default": "mdi:grain"
-      },
-      "j20_stop": {
-        "default": "mdi:stop-circle"
-      },
-      "j20_calibrate": {
-        "default": "mdi:cog-refresh"
-      },
-      "j20_pour": {
-        "default": "mdi:water"
-      },
-      "j20_execute_recipe": {
-        "default": "mdi:play-circle"
       }
     },
     "number": {
@@ -94,15 +79,6 @@
       },
       "volume": {
         "default": "mdi:cup-water"
-      },
-      "j20_grind_size": {
-        "default": "mdi:grain"
-      },
-      "j20_volume": {
-        "default": "mdi:water"
-      },
-      "j20_temperature": {
-        "default": "mdi:thermometer"
       }
     },
     "sensor": {
@@ -191,12 +167,6 @@
       },
       "pour_pattern": {
         "default": "mdi:rotate-orbit"
-      },
-      "j20_pattern": {
-        "default": "mdi:shape-outline"
-      },
-      "j20_recipe": {
-        "default": "mdi:coffee-maker-outline"
       }
     },
     "switch": {
@@ -254,12 +224,6 @@
     },
     "cloud_search_collective_recipes": {
       "service": "mdi:cloud-search-outline"
-    },
-    "write_recipe_to_auto_mode": {
-      "service": "mdi:gesture-tap-button"
-    },
-    "reset_auto_mode": {
-      "service": "mdi:restore"
     }
   }
 }

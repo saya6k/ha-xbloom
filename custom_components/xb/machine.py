@@ -35,8 +35,6 @@ class Capability(StrEnum):
     PODS = "pods"  # pod_library + _async_lookup_pod
     ADVANCED_SETTINGS = "advanced_settings"  # async_set_advanced_settings
     PHOTO = "photo"  # async_read_photo / photo_version / detected_color
-    # One recipe stored on the machine's own start button (the Original).
-    AUTO_MODE = "auto_mode"  # auto_mode / async_write_auto_mode / async_reset_auto_mode
 
 
 @dataclass(frozen=True, slots=True)

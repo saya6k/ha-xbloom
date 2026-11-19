@@ -21,7 +21,7 @@
         "description": "추가할 xBloom 기기를 선택하세요.",
         "menu_options": {
           "studio": "Studio (블루투스)",
-          "original": "Original (Wi-Fi / 클라우드)"
+          "original": "Original (Wi-Fi / 클라우드, 상태만)"
         }
       },
       "account": {
@@ -46,7 +46,7 @@
       },
       "original": {
         "title": "xBloom Original (클라우드)",
-        "description": "Original을 소유한 xBloom 앱 계정으로 로그인하세요. 기기는 공식 앱과 동일하게 xBloom 클라우드를 통해 제어됩니다 — 로컬 API는 없습니다.",
+        "description": "Original을 소유한 xBloom 앱 계정으로 로그인하세요. Home Assistant는 공식 앱처럼 xBloom 클라우드에서 기기 상태를 읽습니다 — 로컬 API는 없습니다. 조작 기능은 아직 없으며, Original 사용자가 실제 기기에서 확인한 뒤 추가됩니다.",
         "data": {
           "email": "이메일",
           "password": "비밀번호"
@@ -66,16 +66,6 @@
           "email": "이메일",
           "password": "비밀번호"
         }
-      },
-      "original_onboard": {
-        "title": "xBloom Original 설정",
-        "description": "xBloom Original이 Wi-Fi 설정을 기다리고 있습니다. Home Assistant가 xBloom 앱과 같은 방식으로 설정합니다. 아래 Wi-Fi 정보를 블루투스로 기기에 보내고, 기기를 xBloom 계정에 연결합니다.\n\n기기 전원을 켜 두고 이 Home Assistant의 블루투스 어댑터 가까이에 두세요. 기기는 2.4GHz Wi-Fi만 지원합니다.\n\n이 설정 방식은 아직 실제 Original에서 시험하지 않았습니다.",
-        "data": {
-          "email": "xBloom 계정 이메일",
-          "password": "xBloom 계정 비밀번호",
-          "wifi_ssid": "Wi-Fi 네트워크 이름",
-          "wifi_password": "Wi-Fi 비밀번호"
-        }
       }
     },
     "error": {
@@ -94,19 +84,7 @@
       "no_devices_found": "주변에서 xBloom 기기를 찾을 수 없습니다. 머신 전원을 확인하세요.",
       "unknown_device": "선택한 기기를 더 이상 이 계정에서 찾을 수 없습니다.",
       "reauth_successful": "재인증에 성공했습니다.",
-      "reauth_failed": "재인증에 실패했습니다.",
-      "not_supported": "이 블루투스 기기는 xBloom 기기가 아닙니다.",
-      "original_ble_failed": "블루투스로 기기에 연결하지 못했습니다. 기기 전원을 켜 두고 Home Assistant의 블루투스 어댑터 가까이로 옮긴 뒤 다시 시도하세요.",
-      "original_cloud_failed": "xBloom 클라우드가 설정 요청을 받지 않았습니다. 인터넷 연결을 확인하고 다시 시도하세요.",
-      "original_no_reply": "기기가 블루투스 응답을 멈췄습니다. 기기 전원을 껐다 켠 뒤 다시 시도하세요.",
-      "original_handshake_failed": "기기와 xBloom 클라우드가 서로 확인하지 못했습니다. 기기 전원을 껐다 켠 뒤 다시 시도하세요.",
-      "original_wifi_not_found": "기기가 해당 Wi-Fi 네트워크를 찾지 못했습니다. 이름을 확인하세요. 2.4GHz 네트워크만 사용할 수 있습니다.",
-      "original_wifi_weak": "기기 위치의 Wi-Fi 신호가 너무 약합니다.",
-      "original_wifi_failed": "기기가 Wi-Fi 네트워크에 접속하지 못했습니다. 비밀번호를 확인하세요.",
-      "original_bind_failed": "기기가 Wi-Fi에 접속했지만 제때 xBloom 계정에 연결되지 않았습니다. xBloom 앱에서 확인한 뒤 통합 구성요소 추가 → Original로 기기를 추가하세요."
-    },
-    "progress": {
-      "original_provision": "기기에 Wi-Fi 설정을 보내고, 기기가 네트워크에 접속해 계정에 연결되기를 기다리는 중입니다. 최대 1분 정도 걸릴 수 있습니다."
+      "reauth_failed": "재인증에 실패했습니다."
     }
   },
   "options": {
@@ -249,21 +227,6 @@
       },
       "write_slot_c": {
         "name": "이지 슬롯 C에 저장"
-      },
-      "j20_grind": {
-        "name": "분쇄"
-      },
-      "j20_stop": {
-        "name": "추출 중지"
-      },
-      "j20_calibrate": {
-        "name": "그라인더 캘리브레이션"
-      },
-      "j20_pour": {
-        "name": "추출"
-      },
-      "j20_execute_recipe": {
-        "name": "레시피 실행"
       }
     },
     "number": {
@@ -278,15 +241,6 @@
       },
       "volume": {
         "name": "토출량"
-      },
-      "j20_grind_size": {
-        "name": "분쇄도"
-      },
-      "j20_volume": {
-        "name": "물량"
-      },
-      "j20_temperature": {
-        "name": "온도"
       }
     },
     "sensor": {
@@ -395,8 +349,7 @@
           "grinding": "분쇄 중",
           "brewing": "추출 중",
           "complete": "완료",
-          "sleeping": "절전",
-          "armed_recipe": "예약됨 (레시피)"
+          "sleeping": "절전"
         }
       }
     },
@@ -420,20 +373,6 @@
         "state": {
           "pro": "Pro",
           "easy": "Easy"
-        }
-      },
-      "j20_pattern": {
-        "name": "추출 패턴",
-        "state": {
-          "center": "중앙",
-          "circular": "원형",
-          "spiral": "나선"
-        }
-      },
-      "j20_recipe": {
-        "name": "레시피",
-        "state": {
-          "no_recipes_configured": "설정된 레시피 없음"
         }
       }
     },
@@ -695,30 +634,6 @@
         "sort_direction": {
           "name": "정렬 방향",
           "description": "asc 또는 desc. 기본값은 desc."
-        }
-      }
-    },
-    "write_recipe_to_auto_mode": {
-      "name": "자동 모드에 레시피 쓰기",
-      "description": "xBloom Original 전용. 레시피를 기기 자체 시작 버튼(앱의 자동 모드)에 저장해 Home Assistant 없이 기기에서 실행할 수 있게 합니다. 필요하면 먼저 xBloom 계정에 저장하며, 추출하지는 않습니다.",
-      "fields": {
-        "config_entry_id": {
-          "name": "기기",
-          "description": "레시피를 쓸 xBloom Original."
-        },
-        "recipe": {
-          "name": "레시피",
-          "description": "로컬 uid, 클라우드 table id, 공유 URL/id, 또는 정확한 레시피 이름. 기본값은 현재 선택된 레시피입니다."
-        }
-      }
-    },
-    "reset_auto_mode": {
-      "name": "자동 모드 초기화",
-      "description": "xBloom Original 전용. 기기 시작 버튼에 공장 기본 레시피를 다시 넣습니다.",
-      "fields": {
-        "config_entry_id": {
-          "name": "기기",
-          "description": "초기화할 xBloom Original."
         }
       }
     }
