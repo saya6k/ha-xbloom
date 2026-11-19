@@ -20,3 +20,12 @@ class J20Entity(CoordinatorEntity[J20Coordinator]):
     @property
     def device_info(self) -> DeviceInfo:
         return self.coordinator.device_info
+
+    @property
+    def available(self) -> bool:
+        """Unavailable while the shadow reports the machine offline.
+
+        The shadow keeps its last reported values while the machine is off
+        Wi-Fi, so showing them would present stale state as current.
+        """
+        return super().available and self.coordinator.online

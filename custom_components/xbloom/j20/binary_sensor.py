@@ -12,6 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from ..entity import scope_unique_ids
 from .coordinator import J20Coordinator
 from .entity import J20Entity
+from .values import warning_active
 
 
 async def async_setup_entry(
@@ -23,7 +24,6 @@ async def async_setup_entry(
             J20OnlineBinarySensor(coordinator, entry),
             J20ProblemBinarySensor(coordinator, entry),
             J20GrindingBinarySensor(coordinator, entry),
-            J20CalibratingBinarySensor(coordinator, entry),
         ])
     )
 
@@ -38,8 +38,13 @@ class J20OnlineBinarySensor(_J20BinarySensor):
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
 
     @property
+    def available(self) -> bool:
+        # Reports the offline state itself, so it must stay available then.
+        return self.coordinator.last_update_success
+
+    @property
     def is_on(self) -> bool:
-        return bool(self.coordinator.data.get("online"))
+        return self.coordinator.online
 
 
 class J20ProblemBinarySensor(_J20BinarySensor):
@@ -49,8 +54,7 @@ class J20ProblemBinarySensor(_J20BinarySensor):
 
     @property
     def is_on(self) -> bool:
-        warning = self.coordinator.data.get("warning")
-        return warning not in (None, 0)
+        return warning_active(self.coordinator.data.get("warning"))
 
 
 class J20GrindingBinarySensor(_J20BinarySensor):
@@ -61,13 +65,3 @@ class J20GrindingBinarySensor(_J20BinarySensor):
     @property
     def is_on(self) -> bool | None:
         return self.coordinator.data.get("grinding")
-
-
-class J20CalibratingBinarySensor(_J20BinarySensor):
-    _attr_translation_key = "j20_calibrating"
-    _attr_unique_id = "xbloom_j20_calibrating"
-    _attr_device_class = BinarySensorDeviceClass.RUNNING
-
-    @property
-    def is_on(self) -> bool | None:
-        return self.coordinator.data.get("calibrating")

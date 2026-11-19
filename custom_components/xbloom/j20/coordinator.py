@@ -9,8 +9,9 @@ write.
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from datetime import timedelta
-from typing import Any
+from typing import Any, TypeVar
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -21,10 +22,17 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from ..const import (
     CONF_EMAIL,
     CONF_J20_DEVICE_ID,
+    CONF_J20_PRODUCT_ID,
     CONF_PASSWORD,
     DOMAIN,
 )
-from .client import J20ApiError, J20AuthError, J20CloudClient, parse_shadow
+from .client import (
+    J20_PRODUCT_ID,
+    J20ApiError,
+    J20AuthError,
+    J20CloudClient,
+    parse_shadow,
+)
 from .values import (
     GRIND_SIZE_DEFAULT,
     PATTERN_DEFAULT,
@@ -35,10 +43,11 @@ from .values import (
 
 _LOGGER = logging.getLogger(__name__)
 
+_T = TypeVar("_T")
 
 
 class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
-    """Thing-shadow poller plus the three confirmed desired-state commands."""
+    """Thing-shadow poller plus the confirmed desired-state commands."""
 
     def __init__(
         self,
@@ -50,6 +59,7 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         super().__init__(
             hass,
             _LOGGER,
+            config_entry=entry,
             name=f"{DOMAIN} Original",
             update_interval=timedelta(seconds=scan_interval),
         )
@@ -57,6 +67,7 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._email: str = entry.data.get(CONF_EMAIL, "")
         self._password: str = entry.data.get(CONF_PASSWORD, "")
         self.device_id: str = entry.data[CONF_J20_DEVICE_ID]
+        self.product_id: str = entry.data.get(CONF_J20_PRODUCT_ID) or J20_PRODUCT_ID
         self.entry_title: str = entry.title
         self.grind_size: int = GRIND_SIZE_DEFAULT
         self.volume_ml: int = VOLUME_DEFAULT
@@ -74,13 +85,43 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
             sw_version=mcu.get("PannelMCU"),
         )
 
+    @property
+    def online(self) -> bool:
+        return bool((self.data or {}).get("online"))
+
+    async def _async_reauthenticate(self) -> None:
+        """Get a fresh token the way the app's ``TokenInterceptor`` does.
+
+        Refresh token first; if that fails, log in again with the stored
+        account. Raises ``ConfigEntryAuthFailed`` only when the account
+        itself is rejected, and ``J20ApiError`` when the cloud is
+        unreachable.
+        """
+        if await self._client.async_refresh_token():
+            return
+        if not await self._client.async_login(self._email, self._password):
+            raise ConfigEntryAuthFailed("XBloom Original login failed")
+
+    async def _async_call(self, func: Callable[[], Awaitable[_T]]) -> _T:
+        """Run one cloud call, re-authenticating once on a token rejection."""
+        try:
+            return await func()
+        except J20AuthError:
+            await self._async_reauthenticate()
+        try:
+            return await func()
+        except J20AuthError as exc:
+            raise ConfigEntryAuthFailed(
+                "XBloom Original token still rejected after signing in again"
+            ) from exc
+
     async def _async_update_data(self) -> dict[str, Any]:
         try:
-            data = await self._client.async_get_shadow(self.device_id)
-        except J20AuthError:
-            if not await self._client.async_login(self._email, self._password):
-                raise ConfigEntryAuthFailed("XBloom Original login failed") from None
-            data = await self._client.async_get_shadow(self.device_id)
+            data = await self._async_call(
+                lambda: self._client.async_get_shadow(self.device_id, self.product_id)
+            )
+        except J20ApiError as exc:
+            raise UpdateFailed(f"XBloom Original cloud unreachable: {exc}") from exc
         if data is None:
             raise UpdateFailed("XBloom Original shadow request failed")
         return parse_shadow(data)
@@ -111,19 +152,22 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self._send({"auto_calibrate": 1})
 
     async def _send(self, desired: dict[str, Any]) -> None:
+        # The app disables its start buttons while the shadow reports the
+        # machine offline (refreshOnLineView). A desired state written now
+        # would sit in the shadow and run whenever the machine reconnects.
+        if not self.online:
+            raise HomeAssistantError("XBloom Original is offline")
         try:
-            await self._client.async_send_desired(self.device_id, desired)
-        except J20AuthError:
-            if not await self._client.async_login(self._email, self._password):
-                raise ConfigEntryAuthFailed(
-                    "XBloom Original login failed; check the account in options"
-                ) from None
-            try:
-                await self._client.async_send_desired(self.device_id, desired)
-            except (J20ApiError, J20AuthError) as exc:
-                raise HomeAssistantError(
-                    f"XBloom Original command failed: {exc}"
-                ) from exc
+            await self._async_call(
+                lambda: self._client.async_send_desired(self.device_id, desired)
+            )
+        except ConfigEntryAuthFailed as exc:
+            # Raised from a button press, this would not start a reauth
+            # flow on its own; start it, then fail the press.
+            self.config_entry.async_start_reauth(self.hass)
+            raise HomeAssistantError(
+                "XBloom Original sign-in failed; reauthenticate the account"
+            ) from exc
         except J20ApiError as exc:
             raise HomeAssistantError(
                 f"XBloom Original command failed: {exc}"

@@ -12,7 +12,12 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from ..entity import scope_unique_ids
 from .coordinator import J20Coordinator
 from .entity import J20Entity
-from .values import DISP_RESERVE_MEANINGS, warning_state, work_mode_state
+from .values import (
+    DISP_RESERVE_MEANINGS,
+    warning_active,
+    warning_state,
+    work_mode_state,
+)
 
 
 async def async_setup_entry(
@@ -41,11 +46,11 @@ class J20StateSensor(_J20Sensor):
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options = [  # noqa: RUF012  HA entity-attribute convention
         "idle", "awake", "ready", "grinding", "brewing", "complete",
-        "sleeping", "unknown",
+        "sleeping",
     ]
 
     @property
-    def native_value(self) -> str:
+    def native_value(self) -> str | None:
         return work_mode_state(self.coordinator.data.get("work_mode"))
 
     @property
@@ -72,7 +77,7 @@ class J20WarningSensor(_J20Sensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         warning = self.coordinator.data.get("warning")
-        return {"warning_code": warning, "active": warning not in (None, 0)}
+        return {"warning_code": warning, "active": warning_active(warning)}
 
 
 class J20BrewProgressSensor(_J20Sensor):

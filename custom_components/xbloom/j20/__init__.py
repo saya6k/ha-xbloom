@@ -23,7 +23,7 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from ..const import (
@@ -32,7 +32,7 @@ from ..const import (
     CONF_TELEMETRY_INTERVAL,
     DEFAULT_J20_SCAN_INTERVAL,
 )
-from .client import J20CloudClient
+from .client import J20ApiError, J20CloudClient
 from .coordinator import J20Coordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -52,9 +52,13 @@ type J20ConfigEntry = ConfigEntry[J20Coordinator]
 async def async_setup_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool:
     session = async_get_clientsession(hass)
     client = J20CloudClient(session)
-    if not await client.async_login(
-        entry.data.get(CONF_EMAIL, ""), entry.data.get(CONF_PASSWORD, "")
-    ):
+    try:
+        logged_in = await client.async_login(
+            entry.data.get(CONF_EMAIL, ""), entry.data.get(CONF_PASSWORD, "")
+        )
+    except J20ApiError as exc:
+        raise ConfigEntryNotReady(f"xBloom cloud unreachable: {exc}") from exc
+    if not logged_in:
         raise ConfigEntryAuthFailed("XBloom Original login failed")
 
     coordinator = J20Coordinator(

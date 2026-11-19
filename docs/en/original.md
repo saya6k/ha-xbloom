@@ -20,17 +20,23 @@ not a Bluetooth or LAN client.
 3. Enter the email/password of the xBloom app account that owns the machine.
 4. If the account owns more than one Original, pick one.
 
-The credentials are stored in the config entry so the integration can log in
-again when the cloud token expires. Remove the entry to remove them.
+When the cloud rejects the token, the integration first exchanges the refresh
+token for a new one, as the app does; the credentials are stored in the config
+entry only so it can log in again when that also fails. Remove the entry to
+remove them.
+
+While the shadow reports the machine offline, every entity except
+`binary_sensor.…_online` is unavailable and the buttons refuse to send
+anything (the app disables its start buttons too) — a command written then
+would wait in the shadow and run when the machine reconnects.
 
 ## Entities
 
 | Entity | Meaning |
 |---|---|
 | `binary_sensor.…_online` | `is_online` from the thing shadow |
-| `binary_sensor.…_problem` | `warning` is set and non-zero |
-| `binary_sensor.…_grinding` | `grinding_start` (if the shadow carries it) |
-| `binary_sensor.…_calibrating` | `auto_calibrate` (if the shadow carries it) |
+| `binary_sensor.…_problem` | a `warning` the app would show (166/183/185 are ignored, as in the app) |
+| `binary_sensor.…_grinding` | `work_mode` is 4/7/11/13 (the app's `isJ20Grinding`) |
 | `sensor.…_state` | `work_mode` mapped to idle/awake/ready/grinding/brewing/complete/sleeping |
 | `sensor.…_warning` | `warning` mapped to grind/water/dock/beans/voltage |
 | `sensor.…_brew_progress` | `disp_reserve` |

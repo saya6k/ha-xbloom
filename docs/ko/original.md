@@ -17,17 +17,22 @@ LAN 클라이언트가 아니라 그 클라우드의 클라이언트입니다.
 3. Original을 소유한 xBloom 앱 계정의 이메일/비밀번호 입력.
 4. 계정에 Original이 여러 대면 하나를 선택.
 
-자격증명은 클라우드 토큰이 만료됐을 때 다시 로그인할 수 있도록 config
-entry에 저장됩니다. 항목을 삭제하면 함께 삭제됩니다.
+클라우드가 토큰을 거부하면 앱과 마찬가지로 먼저 refresh token으로 새
+토큰을 받습니다. 자격증명은 그마저 실패했을 때 다시 로그인하기 위해서만
+config entry에 저장됩니다. 항목을 삭제하면 함께 삭제됩니다.
+
+shadow가 기기를 오프라인으로 보고하는 동안에는 `binary_sensor.…_online`을
+제외한 모든 엔티티가 사용 불가가 되고, 버튼은 아무것도 보내지 않습니다(앱도
+시작 버튼을 비활성화합니다). 이때 쓴 명령은 shadow에 남아 있다가 기기가 다시
+연결되면 실행되기 때문입니다.
 
 ## 엔티티
 
 | 엔티티 | 의미 |
 |---|---|
 | `binary_sensor.…_online` | thing shadow의 `is_online` |
-| `binary_sensor.…_problem` | `warning`이 0이 아닌 값으로 설정됨 |
-| `binary_sensor.…_grinding` | `grinding_start` (shadow에 있을 때) |
-| `binary_sensor.…_calibrating` | `auto_calibrate` (shadow에 있을 때) |
+| `binary_sensor.…_problem` | 앱이 표시하는 `warning` (앱처럼 166/183/185는 무시) |
+| `binary_sensor.…_grinding` | `work_mode`가 4/7/11/13 (앱의 `isJ20Grinding`) |
 | `sensor.…_state` | `work_mode`를 idle/awake/ready/grinding/brewing/complete/sleeping으로 매핑 |
 | `sensor.…_warning` | `warning`을 분쇄/물/도크/원두/전압으로 매핑 |
 | `sensor.…_brew_progress` | `disp_reserve` |

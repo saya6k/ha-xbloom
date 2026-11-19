@@ -209,8 +209,8 @@ DEVICE_TYPE_STUDIO = "studio"
 DEVICE_TYPE_ORIGINAL = "original"
 
 # Original (J20) config-entry data. The account credentials are the same
-# xBloom app login; the password is only used to re-login when the project
-# token expires (there is no supported token-refresh endpoint yet).
+# xBloom app login; the password is only used to log in again when the
+# app's refresh-token exchange fails (refresh tokens expire too).
 CONF_J20_DEVICE_ID = "j20_device_id"
 CONF_J20_PRODUCT_ID = "j20_product_id"
 CONF_J20_SERIAL_NUMBER = "j20_serial_number"

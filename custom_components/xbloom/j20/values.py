@@ -9,7 +9,8 @@ Everything here is read from app 2.2.5's decompiled code, not guessed:
   85/95), and pattern ``center=00`` / ``circular=01`` / ``spiral=02``.
 * Grind size — ``CoffeeConstantUtil.getGrindSizeJ20``: **1–30, default 15**.
 * ``work_mode`` / ``warning`` code tables — ``AppExtendsKt``'s J20 predicates
-  and ``AppWsManager``'s warning switch; strings from the app's resources.
+  (``isJ20Grinding`` …) and ``AppWsManager``'s warning switch; strings from
+  the app's resources.
 """
 from __future__ import annotations
 
@@ -20,7 +21,10 @@ WORK_MODE_GRINDING = "grinding"
 WORK_MODE_BREWING = "brewing"
 WORK_MODE_COMPLETE = "complete"
 WORK_MODE_SLEEPING = "sleeping"
-WORK_MODE_UNKNOWN = "unknown"
+
+# AppExtendsKt.isJ20Grinding. The thing shadow has no grinding flag of its
+# own (``grinding_start`` only arrives over the app's WebSocket).
+GRINDING_WORK_MODES = frozenset({4, 7, 11, 13})
 
 WORK_MODE_STATES: dict[int, str] = {
     0: WORK_MODE_IDLE,
@@ -48,8 +52,11 @@ WARNING_WATER_SHORTAGE = "water_shortage"
 WARNING_VOLTAGE = "voltage"
 WARNING_UNKNOWN = "unknown"
 
-# AppWsManager's switch over state.reported.warning. 166/183/185 are
-# deliberately ignored by the app; they fall through to "unknown" here.
+# Codes AppWsManager's switch deliberately ignores; they read as no warning.
+IGNORED_WARNINGS = frozenset({166, 183, 185})
+
+# AppWsManager's switch over state.reported.warning. Any other non-zero code
+# is reported as "unknown" (and still counts as a problem).
 WARNING_STATES: dict[int, str] = {
     162: WARNING_GRIND_SETTING,
     169: WARNING_WATER_LOW,
@@ -98,16 +105,28 @@ DISP_RESERVE_MEANINGS: dict[int, str] = {
 }
 
 
-def work_mode_state(value: int | None) -> str:
+def work_mode_state(value: int | None) -> str | None:
+    """The state for a ``work_mode`` code; None (HA's Unknown) if unmapped."""
     if value is None:
-        return WORK_MODE_UNKNOWN
-    return WORK_MODE_STATES.get(value, WORK_MODE_UNKNOWN)
+        return None
+    return WORK_MODE_STATES.get(value)
+
+
+def is_grinding(work_mode: int | None) -> bool | None:
+    if work_mode is None:
+        return None
+    return work_mode in GRINDING_WORK_MODES
 
 
 def warning_state(value: int | None) -> str:
-    if value is None or value == 0:
+    if value is None or value == 0 or value in IGNORED_WARNINGS:
         return WARNING_NONE
     return WARNING_STATES.get(value, WARNING_UNKNOWN)
+
+
+def warning_active(value: int | None) -> bool:
+    """True when the warning is one the app would surface to the user."""
+    return warning_state(value) != WARNING_NONE
 
 
 def temperature_code(temperature_c: float) -> int:

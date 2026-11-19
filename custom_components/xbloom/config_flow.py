@@ -55,11 +55,28 @@ from .j15.schema import (
     new_recipe_uid,
     strip_protected_recipe_fields,
 )
-from .j20.client import J20_PRODUCT_ID, J20CloudClient, is_original_device
+from .j20.client import (
+    J20_PRODUCT_ID,
+    J20ApiError,
+    J20CloudClient,
+    is_original_device,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+
+
+async def _async_original_login(
+    client: J20CloudClient, email: str, password: str
+) -> str | None:
+    """Log in for an Original flow step; return a form error key, or None."""
+    try:
+        if await client.async_login(email, password):
+            return None
+    except J20ApiError:
+        return "original_cannot_connect"
+    return "invalid_auth"
 
 
 def _valid_mac(mac: str) -> bool:
@@ -240,8 +257,9 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "original_account_incomplete"
             else:
                 client = J20CloudClient(async_get_clientsession(self.hass))
-                if not await client.async_login(email, password):
-                    errors["base"] = "invalid_auth"
+                login = await _async_original_login(client, email, password)
+                if login is not None:
+                    errors["base"] = login
                 else:
                     devices = [
                         d
@@ -362,8 +380,9 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "original_account_incomplete"
             else:
                 client = J20CloudClient(async_get_clientsession(self.hass))
-                if not await client.async_login(email, password):
-                    errors["base"] = "invalid_auth"
+                login = await _async_original_login(client, email, password)
+                if login is not None:
+                    errors["base"] = login
                 else:
                     self.hass.config_entries.async_update_entry(
                         entry,
@@ -535,10 +554,17 @@ class XBloomOptionsFlow(config_entries.OptionsFlow):
             password = user_input.get(CONF_PASSWORD) or ""
             test_email = email or self._entry.data.get(CONF_EMAIL, "")
             test_password = password or self._entry.data.get(CONF_PASSWORD, "")
-            if (email or password) and not await J20CloudClient(
-                async_get_clientsession(self.hass)
-            ).async_login(test_email, test_password):
-                errors["base"] = "invalid_auth"
+            login = (
+                await _async_original_login(
+                    J20CloudClient(async_get_clientsession(self.hass)),
+                    test_email,
+                    test_password,
+                )
+                if email or password
+                else None
+            )
+            if login is not None:
+                errors["base"] = login
             else:
                 if email and email != self._entry.data.get(CONF_EMAIL):
                     new_data[CONF_EMAIL] = email

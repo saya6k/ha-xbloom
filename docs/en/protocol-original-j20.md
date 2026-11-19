@@ -75,8 +75,15 @@ Authorization: token <projectToken>
 
 The secret is `de77d4d97ecf9003eaa5f372fd9a616b` (`ServiceConfig.configBeanRelease`);
 the signature input is the comma-joined `appId,appSecret,nonce,ts`. Login is
-`tMemberLogin.thtml` on `client-api.xbloom.com`, whose response carries both
-`token` (recipe API) and `projectToken` (this header's bearer).
+`tMemberLogin.thtml` on `client-api.xbloom.com`, whose response carries
+`token` (recipe API), `projectToken` (this header's bearer) and
+`projectRefreshToken`.
+
+When any `api-iot` call answers `code: 10001`, `TokenInterceptor` calls
+`PUT /api/enduser/refresh_token/` with `{"refresh_token": <projectRefreshToken>}`;
+a `code: 0` answer's `data` carries a new `access_token` / `refresh_token`
+pair, and the original request is retried with the new token. The app logs
+out only when there is no refresh token or the refresh fails.
 
 ## Onboarding / pairing (the only BLE that Original uses)
 
@@ -132,7 +139,8 @@ POST /api/device/thing_shadow/  body: { device_id, product_id } → BaseResp<Dev
 - **`/detail/`** — one-shot device metadata (`sn`, `device_id`).
 - **`/thing_shadow/`** — full current shadow (the reported-state read path,
   `deviceFullProperties`); used for the initial snapshot before the WebSocket
-  takes over for live updates.
+  takes over for live updates. Unlike `/command`, its `product_id` is the
+  device's own `productId` from the machine list (`getJ20Info`).
 
 ## Command model (the write path)
 

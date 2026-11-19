@@ -30,9 +30,6 @@
       },
       "j20_grinding": {
         "default": "mdi:grain"
-      },
-      "j20_calibrating": {
-        "default": "mdi:cog-refresh"
       }
     },
     "button": {

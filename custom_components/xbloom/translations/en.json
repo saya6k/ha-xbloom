@@ -75,7 +75,8 @@
       "unknown": "Unexpected error.",
       "invalid_auth": "Invalid email or password.",
       "no_original_devices": "No xBloom Original found on this account.",
-      "original_account_incomplete": "Enter both the xBloom email and password."
+      "original_account_incomplete": "Enter both the xBloom email and password.",
+      "original_cannot_connect": "Cannot reach the xBloom cloud. Check the internet connection and try again."
     },
     "abort": {
       "already_configured": "xBloom device is already configured.",
@@ -159,7 +160,9 @@
       "invalid_recipe": "Recipe does not match the schema — {error}",
       "recipe_exists": "A recipe named {error} already exists. Use 'Edit a recipe' instead or pick another name.",
       "account_password_required": "Enter the password to set or change the cloud account.",
-      "account_email_required": "Enter the email to set the cloud account."
+      "account_email_required": "Enter the email to set the cloud account.",
+      "invalid_auth": "Invalid email or password.",
+      "original_cannot_connect": "Cannot reach the xBloom cloud. Check the internet connection and try again."
     },
     "abort": {
       "no_recipes": "No recipes available. Use 'Add a recipe' to create one."
@@ -187,9 +190,6 @@
       },
       "j20_grinding": {
         "name": "Grinding"
-      },
-      "j20_calibrating": {
-        "name": "Calibrating"
       }
     },
     "button": {
@@ -368,8 +368,7 @@
           "grinding": "Grinding",
           "brewing": "Brewing",
           "complete": "Complete",
-          "sleeping": "Sleeping",
-          "unknown": "Unknown"
+          "sleeping": "Sleeping"
         }
       }
     },

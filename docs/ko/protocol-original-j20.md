@@ -74,8 +74,14 @@ Authorization: token <projectToken>
 
 secret은 `de77d4d97ecf9003eaa5f372fd9a616b`(`ServiceConfig.configBeanRelease`)이며,
 서명 입력은 `appId,appSecret,nonce,ts`를 콤마로 이은 문자열입니다. 로그인은
-`client-api.xbloom.com`의 `tMemberLogin.thtml`이고, 응답에는 `token`(레시피 API)과
-`projectToken`(이 헤더의 bearer)이 함께 들어 있습니다.
+`client-api.xbloom.com`의 `tMemberLogin.thtml`이고, 응답에는 `token`(레시피 API),
+`projectToken`(이 헤더의 bearer), `projectRefreshToken`이 들어 있습니다.
+
+`api-iot` 호출이 `code: 10001`을 돌려주면 `TokenInterceptor`가
+`PUT /api/enduser/refresh_token/`을 `{"refresh_token": <projectRefreshToken>}`로
+호출합니다. `code: 0` 응답의 `data`에 새 `access_token` / `refresh_token`이
+들어 있고, 원래 요청을 새 토큰으로 다시 보냅니다. 앱은 refresh token이 없거나
+갱신이 실패할 때만 로그아웃합니다.
 
 ## 온보딩 / 페어링 (Original이 BLE를 쓰는 유일한 곳)
 
@@ -131,6 +137,8 @@ POST /api/device/thing_shadow/  body: { device_id, product_id } → BaseResp<Dev
 - **`/detail/`** — 일회성 기기 메타데이터(`sn`, `device_id`).
 - **`/thing_shadow/`** — 전체 현재 섀도우(보고 상태 읽기 경로,
   `deviceFullProperties`); WebSocket이 실시간 갱신을 넘겨받기 전 초기 스냅샷용.
+  `/command`와 달리 `product_id`로 기기 목록의 해당 기기 `productId`를
+  보냅니다(`getJ20Info`).
 
 ## 명령 모델 (쓰기 경로)
 
