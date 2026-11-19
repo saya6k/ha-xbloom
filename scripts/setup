@@ -35,13 +35,13 @@ http:
 logger:
   default: info
   logs:
-    custom_components.xbloom: debug
+    custom_components.xb: debug
     xbloom: debug
 YAML
 fi
 
 # Symlink the integration into HA's config dir so edits hot-reload.
 mkdir -p config/custom_components
-ln -sfn "$PWD/custom_components/xbloom" config/custom_components/xbloom
+ln -sfn "$PWD/custom_components/xb" config/custom_components/xb
 
 echo "Setup complete. Run scripts/develop to start Home Assistant."

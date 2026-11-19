@@ -26,7 +26,7 @@ import json
 import re
 from pathlib import Path
 
-_COMPONENT = Path(__file__).resolve().parents[1] / "custom_components" / "xbloom"
+_COMPONENT = Path(__file__).resolve().parents[1] / "custom_components" / "xb"
 _FILES = [
     _COMPONENT / "strings.json",
     *sorted((_COMPONENT / "translations").glob("*.json")),

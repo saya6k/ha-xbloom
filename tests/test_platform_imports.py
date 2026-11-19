@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-_PACKAGE = Path(__file__).parent.parent / "custom_components" / "xbloom"
+_PACKAGE = Path(__file__).parent.parent / "custom_components" / "xb"
 
 
 def _component_imports() -> list[tuple[str, str, str]]:

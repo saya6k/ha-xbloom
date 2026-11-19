@@ -9,8 +9,8 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
-from custom_components.xbloom.models.j15.ble.client import XBloomClient
-from custom_components.xbloom.models.j15.coordinator.recipes import RecipesMixin
+from custom_components.xb.models.j15.ble.client import XBloomClient
+from custom_components.xb.models.j15.coordinator.recipes import RecipesMixin
 
 
 class _FakeClient:

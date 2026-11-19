@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from custom_components.xbloom.models.j15.coordinator import XBloomCoordinator
+from custom_components.xb.models.j15.coordinator import XBloomCoordinator
 
 _STUDIO = XBloomCoordinator
 

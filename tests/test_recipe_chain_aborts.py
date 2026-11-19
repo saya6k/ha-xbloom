@@ -13,9 +13,9 @@ import itertools
 
 import pytest
 
-from custom_components.xbloom.models.j15 import brewing
-from custom_components.xbloom.models.j15.ble.client import AckTimeout, XBloomClient
-from custom_components.xbloom.models.j15.ble.models import CupType, PourStep, XBloomRecipe
+from custom_components.xb.models.j15 import brewing
+from custom_components.xb.models.j15.ble.client import AckTimeout, XBloomClient
+from custom_components.xb.models.j15.ble.models import CupType, PourStep, XBloomRecipe
 
 # Captured before the autouse fixture below can shrink them.
 _REAL_COFFEE_SETTLE = brewing._STEP_SETTLE_COFFEE_S

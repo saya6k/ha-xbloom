@@ -5,7 +5,7 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from custom_components.xbloom import panel, pods
+from custom_components.xb import panel, pods
 from tests.machine_fakes import FakeStudio
 
 
@@ -103,7 +103,7 @@ def test_delete():
 
 
 def _hass_with(coordinator):
-    from custom_components.xbloom.const import DATA_COORDINATOR, DOMAIN
+    from custom_components.xb.const import DATA_COORDINATOR, DOMAIN
 
     hass = MagicMock()
     hass.data = {DOMAIN: {"e1": {DATA_COORDINATOR: coordinator}}}

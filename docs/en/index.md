@@ -32,7 +32,7 @@ Huge thanks to Frederic, the PyBloom contributors, and Bruno Azzinnari for the p
 
 ## How this differs from xBloom Studio (Alshekhi/xbloom-studio)
 
-[`Alshekhi/xbloom-studio`](https://github.com/Alshekhi/xbloom-studio) is another integration for the same machine over the same local Bluetooth protocol, and it is the one in the HACS default store. Both install into `custom_components/xbloom` (domain `xbloom`), so **only one of them can be installed at a time**. Pick the one that fits:
+[`Alshekhi/xbloom-studio`](https://github.com/Alshekhi/xbloom-studio) is another integration for the same machine over the same local Bluetooth protocol, and it is the one in the HACS default store. Since version 3 this integration installs as `custom_components/xb` (domain `xb`) and xbloom-studio as `custom_components/xbloom`, so both can be installed — but the machine accepts only one Bluetooth connection at a time, so **set a given machine up in only one of them**. Pick the one that fits:
 
 | | This integration (ha-xbloom) | xbloom-studio |
 |---|---|---|
@@ -47,9 +47,18 @@ Also in this integration: a pod library that records every scanned pod or recipe
 
 This comparison reflects both projects as of November 2026; see the other project's README for its current features.
 
+## Upgrading from 2.x
+
+Version 3 changed the integration's domain from `xbloom` to `xb` (the old one clashed with xbloom-studio in the HACS store). Home Assistant can't rename a domain by itself, so after HACS installs the update:
+
+1. Restart Home Assistant. The old version (left behind in `custom_components/xbloom`) keeps running your machines for now.
+2. Settings → Devices & Services → **Add integration** → "xBloom", and submit **Move machines from the previous version**. This deletes the old folder and re-creates every machine under the new version.
+3. Restart Home Assistant again. Your machines move over: entity ids, device and entity names, areas, labels, recipes, pod library and history are kept.
+4. Update what can't move automatically: `xbloom.*` actions in automations and scripts become `xb.*`, a `xbloom:` block in `configuration.yaml` becomes `xb:`, and a conversation agent using the xBloom LLM API needs it selected again.
+
 ## Installation (HACS)
 
-This integration is not in the HACS default store (its domain is already taken there, see above), so add it as a custom repository. If xbloom-studio is installed, remove it first.
+This integration is not in the HACS default store yet, so add it as a custom repository.
 
 1. In HACS → Integrations → ⋮ → **Custom repositories**, add this repo URL with category **Integration**.
 2. Install **xBloom Coffee Machine**.
@@ -59,7 +68,7 @@ This integration is not in the HACS default store (its domain is already taken t
 
 ## Manual installation
 
-Copy `custom_components/xbloom/` into your HA config's `custom_components/` folder and restart.
+Copy `custom_components/xb/` into your HA config's `custom_components/` folder and restart.
 
 ## Configuration
 
@@ -72,7 +81,7 @@ On first install the recipe store is seeded **once**: a small bundled set is wri
 Recipes can also be defined in `configuration.yaml` — lower priority than the local store (a same-named store recipe wins; deleting a YAML recipe from the UI hides it):
 
 ```yaml
-xbloom:
+xb:
   recipes:
     - name: Morning V60
       cup_type: omni_dripper      # x_pod | omni_dripper | other | tea
@@ -133,7 +142,7 @@ A saved recipe can be run with adjustments for a single brew without editing it.
 Every top-level scalar can be overridden per brew: `grind_size`, `rpm`, `dose_g`, `ratio`, `cup_type`, `bypass_volume`, `bypass_temperature`. A `dose_g`/`ratio` override rescales the pour volumes proportionally (sum of pours + bypass = dose × ratio). Bypass can be added even to recipes that have none; tea recipes never bypass or grind.
 
 ```yaml
-service: xbloom.execute_recipe
+service: xb.execute_recipe
 target:
   device_id: <your xbloom device>   # optional if you only have one machine
 data:
@@ -164,7 +173,7 @@ Nine services cover the whole recipe surface (Developer Tools → Actions). Wher
 | `cloud_search_collective_recipes` | Search xBloom's **public** community recipe hub (collective.xbloom.com) — no account needed. Filter by keyword, coffee/tea, official/user, and multi-select machine / cup type / origin / varietal / process / roast / flavor facets, with sorting. |
 
 ```yaml
-service: xbloom.cloud_import_recipe
+service: xb.cloud_import_recipe
 data:
   share_url: "https://share-h5.xbloom.com/?id=KmMzhYCe5itq%2FJcqOLhiag%3D%3D"
 ```

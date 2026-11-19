@@ -6,7 +6,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-if [ ! -d config ] || [ ! -L config/custom_components/xbloom ]; then
+if [ ! -d config ] || [ ! -L config/custom_components/xb ]; then
   echo "config/ not initialized — running scripts/setup first."
   scripts/setup
 fi

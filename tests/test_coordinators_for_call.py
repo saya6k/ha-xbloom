@@ -17,9 +17,9 @@ import pytest
 
 pytest.importorskip("homeassistant.core")
 
-from custom_components.xbloom.const import DATA_COORDINATOR, DOMAIN
-from custom_components.xbloom.machine import Capability
-from custom_components.xbloom.services import _coordinators_for_call
+from custom_components.xb.const import DATA_COORDINATOR, DOMAIN
+from custom_components.xb.machine import Capability
+from custom_components.xb.services import _coordinators_for_call
 from tests.machine_fakes import FakeStudio
 
 

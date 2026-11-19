@@ -14,7 +14,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
-from custom_components.xbloom.config_flow import XBloomOptionsFlow
+from custom_components.xb.config_flow import XBloomOptionsFlow
 
 
 def _flow(options: dict) -> XBloomOptionsFlow:
@@ -28,7 +28,7 @@ def _flow(options: dict) -> XBloomOptionsFlow:
     )
     flow = XBloomOptionsFlow(entry)
     flow.flow_id = "test"
-    flow.handler = "xbloom"
+    flow.handler = "xb"
     flow.context = {}
     return flow
 

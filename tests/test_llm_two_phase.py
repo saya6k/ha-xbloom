@@ -16,7 +16,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent / "custom_components" / "xbloom"
+ROOT = Path(__file__).parent.parent / "custom_components" / "xb"
 
 
 def _src(rel: str) -> str:
@@ -43,7 +43,7 @@ def test_pour_tool_is_two_phase():
 def test_pour_boiling_maps_to_the_bp_slider_endpoint():
     """boiling=true must set the mirrored setpoint to the BP endpoint
     (96 — transmits 98), not a raw 100 that overflows the 39-96 slider."""
-    from custom_components.xbloom.models.j15.coordinator import XBloomCoordinator
+    from custom_components.xb.models.j15.coordinator import XBloomCoordinator
 
     assert XBloomCoordinator.limits.boiling_c == 96
     assert "temperature = float(limits.boiling_c)" in _src("llm/pour.py")

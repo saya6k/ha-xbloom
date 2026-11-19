@@ -45,11 +45,11 @@ allowed-confusables = ["–", "×", "−"]
 # The model and shared-feature subpackages are children of the integration,
 # so they reach its shared modules with ".." imports. Ruff's TID252 wants
 # absolute imports, which would couple the packages to HA's loader path.
-"custom_components/xbloom/models/**/*.py" = ["TID252"]
-"custom_components/xbloom/{panel,recipes,cloud}/*.py" = ["TID252"]
+"custom_components/xb/models/**/*.py" = ["TID252"]
+"custom_components/xb/{panel,recipes,cloud}/*.py" = ["TID252"]
 # The integration module re-exports its HA hooks (CONFIG_SCHEMA,
 # async_migrate_entry); the redundant alias marks them as explicit exports.
-"custom_components/xbloom/__init__.py" = ["PLC0414"]
+"custom_components/xb/__init__.py" = ["PLC0414"]
 
 # The PLR complexity caps below are waived per file, not silenced globally.
 # Every one of them is a protocol- or API-shaped function whose size comes
@@ -59,30 +59,30 @@ allowed-confusables = ["–", "×", "−"]
 
 # async_register_services registers every service in one idempotent block,
 # guarded by a single has_service() check.
-"custom_components/xbloom/services.py" = ["PLR0915"]
+"custom_components/xb/services.py" = ["PLR0915"]
 # search_collective_recipes mirrors the collective hub's query string, which
 # takes 14 independent, individually-optional filters.
-"custom_components/xbloom/cloud/client.py" = ["PLR0913", "PLR0917"]
+"custom_components/xb/cloud/client.py" = ["PLR0913", "PLR0917"]
 # _handle_response is the single demultiplexer for the BLE notification
 # stream — one branch per command id, by design. send_and_wait's arguments
 # are the packet fields.
-"custom_components/xbloom/models/j15/ble/client.py" = ["PLR0912", "PLR0913", "PLR0915"]
+"custom_components/xb/models/j15/ble/client.py" = ["PLR0912", "PLR0913", "PLR0915"]
 # _ack_step takes the packet fields plus the ACK deadline and settle time.
-"custom_components/xbloom/models/j15/brewing.py" = ["PLR0913"]
+"custom_components/xb/models/j15/brewing.py" = ["PLR0913"]
 # The coordinator takes each config-entry option as its own argument rather
 # than a bag, so a missing one is a TypeError instead of a silent default.
-"custom_components/xbloom/models/j15/coordinator/__init__.py" = ["PLR0913", "PLR0917"]
+"custom_components/xb/models/j15/coordinator/__init__.py" = ["PLR0913", "PLR0917"]
 # These service entry points validate a batch of independent preconditions
 # and return a distinct error dict for each, so the return and branch counts
 # track the number of documented failure modes.
-"custom_components/xbloom/models/j15/coordinator/advanced_settings.py" = ["PLR0911", "PLR0912"]
-"custom_components/xbloom/models/j15/coordinator/recipes.py" = ["PLR0911", "PLR0912", "PLR0915"]
-"custom_components/xbloom/recipes/store.py" = ["PLR0911", "PLR0912", "PLR0915"]
-"custom_components/xbloom/llm/recipe.py" = ["PLR0911", "PLR0912", "PLR0915"]
+"custom_components/xb/models/j15/coordinator/advanced_settings.py" = ["PLR0911", "PLR0912"]
+"custom_components/xb/models/j15/coordinator/recipes.py" = ["PLR0911", "PLR0912", "PLR0915"]
+"custom_components/xb/recipes/store.py" = ["PLR0911", "PLR0912", "PLR0915"]
+"custom_components/xb/llm/recipe.py" = ["PLR0911", "PLR0912", "PLR0915"]
 # _derive_state_string is an ordered priority chain (first match wins) and
 # _dispatch_event fans one BLE event out to every entity category; both are
 # single decision tables that only read as tables when kept whole.
-"custom_components/xbloom/models/j15/coordinator/state.py" = ["PLR0911", "PLR0912", "PLR0915"]
+"custom_components/xb/models/j15/coordinator/state.py" = ["PLR0911", "PLR0912", "PLR0915"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["custom_components.xbloom"]
+known-first-party = ["custom_components.xb"]

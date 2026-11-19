@@ -20,7 +20,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from custom_components.xbloom.const import (
+from custom_components.xb.const import (
     DATA_COORDINATOR,
     DOMAIN,
     XBLOOM_LLM_API_ID,
@@ -30,7 +30,7 @@ from tests.machine_fakes import FakeStudio
 from tests.test_llm_prompt import REGISTERED_TOOLS
 
 COMPONENT_ROOT = (
-    Path(__file__).resolve().parent.parent / "custom_components" / "xbloom"
+    Path(__file__).resolve().parent.parent / "custom_components" / "xb"
 )
 
 # Modules that hold tool implementations (plus the catalog that aggregates
@@ -65,28 +65,28 @@ def _entry(coordinator: SimpleNamespace) -> dict:
 
 
 def test_assist_api_gets_none():
-    from custom_components.xbloom import llm as llm_platform
+    from custom_components.xb import llm as llm_platform
 
     hass = _fake_hass({"entry1": _entry(SimpleNamespace())})
     assert llm_platform.async_get_tools(hass, None, "assist") is None
 
 
 def test_foreign_api_gets_none():
-    from custom_components.xbloom import llm as llm_platform
+    from custom_components.xb import llm as llm_platform
 
     hass = _fake_hass({"entry1": _entry(SimpleNamespace())})
     assert llm_platform.async_get_tools(hass, None, "some_other_api") is None
 
 
 def test_unknown_entry_gets_none():
-    from custom_components.xbloom import llm as llm_platform
+    from custom_components.xb import llm as llm_platform
 
     hass = _fake_hass({"entry1": _entry(SimpleNamespace())})
     assert llm_platform.async_get_tools(hass, None, _api_id("nope")) is None
 
 
 def test_no_domain_data_gets_none():
-    from custom_components.xbloom import llm as llm_platform
+    from custom_components.xb import llm as llm_platform
 
     hass = SimpleNamespace(data={})
     assert llm_platform.async_get_tools(hass, None, _api_id("entry1")) is None
@@ -94,7 +94,7 @@ def test_no_domain_data_gets_none():
 
 def test_non_entry_domain_key_gets_none():
     """hass.data[DOMAIN] holds non-entry keys (e.g. yaml_recipes) — never a match."""
-    from custom_components.xbloom import llm as llm_platform
+    from custom_components.xb import llm as llm_platform
 
     hass = _fake_hass({"yaml_recipes": {"Recipe": {}}})
     assert llm_platform.async_get_tools(hass, None, _api_id("yaml_recipes")) is None
@@ -104,7 +104,7 @@ def test_non_entry_domain_key_gets_none():
 
 
 def test_catalog_builds_the_full_tool_set():
-    from custom_components.xbloom.llm.catalog import build_tools
+    from custom_components.xb.llm.catalog import build_tools
 
     coordinator, hass = FakeStudio(), SimpleNamespace()
     tools = build_tools(coordinator, hass)
@@ -117,8 +117,8 @@ def test_catalog_builds_the_full_tool_set():
 def test_catalog_offers_only_what_the_machine_can_do():
     """A model without recipes (the Original) gets no recipe/slot/tare tools,
     and its own ranges in the grind/pour schemas."""
-    from custom_components.xbloom.llm.catalog import build_tools
-    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+    from custom_components.xb.llm.catalog import build_tools
+    from custom_components.xb.models.j20.coordinator import J20Coordinator
 
     original = SimpleNamespace(
         capabilities=J20Coordinator.capabilities, limits=J20Coordinator.limits
@@ -144,8 +144,8 @@ def test_catalog_offers_only_what_the_machine_can_do():
 
 
 def test_prompt_only_describes_what_the_machine_can_do():
-    from custom_components.xbloom.llm.catalog import build_prompt
-    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+    from custom_components.xb.llm.catalog import build_prompt
+    from custom_components.xb.models.j20.coordinator import J20Coordinator
 
     assert build_prompt(FakeStudio()) == XBLOOM_LLM_PROMPT
     original = SimpleNamespace(
@@ -164,8 +164,8 @@ def test_prompt_only_describes_what_the_machine_can_do():
 
 
 def test_arm_reply_matches_where_the_arm_lives():
-    from custom_components.xbloom.llm.pour import XBloomPourTool
-    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+    from custom_components.xb.llm.pour import XBloomPourTool
+    from custom_components.xb.models.j20.coordinator import J20Coordinator
 
     studio = XBloomPourTool(FakeStudio(), None)
     assert "showing its pour page" in studio._armed_text("pour")
@@ -177,7 +177,7 @@ def test_arm_reply_matches_where_the_arm_lives():
 
 
 def test_catalog_builds_fresh_instances_per_call():
-    from custom_components.xbloom.llm.catalog import build_tools
+    from custom_components.xb.llm.catalog import build_tools
 
     coord_a, coord_b = FakeStudio(), FakeStudio()
     hass = SimpleNamespace()
@@ -195,7 +195,7 @@ def test_own_api_returns_tools_and_prompt():
     pytest.importorskip(
         "homeassistant.components.llm", reason="HA ≥ 2026.8 (devcontainer image)"
     )
-    from custom_components.xbloom import llm as llm_platform
+    from custom_components.xb import llm as llm_platform
 
     coordinator = FakeStudio()
     hass = _fake_hass({"entry1": _entry(coordinator)})
@@ -210,7 +210,7 @@ def test_two_entries_each_bind_their_own_coordinator():
     pytest.importorskip(
         "homeassistant.components.llm", reason="HA ≥ 2026.8 (devcontainer image)"
     )
-    from custom_components.xbloom import llm as llm_platform
+    from custom_components.xb import llm as llm_platform
 
     coord_a, coord_b = FakeStudio(), FakeStudio()
     hass = _fake_hass({"entry_a": _entry(coord_a), "entry_b": _entry(coord_b)})
@@ -238,8 +238,8 @@ class _ShellHass(SimpleNamespace):
 
 
 def test_api_shell_keeps_id_and_name_format():
-    from custom_components.xbloom.const import XBLOOM_LLM_API_NAME
-    from custom_components.xbloom.llm_api import XBloomCoffeeAPI
+    from custom_components.xb.const import XBLOOM_LLM_API_NAME
+    from custom_components.xb.llm_api import XBloomCoffeeAPI
 
     api = XBloomCoffeeAPI(_ShellHass({}), "entry1", "AA:BB:CC:DD:EE:FF")
     assert api.id == f"{XBLOOM_LLM_API_ID}_entry1"
@@ -250,7 +250,7 @@ def test_api_shell_builds_instance_via_platform():
     pytest.importorskip(
         "homeassistant.components.llm", reason="HA ≥ 2026.8 (devcontainer image)"
     )
-    from custom_components.xbloom.llm_api import XBloomCoffeeAPI
+    from custom_components.xb.llm_api import XBloomCoffeeAPI
 
     coordinator = FakeStudio()
     hass = _ShellHass({"entry1": _entry(coordinator)})
@@ -266,7 +266,7 @@ def test_api_shell_raises_when_entry_is_gone():
     hand the agent an empty APIInstance."""
     from homeassistant.exceptions import HomeAssistantError
 
-    from custom_components.xbloom.llm_api import XBloomCoffeeAPI
+    from custom_components.xb.llm_api import XBloomCoffeeAPI
 
     hass = _ShellHass({})
     api = XBloomCoffeeAPI(hass, "gone", "AA:BB:CC:DD:EE:FF")
@@ -322,7 +322,7 @@ def test_setup_path_never_imports_the_platform_package():
     must not import the llm package or any llm.* submodule at module level —
     a submodule import executes llm/__init__.py (and the catalog pulls every
     tool), defeating lazy loading."""
-    platform = "custom_components.xbloom.llm"
+    platform = "custom_components.xb.llm"
     for fname in (
         "__init__.py",
         "models/j15/__init__.py",

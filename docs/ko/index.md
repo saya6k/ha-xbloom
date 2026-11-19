@@ -32,7 +32,7 @@
 
 ## xBloom Studio(Alshekhi/xbloom-studio)와의 차이
 
-[`Alshekhi/xbloom-studio`](https://github.com/Alshekhi/xbloom-studio)는 같은 기기를 같은 로컬 블루투스 프로토콜로 제어하는 또 다른 통합이며, HACS 기본 스토어에 등록된 쪽입니다. 둘 다 `custom_components/xbloom`(도메인 `xbloom`)에 설치되므로 **한 번에 하나만 설치할 수 있습니다**. 용도에 맞는 쪽을 고르세요:
+[`Alshekhi/xbloom-studio`](https://github.com/Alshekhi/xbloom-studio)는 같은 기기를 같은 로컬 블루투스 프로토콜로 제어하는 또 다른 통합이며, HACS 기본 스토어에 등록된 쪽입니다. 버전 3부터 이 통합은 `custom_components/xb`(도메인 `xb`)에, xbloom-studio는 `custom_components/xbloom`에 설치되므로 둘 다 설치할 수는 있습니다. 하지만 기기는 블루투스 연결을 한 번에 하나만 받으므로 **한 기기는 둘 중 하나에서만 설정하세요**. 용도에 맞는 쪽을 고르세요:
 
 | | 이 통합 (ha-xbloom) | xbloom-studio |
 |---|---|---|
@@ -47,9 +47,18 @@
 
 이 비교는 2026년 11월 기준입니다. 상대 프로젝트의 최신 기능은 그쪽 README를 확인하세요.
 
+## 2.x에서 업그레이드
+
+버전 3에서 통합 구성요소의 도메인이 `xbloom`에서 `xb`로 바뀌었습니다(기존 도메인이 HACS 스토어의 xbloom-studio와 겹쳤음). Home Assistant는 도메인 변경을 스스로 처리하지 못하므로, HACS가 업데이트를 설치한 뒤:
+
+1. Home Assistant를 재시작합니다. `custom_components/xbloom`에 남은 이전 버전이 당분간 기기를 계속 실행합니다.
+2. 설정 → 기기 및 서비스 → **통합 구성요소 추가** → "xBloom"을 선택하고 **이전 버전의 기기 옮기기**를 제출합니다. 이전 폴더를 삭제하고 모든 기기를 새 버전으로 다시 만듭니다.
+3. Home Assistant를 다시 재시작합니다. 기기가 옮겨지며 엔티티 ID, 기기·엔티티 이름, 영역, 라벨, 레시피, 포드 라이브러리, 기록이 유지됩니다.
+4. 자동으로 옮겨지지 않는 것을 고칩니다: 자동화·스크립트의 `xbloom.*` 액션은 `xb.*`로, `configuration.yaml`의 `xbloom:` 블록은 `xb:`로 바꾸고, xBloom LLM API를 쓰는 대화 에이전트에서는 API를 다시 선택하세요.
+
 ## 설치 (HACS)
 
-이 통합은 HACS 기본 스토어에 없으므로(위에서 설명한 대로 도메인이 이미 등록돼 있음) 사용자 지정 저장소로 추가하세요. xbloom-studio가 설치돼 있다면 먼저 제거하세요.
+이 통합은 아직 HACS 기본 스토어에 없으므로 사용자 지정 저장소로 추가하세요.
 
 1. HACS → Integrations → ⋮ → **Custom repositories**에서 이 repo URL을 카테고리 **Integration**으로 추가.
 2. **xBloom Coffee Machine** 설치.
@@ -59,7 +68,7 @@
 
 ## 수동 설치
 
-`custom_components/xbloom/`을 HA config의 `custom_components/`에 복사 후 재시작.
+`custom_components/xb/`을 HA config의 `custom_components/`에 복사 후 재시작.
 
 ## 구성
 
@@ -72,7 +81,7 @@
 레시피는 `configuration.yaml`에도 정의할 수 있습니다 — 로컬 저장소보다 우선순위가 낮음(같은 이름의 저장소 레시피가 이김; UI에서 YAML 레시피를 삭제하면 숨겨짐):
 
 ```yaml
-xbloom:
+xb:
   recipes:
     - name: Morning V60
       cup_type: omni_dripper      # x_pod | omni_dripper | other | tea
@@ -133,7 +142,7 @@ LLM 도구는 **대화 에이전트별 옵트인**입니다: 에이전트 설정
 모든 최상위 스칼라를 브루별로 오버라이드할 수 있습니다: `grind_size`, `rpm`, `dose_g`, `ratio`, `cup_type`, `bypass_volume`, `bypass_temperature`. `dose_g`/`ratio` 오버라이드는 pour 볼륨을 비례 재계산합니다(pours 합 + bypass = dose × ratio). bypass가 없는 레시피에도 추가할 수 있고, 차 레시피는 bypass도 grind도 없습니다.
 
 ```yaml
-service: xbloom.execute_recipe
+service: xb.execute_recipe
 target:
   device_id: <your xbloom device>   # 머신이 하나뿐이면 생략 가능
 data:
@@ -164,7 +173,7 @@ Assist(LLM)에서는 `xbloom__get_recipe`가 레시피 전체 상세(grind, RPM,
 | `cloud_search_collective_recipes` | xBloom의 **공개** 커뮤니티 레시피 허브(collective.xbloom.com) 검색 — 계정 불필요. 검색어, coffee/tea, official/user, 멀티 셀렉트 머신/컵 타입/원산지/품종/가공/로스팅/풍미 필터와 정렬. |
 
 ```yaml
-service: xbloom.cloud_import_recipe
+service: xb.cloud_import_recipe
 data:
   share_url: "https://share-h5.xbloom.com/?id=KmMzhYCe5itq%2FJcqOLhiag%3D%3D"
 ```

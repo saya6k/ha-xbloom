@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 
-from custom_components.xbloom.models.j20.client import (
+from custom_components.xb.models.j20.client import (
     J20_API_BASE,
     J20_APP_ID,
     J20_APP_SECRET,
@@ -26,7 +26,7 @@ from custom_components.xbloom.models.j20.client import (
     parse_shadow,
     signed_headers,
 )
-from custom_components.xbloom.models.j20.values import (
+from custom_components.xb.models.j20.values import (
     GRIND_SIZE_DEFAULT,
     build_bruw_curve,
     warning_active,
@@ -341,7 +341,7 @@ def test_unmapped_warning_is_still_a_problem() -> None:
 def _coordinator(*, online=True, data=None, **attrs):
     """A real J20Coordinator without DataUpdateCoordinator.__init__ (no hass):
     the methods under test only touch the attributes set here."""
-    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+    from custom_components.xb.models.j20.coordinator import J20Coordinator
 
     coordinator = object.__new__(J20Coordinator)
     coordinator.data = {"online": online, **(data or {})}
@@ -383,7 +383,7 @@ def test_machines_sharing_an_account_renew_its_token_once() -> None:
 
 
 def test_an_arm_lapses_instead_of_firing_later():
-    from custom_components.xbloom.models.j20 import coordinator as module
+    from custom_components.xb.models.j20 import coordinator as module
 
     coordinator = _coordinator(async_grind=AsyncMock())
     with patch.object(module.time, "monotonic", return_value=1000.0):
@@ -522,7 +522,7 @@ def test_command_auth_failure_starts_reauth() -> None:
 
 
 def test_reauth_account_must_own_the_machine() -> None:
-    from custom_components.xbloom.config_flow import _async_original_owns
+    from custom_components.xb.config_flow import _async_original_owns
 
     def client(result):
         return SimpleNamespace(async_list_devices=AsyncMock(**result))

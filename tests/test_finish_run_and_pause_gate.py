@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import asyncio
 
-from custom_components.xbloom.models.j15.coordinator.constants import WATER_SOURCE_TANK
-from custom_components.xbloom.models.j15.coordinator.operations import OperationsMixin
-from custom_components.xbloom.models.j15.coordinator.state import StateMixin
+from custom_components.xb.models.j15.coordinator.constants import WATER_SOURCE_TANK
+from custom_components.xb.models.j15.coordinator.operations import OperationsMixin
+from custom_components.xb.models.j15.coordinator.state import StateMixin
 
 
 class _FakeHass:

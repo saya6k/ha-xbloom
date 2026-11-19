@@ -18,13 +18,13 @@ from pathlib import Path
 
 import pytest
 
-COMPONENT = Path(__file__).resolve().parent.parent / "custom_components" / "xbloom"
+COMPONENT = Path(__file__).resolve().parent.parent / "custom_components" / "xb"
 
 
 def _imported_modules(path: Path) -> set[str]:
     """Every module a file imports, resolved to an absolute dotted name."""
     package = ".".join(
-        ("custom_components", "xbloom", *path.relative_to(COMPONENT).parent.parts)
+        ("custom_components", "xb", *path.relative_to(COMPONENT).parent.parts)
     )
     found: set[str] = set()
     for node in ast.walk(ast.parse(path.read_text())):
@@ -51,7 +51,7 @@ MODELS = sorted(
 @pytest.mark.parametrize("model", MODELS)
 def test_models_do_not_import_each_other(model):
     forbidden = tuple(
-        f"custom_components.xbloom.models.{other}" for other in MODELS if other != model
+        f"custom_components.xb.models.{other}" for other in MODELS if other != model
     )
     for path in sorted((COMPONENT / "models" / model).rglob("*.py")):
         leaks = {m for m in _imported_modules(path) if m.startswith(forbidden)}
@@ -76,7 +76,7 @@ SHARED = sorted(
 def test_shared_features_never_import_a_model(path):
     leaks = {
         m for m in _imported_modules(path)
-        if m.startswith("custom_components.xbloom.models")
+        if m.startswith("custom_components.xb.models")
     }
     assert not leaks, f"{path.relative_to(COMPONENT)} imports {leaks}"
 
@@ -105,8 +105,8 @@ _BY_CAPABILITY = {
 
 def _coordinators():
     pytest.importorskip("homeassistant.components.event")
-    from custom_components.xbloom.models.j15.coordinator import XBloomCoordinator
-    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+    from custom_components.xb.models.j15.coordinator import XBloomCoordinator
+    from custom_components.xb.models.j20.coordinator import J20Coordinator
 
     return [XBloomCoordinator, J20Coordinator]
 
@@ -139,16 +139,16 @@ def test_every_model_implements_its_capabilities():
 @pytest.mark.parametrize(
     "module",
     [
-        "custom_components.xbloom",
-        "custom_components.xbloom.binary_sensor",
-        "custom_components.xbloom.button",
-        "custom_components.xbloom.event",
-        "custom_components.xbloom.number",
-        "custom_components.xbloom.select",
-        "custom_components.xbloom.sensor",
-        "custom_components.xbloom.switch",
-        "custom_components.xbloom.update",
-        "custom_components.xbloom.config_flow",
+        "custom_components.xb",
+        "custom_components.xb.binary_sensor",
+        "custom_components.xb.button",
+        "custom_components.xb.event",
+        "custom_components.xb.number",
+        "custom_components.xb.select",
+        "custom_components.xb.sensor",
+        "custom_components.xb.switch",
+        "custom_components.xb.update",
+        "custom_components.xb.config_flow",
     ],
 )
 def test_entry_points_import(module):
