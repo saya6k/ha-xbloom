@@ -8,7 +8,10 @@ from typing import Any
 import voluptuous as vol
 import yaml
 from homeassistant import config_entries
-from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
+from homeassistant.components.bluetooth import (
+    BluetoothServiceInfoBleak,
+    async_last_service_info,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -31,6 +34,7 @@ from .const import (
     CONF_MAC_ADDRESS,
     CONF_PASSWORD,
     CONF_RECIPES,
+    CONF_SERIAL_SUFFIX,
     CONF_SESSION_TIMEOUT,
     CONF_TELEMETRY_INTERVAL,
     CONF_TEMP_UNIT,
@@ -48,7 +52,7 @@ from .const import (
 from .models.j15.ble.client import XBloomClient
 from .models.j15.ble.connection import HABleakConnection
 from .models.j15.ble.scanner import discover_devices
-from .models.j15.coordinator import WATER_SOURCE_OPTIONS
+from .models.j15.coordinator import WATER_SOURCE_OPTIONS, serial_suffix_from_name
 from .models.j20.client import (
     J20_PRODUCT_ID,
     J20ApiError,
@@ -124,6 +128,7 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._mac_step_data: dict[str, Any] = {}
         self._discovered_mac: str | None = None
         self._discovered_name: str | None = None
+        self._serial_suffix: str | None = None
         self._j20_devices: list[dict[str, Any]] = []
         self._j20_email: str = ""
         self._j20_password: str = ""
@@ -138,7 +143,13 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._abort_if_unique_id_configured()
 
         self._discovered_mac = mac
-        self._discovered_name = discovery_info.name or mac
+        # Only Studios advertise over Bluetooth (the Original is Wi-Fi only).
+        self._serial_suffix = serial_suffix_from_name(discovery_info.name)
+        self._discovered_name = (
+            f"xBloom Studio {self._serial_suffix}"
+            if self._serial_suffix
+            else discovery_info.name or mac
+        )
         self.context["title_placeholders"] = {"name": self._discovered_name}
         return await self.async_step_bluetooth_confirm()
 
@@ -169,6 +180,8 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_TELEMETRY_INTERVAL: DEFAULT_TELEMETRY_INTERVAL,
                     CONF_SESSION_TIMEOUT: DEFAULT_SESSION_TIMEOUT,
                 }
+                if self._serial_suffix:
+                    self._mac_step_data[CONF_SERIAL_SUFFIX] = self._serial_suffix
                 return await self.async_step_account()
 
         return self.async_show_form(
@@ -221,6 +234,9 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             CONF_SESSION_TIMEOUT, DEFAULT_SESSION_TIMEOUT
                         ),
                     }
+                    info = async_last_service_info(self.hass, mac, connectable=True)
+                    if suffix := serial_suffix_from_name(info.name if info else None):
+                        self._mac_step_data[CONF_SERIAL_SUFFIX] = suffix
                     return await self.async_step_account()
 
         # Show form — optionally pre-fill with discovered device

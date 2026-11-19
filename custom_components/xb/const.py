@@ -217,3 +217,8 @@ CONF_J20_SERIAL_NUMBER = "j20_serial_number"
 CONF_J20_NAME = "j20_name"
 
 DEFAULT_J20_SCAN_INTERVAL = 15  # seconds between thing-shadow polls
+
+# Studio: the last six characters of the serial number, as the machine
+# advertises them in its Bluetooth name ("XBLOOM 4CV030"). Read once at setup
+# so the device name is stable; absent when the name couldn't be read.
+CONF_SERIAL_SUFFIX = "serial_suffix"
