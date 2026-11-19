@@ -95,6 +95,9 @@ class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
     brews_tea = False
     # work_mode 5 ("ready") is ready to brew; finished is "complete".
     ready_is_idle = True
+    # Per-brew overrides its recipe run honours (llm/prompt.py): the run
+    # command has no bypass, and the recipe's grind is sent as stored.
+    recipe_overrides = frozenset({"dose_g", "ratio", "temperature_c", "pour_overrides"})
     # Seekbar ranges from the app; the temperature seekbar's top end (96)
     # is its BP position, sent as the 95 °C constant (values.temperature_code).
     limits = ManualLimits(

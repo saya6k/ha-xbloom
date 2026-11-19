@@ -13,7 +13,6 @@ invariant tests.
 """
 from __future__ import annotations
 
-import ast
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent / "custom_components" / "xb"
@@ -65,15 +64,9 @@ def test_tool_descriptions_document_the_flow():
 
 
 def test_prompt_mentions_cancel_and_two_phase():
-    tree = ast.parse(_src("const.py"))
-    prompt = None
-    for node in ast.walk(tree):
-        if (
-            isinstance(node, ast.Assign)
-            and isinstance(node.targets[0], ast.Name)
-            and node.targets[0].id == "XBLOOM_LLM_PROMPT"
-        ):
-            prompt = ast.literal_eval(node.value)
-    assert prompt is not None
+    from custom_components.xb.llm.prompt import build_prompt
+    from tests.machine_fakes import FakeStudio
+
+    prompt = build_prompt(FakeStudio())
     assert "xbloom__cancel" in prompt
     assert "confirmed=true" in prompt

@@ -114,6 +114,13 @@ class XBloomCoordinator(
         volume_ml=(10, 500),
         rpm=(60, 120),
         flow_rate=(3.0, 3.5),
+        grind_guide=(
+            ("Turkish", 0, 3), ("Espresso", 0, 18), ("Moka Pot", 17, 44),
+            ("Filter Coffee Machine", 12, 66), ("Aeropress", 13, 71),
+            ("Siphon", 18, 57), ("V60", 21, 47), ("Pour Over", 22, 68),
+            ("Steep-and-release", 25, 59), ("Cupping", 26, 61),
+            ("French Press", 47, 80), ("Cold Brew", 58, 80), ("Cold Drip", 59, 80),
+        ),
     )
     unreachable_hint = (
         "Tell the user the xBloom could not be reached over Bluetooth. Ask "

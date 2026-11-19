@@ -24,7 +24,6 @@ from custom_components.xb.const import (
     DATA_COORDINATOR,
     DOMAIN,
     XBLOOM_LLM_API_ID,
-    XBLOOM_LLM_PROMPT,
 )
 from tests.machine_fakes import FakeStudio
 from tests.test_llm_prompt import REGISTERED_TOOLS
@@ -155,11 +154,20 @@ def test_prompt_only_describes_what_the_machine_can_do():
     from custom_components.xb.llm.catalog import build_prompt
     from custom_components.xb.models.j20.coordinator import J20Coordinator
 
-    assert build_prompt(FakeStudio()) == XBLOOM_LLM_PROMPT
+    studio = build_prompt(FakeStudio())
+    for tool in REGISTERED_TOOLS:
+        assert tool in studio, tool
+    assert "GRIND SIZE REFERENCE" in studio and "beans or tea leaves" in studio
+    # Shared sentences, only the Original's missing features differ.
+    assert "It has no" not in studio
     original = SimpleNamespace(
         capabilities=J20Coordinator.capabilities, limits=J20Coordinator.limits
     )
+    original.brews_tea = J20Coordinator.brews_tea
+    original.recipe_overrides = J20Coordinator.recipe_overrides
     prompt = build_prompt(original)
+    assert "It has no tea brewer, Easy Mode slots or scale here" in prompt
+    assert "grind_size and/or rpm" not in prompt and "tea leaves" not in prompt
     for absent in (
         "xbloom__tare_scale", "xbloom__write_easy_slot", "Bluetooth", "RPM",
         "80=coarsest", "bypass_volume",
@@ -213,7 +221,9 @@ def test_own_api_returns_tools_and_prompt():
     result = llm_platform.async_get_tools(hass, None, _api_id("entry1"))
     assert result is not None
     assert {tool.name for tool in result.tools} == set(REGISTERED_TOOLS)
-    assert result.prompt == XBLOOM_LLM_PROMPT
+    from custom_components.xb.llm.prompt import build_prompt
+
+    assert result.prompt == build_prompt(coordinator)
     assert all(tool.coordinator is coordinator for tool in result.tools)
 
 
@@ -268,7 +278,9 @@ def test_api_shell_builds_instance_via_platform():
     api = XBloomCoffeeAPI(hass, "entry1", "AA:BB:CC:DD:EE:FF")
     instance = asyncio.run(api.async_get_api_instance(None))
     assert {tool.name for tool in instance.tools} == set(REGISTERED_TOOLS)
-    assert instance.api_prompt == XBLOOM_LLM_PROMPT
+    from custom_components.xb.llm.prompt import build_prompt
+
+    assert instance.api_prompt == build_prompt(coordinator)
     assert all(tool.coordinator is coordinator for tool in instance.tools)
 
 
