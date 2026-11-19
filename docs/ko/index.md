@@ -4,7 +4,12 @@
 
 > 이 페이지는 [`en/index.md`](../en/index.md)의 번역본입니다. 영문판이 source of truth이며, 한글본은 뒤늦게 동기화될 수 있습니다.
 
-[xBloom Studio](https://xbloom.com/) 커피머신을 Home Assistant에서 로컬 블루투스로 제어. 추출, 분쇄, 저장된 레시피 실행, Assist(LLM) 노출 — 모두 클라우드 없이.
+Home Assistant에서 xBloom 커피머신을 제어합니다.
+
+- **xBloom Studio** — 로컬 블루투스, 클라우드 불필요.
+- **xBloom Original**(**실험적**, [`original.md`](./original.md) 참고) — 공식 앱과 같은 방식으로 xBloom 클라우드를 거쳐 제어하며, 로컬 API는 없습니다. 기기의 첫 Wi-Fi 설정도 Home Assistant가 블루투스로 할 수 있습니다. 공식 앱 코드를 바탕으로 만들었고, 실제 Original에서는 아직 시험하지 않았습니다.
+
+Studio에서는 추출, 분쇄, 저장된 레시피 실행, Assist(LLM) 노출을 모두 클라우드 없이 할 수 있습니다.
 
 두 개의 리버스 엔지니어링된 BLE upstream이 밝혀낸 프로토콜 작업 위에서 구축. BLE 클라이언트 자체는 어느 upstream도 import·복사하지 않는 클린룸 네이티브 구현이며([ADR-001](../../adr/001-clean-room-reimplementation-of-xbloom-ble.md) 참고), 이 upstream들은 예전에 저장소에 벤더링된 레퍼런스 사본이었으나 이후 제거되어 이제는 링크로만 크레딧을 표기함:
 
@@ -36,6 +41,7 @@
 
 | | 이 통합 (ha-xbloom) | xbloom-studio |
 |---|---|---|
+| 기기 | Studio, Original(실험적) | Studio |
 | 인터페이스 | 앱 스타일 내장 사이드바 패널(브루, 레시피, 클라우드 허브 검색, 수동, 설정) | 기본 카드로 만든 대시보드 YAML 제공 |
 | 레시피 | 로컬 저장소가 source of truth, 클라우드는 가져오기/내보내기 경계 | 로컬 라이브러리, 또는 xBloom 계정에 다시 기록하는 클라우드 동기화 |
 | BLE 클라이언트 | 이 저장소 안의 클린룸 구현, PyPI 의존성 없음 | [`xbloom-py`](https://pypi.org/project/xbloom-py/), 처음 설정할 때 PyPI에서 설치 |
@@ -73,7 +79,7 @@
 
 ## 구성
 
-초기 config flow가 MAC 주소 + 텔레메트리 주기 + idle 연결 해제 타임아웃을 처리합니다. 그 외는 Options flow에서 (설정 → 기기 및 서비스 → xBloom → ⋯ → **구성**).
+초기 config flow가 MAC 주소 + 텔레메트리 주기 + idle 연결 해제 타임아웃(기본값 0은 블루투스 연결을 계속 유지)을 처리합니다. 그 외는 Options flow에서 (설정 → 기기 및 서비스 → xBloom → ⋯ → **구성**).
 
 ### 레시피
 
@@ -229,7 +235,7 @@ xBloom 클라우드에서 조회해(계정 불필요) 찾은 정보를 덧붙입
 
 ## 알려진 제한사항
 
-- **xBloom Original은 클라우드 전용·미검증**: Original을 추가하면 기기가 아니라 xBloom 클라우드와 통신하는 별도 config entry 유형이 생성됩니다. xBloom 앱 계정으로 로그인하면 통합이 thing shadow를 폴링해 온라인/상태/경고/팟/MCU 버전 센서와 수동 추출(물량/온도/패턴)·분쇄·추출 중지·캘리브레이션을 제공합니다. 로컬 API는 없습니다. 로그인/서명/엔드포인트 정보는 앱 2.2.5 디컴파일에서 얻었으며, 실기나 실제 계정으로 검증되지 않았습니다 — 설정/엔티티는 [`original.md`](./original.md), 디컴파일 기반 지도는 [`protocol-original-j20.md`](./protocol-original-j20.md) 참고.
+- **xBloom Original은 실험적이며 클라우드 전용**: Original을 추가하면 기기가 아니라 xBloom 클라우드와 통신하는 별도 config entry 유형이 생성됩니다. xBloom 앱 계정으로 로그인하면 통합이 thing shadow를 폴링해 온라인/상태/경고/팟/MCU 버전 센서와 수동 추출(물량/온도/패턴)·분쇄·추출 중지·캘리브레이션을 제공합니다. 로컬 API는 없습니다. 로그인/서명/엔드포인트 정보는 앱 2.2.5 디컴파일에서 얻었으며, 실기나 실제 계정으로 검증되지 않았습니다 — 설정/엔티티는 [`original.md`](./original.md), 디컴파일 기반 지도는 [`protocol-original-j20.md`](./protocol-original-j20.md) 참고.
 - **일부 펌웨어의 MachineInfo**: 특정 펌웨어 리비전은 `RD_MachineInfo`를 아예 푸시하지 않아 Model / Serial / Firmware 센서가 `unknown`으로 남을 수 있음. 이런 펌웨어에서 수위 binary sensor는 이벤트 기반 감지로 fallback.
 - **수동 컵 감지**: 저울은 전원 인가 시 존재하는 모든 무게를 자동 영점화하므로, 부팅 전에 놓인 컵은 0 g으로 읽힘 — 이 경우 LLM `xbloom__execute_recipe` 도구가 레시피를 예약할 때 반환하는 체크리스트에 컵 확인을 추가.
 - **절전 중이거나 연결이 없을 때 무게는 unknown**: 절전 중인 머신은 저울이 비어 있어도 고정값 50 g을 보내므로, 무게 센서는 지어낸 값 대신 unknown을 표시함. 블루투스 연결이 없을 때(유휴 대기, 범위 밖)도 마찬가지. 실제 무게를 보려면 버튼을 누르거나 포드를 넣어 머신을 깨울 것.

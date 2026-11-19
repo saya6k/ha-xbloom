@@ -37,7 +37,7 @@ CONF_PASSWORD = "password"
 
 # Defaults
 DEFAULT_TELEMETRY_INTERVAL = 5  # seconds
-DEFAULT_SESSION_TIMEOUT = 60    # seconds
+DEFAULT_SESSION_TIMEOUT = 0     # seconds; 0 = stay connected
 DEFAULT_WATER_SOURCE = 0        # 0 = tank
 DEFAULT_MODE = "easy"
 DEFAULT_WEIGHT_UNIT = "g"
