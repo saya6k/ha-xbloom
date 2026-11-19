@@ -78,6 +78,7 @@ allowed-confusables = ["–", "×", "−"]
 # track the number of documented failure modes.
 "custom_components/xbloom/models/j15/coordinator/advanced_settings.py" = ["PLR0911", "PLR0912"]
 "custom_components/xbloom/models/j15/coordinator/recipes.py" = ["PLR0911", "PLR0912", "PLR0915"]
+"custom_components/xbloom/recipes/store.py" = ["PLR0911", "PLR0912", "PLR0915"]
 "custom_components/xbloom/llm/recipe.py" = ["PLR0911", "PLR0912", "PLR0915"]
 # _derive_state_string is an ordered priority chain (first match wins) and
 # _dispatch_event fans one BLE event out to every entity category; both are

@@ -18,7 +18,8 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
 
-from custom_components.xbloom.models.j15.coordinator import POUR_PATTERN_OPTIONS
+from custom_components.xbloom.machine import Capability
+from custom_components.xbloom.recipes.schema import POUR_PATTERN_OPTIONS
 
 from .base import XBloomBaseTool
 
@@ -105,6 +106,7 @@ def _cloud_failure(result: dict, action: str) -> llm.ToolResult:
 class XBloomImportCloudRecipeTool(XBloomBaseTool):
     """Import a recipe from an XBloom cloud share URL/id as a local recipe."""
 
+    required = frozenset({Capability.RECIPES})
     name = "xbloom__import_cloud_recipe"
     title = "Import xBloom cloud recipe"
     annotations = llm.ToolAnnotations(
@@ -159,6 +161,7 @@ class XBloomImportCloudRecipeTool(XBloomBaseTool):
 class XBloomSearchCollectiveRecipesTool(XBloomBaseTool):
     """Search XBloom's public collective.xbloom.com community recipe hub."""
 
+    required = frozenset({Capability.RECIPES})
     name = "xbloom__search_collective_recipes"
     title = "Search xBloom collective recipes"
     annotations = llm.ToolAnnotations(
@@ -254,6 +257,7 @@ class XBloomSearchCollectiveRecipesTool(XBloomBaseTool):
 class XBloomExportRecipeTool(XBloomBaseTool):
     """Export a local recipe to the XBloom cloud account (share link)."""
 
+    required = frozenset({Capability.RECIPES})
     name = "xbloom__export_recipe"
     title = "Export xBloom recipe"
     annotations = llm.ToolAnnotations(

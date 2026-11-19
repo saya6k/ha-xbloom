@@ -43,8 +43,10 @@ def test_pour_tool_is_two_phase():
 def test_pour_boiling_maps_to_the_bp_slider_endpoint():
     """boiling=true must set the mirrored setpoint to the BP endpoint
     (96 — transmits 98), not a raw 100 that overflows the 39-96 slider."""
-    src = _src("llm/pour.py")
-    assert "TEMPERATURE_BOILING_C = 96" in src
+    from custom_components.xbloom.models.j15.coordinator import XBloomCoordinator
+
+    assert XBloomCoordinator.limits.boiling_c == 96
+    assert "temperature = float(limits.boiling_c)" in _src("llm/pour.py")
 
 
 def test_cancel_tool_exists_and_is_registered():

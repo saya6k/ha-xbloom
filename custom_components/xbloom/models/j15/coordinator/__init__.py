@@ -11,8 +11,8 @@ warrant their own module (connectivity check, device-registry properties).
   watchdog, mode switching, display-unit/water-source sync.
 - ``state.py`` — the ``DataUpdateCoordinator`` contract (state derivation)
   and BLE event dispatch.
-- ``recipes.py`` — recipe selection/execution, Easy Mode slot writes,
-  local recipe store CRUD, cloud import/export/search.
+- ``recipes.py`` — recipe selection/execution, Easy Mode slot writes (the
+  model-agnostic store is ``recipes.store.RecipeStoreMixin``).
 - ``advanced_settings.py`` — pour radius / vibration amplitude / display
   brightness / grinder calibration.
 - ``operations.py`` — manual grind/pour/tare and pause/resume/cancel.
@@ -31,6 +31,7 @@ from datetime import timedelta
 from typing import Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import ChildDeviceInfo, DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -44,8 +45,12 @@ from custom_components.xbloom.const import (
     DEFAULT_WEIGHT_UNIT,
     DOMAIN,
 )
+from custom_components.xbloom.machine import Capability, ManualLimits
 from custom_components.xbloom.models.j15.ble.client import XBloomClient
+from custom_components.xbloom.models.j15.machine_color import color_code, color_from_serial
+from custom_components.xbloom.models.j15.machine_photo import async_read_photo
 from custom_components.xbloom.pods import PodLibrary
+from custom_components.xbloom.recipes.store import RecipeStoreMixin
 
 from .advanced_settings import AdvancedSettingsMixin
 from .connection import ConnectionMixin
@@ -78,11 +83,29 @@ class XBloomCoordinator(
     ConnectionMixin,
     StateMixin,
     RecipesMixin,
+    RecipeStoreMixin,
     AdvancedSettingsMixin,
     OperationsMixin,
     DataUpdateCoordinator[dict[str, Any]],
 ):
     """Coordinate data updates from XBloom via BLE."""
+
+    # machine.Machine — the Studio supports every shared feature.
+    capabilities = frozenset(Capability)
+    # Mirrors the number entities and the LLM tools' historical bounds; the
+    # 96 °C setpoint is the slider's BP end, sent as the 98 °C constant.
+    limits = ManualLimits(
+        grind_size=(1, 80),
+        temperature_c=(40, 95),
+        boiling_c=96,
+        volume_ml=(10, 500),
+        rpm=(60, 120),
+        flow_rate=(3.0, 3.5),
+    )
+    unreachable_hint = (
+        "Tell the user the xBloom could not be reached over Bluetooth. Ask "
+        "them to check the machine is powered on and in range."
+    )
 
     def __init__(
         self,
@@ -350,6 +373,78 @@ class XBloomCoordinator(
             _LOGGER.info("Action requested while in idle standby — reconnecting")
             return await self.async_connect()
         return self._check_connected()
+
+    # ------------------------------------------------------------------
+    # machine.Machine interface (shared services / LLM tools / panel)
+    # ------------------------------------------------------------------
+
+    @property
+    def machine_label(self) -> str:
+        return self.mac_address
+
+    @property
+    def armed_operation(self) -> str | None:
+        return self._armed_operation
+
+    async def async_ensure_available(self) -> bool:
+        """Connect if the link is down (even after a manual disconnect —
+        the caller is an explicit request to use the machine)."""
+        if self.client is not None and self.client.is_connected:
+            return True
+        try:
+            return await self.async_connect()
+        except Exception as exc:  # reported to the caller as unavailable
+            _LOGGER.exception("Auto-connect failed: %s", exc)
+            return False
+
+    def status_summary(self) -> dict[str, Any]:
+        data = self.data or {}
+        return {
+            "mac_address": self.mac_address,
+            "state": data.get("state", "unknown"),
+            "brewer_temperature_c": data.get("temperature", 0.0),
+            "scale_weight_g": data.get("weight", 0.0),
+            "grinder_running": bool(data.get("grinder_running")),
+            "brewer_running": bool(data.get("brewer_running")),
+            "water_level_ok": bool(data.get("water_level_ok")),
+            "firmware_version": data.get("version") or "",
+            "serial_number": data.get("serial_number") or "",
+            "error": data.get("error"),
+        }
+
+    @property
+    def water_shortage(self) -> bool:
+        """The tank is low and the tank is the water source (a plumbed
+        machine's empty tank is by design, not a shortage)."""
+        return self.water_source == WATER_SOURCE_TANK and not (self.data or {}).get(
+            "water_level_ok", True
+        )
+
+    @property
+    def machine_serial(self) -> str | None:
+        """Live serial when connected, else the one kept on the device entry
+        (the link is dropped in idle standby)."""
+        serial = (self.data or {}).get("serial_number")
+        if serial:
+            return serial
+        device = (
+            dr.async_get(self.hass).async_get(self.parent_device_id)
+            if self.parent_device_id else None
+        )
+        return device.serial_number if device else None
+
+    @property
+    def detected_color(self) -> str | None:
+        return color_from_serial(self.machine_serial)
+
+    @property
+    def photo_version(self) -> str:
+        """Changes whenever the photo served for this machine would."""
+        return f"{color_code(self.machine_serial)}-{self.machine_cover_version}"
+
+    async def async_read_photo(self) -> tuple[bytes, str] | None:
+        serial = self.machine_serial
+        return await async_read_photo(self.hass, color_code(serial), color_from_serial(serial))
 
     @property
     def device_info(self) -> DeviceInfo:

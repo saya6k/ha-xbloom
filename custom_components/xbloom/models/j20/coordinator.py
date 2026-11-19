@@ -5,13 +5,18 @@ WebSocket for live deltas (``AppWsManager``); v1 deliberately polls only —
 the WS subscribe/auth handshake is not documented and polling is enough
 for HA's state model. The command path is the app's ``desired`` shadow
 write.
+
+Implements ``machine.ManualControlMachine`` so the shared LLM tools and
+panel can drive it. The Original has no on-machine "armed" page, so the
+two-stage arm/confirm the shared tools use is kept locally: arming only
+records the operation, confirming sends it.
 """
 from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
-from typing import Any, TypeVar
+from typing import Any, ClassVar, TypeVar
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -23,9 +28,11 @@ from ...const import (
     CONF_EMAIL,
     CONF_J20_DEVICE_ID,
     CONF_J20_PRODUCT_ID,
+    CONF_J20_SERIAL_NUMBER,
     CONF_PASSWORD,
     DOMAIN,
 )
+from ...machine import Capability, ManualLimits
 from .client import (
     J20_PRODUCT_ID,
     J20ApiError,
@@ -35,10 +42,20 @@ from .client import (
 )
 from .values import (
     GRIND_SIZE_DEFAULT,
+    GRIND_SIZE_MAX,
+    GRIND_SIZE_MIN,
     PATTERN_DEFAULT,
     TEMPERATURE_DEFAULT,
+    TEMPERATURE_MAX,
+    TEMPERATURE_MIN,
     VOLUME_DEFAULT,
+    VOLUME_MAX,
+    VOLUME_MIN,
+    WORK_MODE_BREWING,
+    WORK_MODE_GRINDING,
     build_bruw_curve,
+    warning_state,
+    work_mode_state,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -48,6 +65,36 @@ _T = TypeVar("_T")
 
 class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Thing-shadow poller plus the confirmed desired-state commands."""
+
+    capabilities = frozenset(
+        {Capability.GRIND, Capability.POUR, Capability.CANCEL, Capability.CALIBRATE_GRINDER}
+    )
+    # Seekbar ranges from the app; the temperature seekbar's top end (96)
+    # is its BP position, sent as the 95 °C constant (values.temperature_code).
+    limits = ManualLimits(
+        grind_size=(GRIND_SIZE_MIN, GRIND_SIZE_MAX),
+        temperature_c=(TEMPERATURE_MIN, TEMPERATURE_MAX - 1),
+        boiling_c=TEMPERATURE_MAX,
+        volume_ml=(VOLUME_MIN, VOLUME_MAX),
+    )
+    unreachable_hint = (
+        "Tell the user the xBloom Original could not be reached through the "
+        "xBloom cloud: it is offline (powered off or not on Wi-Fi) or the "
+        "cloud is unreachable. Ask them to check the machine is on and "
+        "connected to Wi-Fi."
+    )
+    # The panel's generic entity keys -> this model's own translation keys.
+    panel_entity_aliases: ClassVar[dict[str, str]] = {
+        "sensor.state": "sensor.j20_state",
+        "number.grind_size": "number.j20_grind_size",
+        "number.volume": "number.j20_volume",
+        "number.temperature": "number.j20_temperature",
+        "select.pour_pattern": "select.j20_pattern",
+        "button.grind": "button.j20_grind",
+        "button.pour": "button.j20_pour",
+        "button.cancel": "button.j20_stop",
+        "button.calibrate_grinder": "button.j20_calibrate",
+    }
 
     def __init__(
         self,
@@ -66,13 +113,16 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._client = client
         self._email: str = entry.data.get(CONF_EMAIL, "")
         self._password: str = entry.data.get(CONF_PASSWORD, "")
+        self.entry_id: str = entry.entry_id
         self.device_id: str = entry.data[CONF_J20_DEVICE_ID]
         self.product_id: str = entry.data.get(CONF_J20_PRODUCT_ID) or J20_PRODUCT_ID
+        self._serial: str = entry.data.get(CONF_J20_SERIAL_NUMBER) or ""
         self.entry_title: str = entry.title
         self.grind_size: int = GRIND_SIZE_DEFAULT
-        self.volume_ml: int = VOLUME_DEFAULT
-        self.temperature_c: float = TEMPERATURE_DEFAULT
+        self.volume: int = VOLUME_DEFAULT
+        self.temperature: float = TEMPERATURE_DEFAULT
         self.pattern: str = PATTERN_DEFAULT
+        self._armed: str | None = None
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -88,6 +138,87 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
     @property
     def online(self) -> bool:
         return bool((self.data or {}).get("online"))
+
+    # ------------------------------------------------------------------
+    # machine.Machine interface
+    # ------------------------------------------------------------------
+
+    @property
+    def machine_label(self) -> str:
+        return self._serial or self.device_id
+
+    @property
+    def armed_operation(self) -> str | None:
+        return self._armed
+
+    async def async_ensure_available(self) -> bool:
+        """Re-read the shadow, then report whether the machine is online."""
+        await self.async_refresh()
+        return self.last_update_success and self.online
+
+    def status_summary(self) -> dict[str, Any]:
+        data = self.data or {}
+        return {
+            "model": "xBloom Original (J20)",
+            "serial_number": data.get("serial_number") or self._serial,
+            "online": self.online,
+            "state": work_mode_state(data.get("work_mode")) or "unknown",
+            "warning": warning_state(data.get("warning")),
+            "brew_progress": data.get("disp_reserve"),
+            "pod": data.get("pod"),
+            "firmware_versions": data.get("mcu_versions") or {},
+        }
+
+    async def async_arm_grind(self) -> bool:
+        if not self.online:
+            return False
+        self._armed = "grind"
+        return True
+
+    async def async_confirm_grind(self) -> bool:
+        if self._armed != "grind":
+            return False
+        self._armed = None
+        await self.async_grind()
+        return True
+
+    async def async_arm_pour(self) -> bool:
+        if not self.online:
+            return False
+        self._armed = "pour"
+        return True
+
+    async def async_confirm_pour(self) -> bool:
+        if self._armed != "pour":
+            return False
+        self._armed = None
+        await self.async_pour()
+        return True
+
+    async def async_cancel(self) -> None:
+        """Drop a pending arm, or stop a running pour.
+
+        The app has no command to stop the grinder (only
+        ``grinding_start: 1``), so a running grind can't be cancelled.
+        """
+        if self._armed is not None:
+            self._armed = None
+            return
+        state = work_mode_state((self.data or {}).get("work_mode"))
+        if state == WORK_MODE_GRINDING:
+            raise HomeAssistantError(
+                "The xBloom Original's grinder can't be stopped remotely"
+            )
+        if state == WORK_MODE_BREWING:
+            await self.async_stop()
+
+    async def async_calibrate_grinder(self) -> None:
+        """Run the grinder auto-zero routine (``{auto_calibrate: 1}``)."""
+        await self._send({"auto_calibrate": 1})
+
+    # ------------------------------------------------------------------
+    # Cloud plumbing
+    # ------------------------------------------------------------------
 
     async def _async_reauthenticate(self) -> None:
         """Get a fresh token the way the app's ``TokenInterceptor`` does.
@@ -138,7 +269,7 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         await self._send(
             {
                 "bruw_curve": build_bruw_curve(
-                    self.volume_ml, self.temperature_c, self.pattern
+                    self.volume, self.temperature, self.pattern
                 )
             }
         )
@@ -146,10 +277,6 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def async_stop(self) -> None:
         """Stop pouring (``{bruw_curve: "FFFF11"}``, the app's sentinel)."""
         await self._send({"bruw_curve": "FFFF11"})
-
-    async def async_calibrate(self) -> None:
-        """Run the grinder auto-zero routine (``{auto_calibrate: 1}``)."""
-        await self._send({"auto_calibrate": 1})
 
     async def _send(self, desired: dict[str, Any]) -> None:
         # The app disables its start buttons while the shadow reports the

@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
 
-from custom_components.xbloom.models.j15.coordinator import (
+from custom_components.xbloom.machine import Capability
+from custom_components.xbloom.recipes.schema import (
     POUR_PATTERN_OPTIONS,
-    WATER_SOURCE_TANK,
-    XBloomCoordinator,
+    compute_total_water_ml,
+    find_recipe,
 )
-from custom_components.xbloom.recipes.schema import compute_total_water_ml, find_recipe
 
 from .base import XBloomBaseTool
 
@@ -55,7 +56,7 @@ _RECIPE_ID_DESCRIPTION = (
 
 
 def _resolve_or_error(
-    coordinator: XBloomCoordinator, identifier: str
+    coordinator: Any, identifier: str
 ) -> tuple[tuple[str, dict] | None, dict | None]:
     """find_recipe + the shared not-found tool response."""
     resolved = find_recipe(coordinator.recipes or {}, identifier)
@@ -112,6 +113,7 @@ def _detail_recipe(raw: dict) -> dict:
 class XBloomGetRecipeTool(XBloomBaseTool):
     """Return the full configuration of one saved recipe."""
 
+    required = frozenset({Capability.RECIPES})
     name = "xbloom__get_recipe"
     title = "Get xBloom recipe"
     annotations = llm.ToolAnnotations(
@@ -157,6 +159,7 @@ class XBloomGetRecipeTool(XBloomBaseTool):
 class XBloomListRecipesTool(XBloomBaseTool):
     """List recipes configured for this machine."""
 
+    required = frozenset({Capability.RECIPES})
     name = "xbloom__list_recipes"
     title = "List xBloom recipes"
     annotations = llm.ToolAnnotations(
@@ -217,6 +220,7 @@ class XBloomListRecipesTool(XBloomBaseTool):
 class XBloomExecuteRecipeTool(XBloomBaseTool):
     """Arm a saved recipe on the machine, then start it once the user confirms."""
 
+    required = frozenset({Capability.RECIPES})
     name = "xbloom__execute_recipe"
     title = "Execute xBloom recipe"
     annotations = llm.ToolAnnotations(
@@ -366,26 +370,8 @@ class XBloomExecuteRecipeTool(XBloomBaseTool):
             and int(recipe.get("grind_size", 0) or 0) > 0
         )
 
-        client = self.coordinator.client
-        if client is None or not client.is_connected:
-            try:
-                ok = await self.coordinator.async_connect()
-            except Exception as exc:
-                _LOGGER.exception("auto-connect before recipe failed: %s", exc)
-                ok = False
-            if not ok:
-                return llm.ToolResult(
-                    data={
-                        "success": False,
-                        "error": "connect_failed",
-                        "instruction": (
-                            "Tell the user the xBloom could not be reached over "
-                            "Bluetooth. Ask them to check the machine is powered "
-                            "on and in range."
-                        ),
-                    },
-                    error=True,
-                )
+        if (unavailable := await self._unavailable()) is not None:
+            return unavailable
 
         # Water level: machine-reported, no user confirmation needed — but
         # check it before cup/select/execute so a low-water machine is
@@ -394,9 +380,7 @@ class XBloomExecuteRecipeTool(XBloomBaseTool):
         # guard; this is the LLM-facing early check. Skipped on a direct
         # (hose) feed — water_level_ok tracks the internal tank sensor,
         # which a hose setup doesn't rely on.
-        if self.coordinator.water_source == WATER_SOURCE_TANK and not (
-            self.coordinator.data or {}
-        ).get("water_level_ok", True):
+        if self.coordinator.water_shortage:
             return llm.ToolResult(
                 data={
                     "success": False,
@@ -415,7 +399,7 @@ class XBloomExecuteRecipeTool(XBloomBaseTool):
         # this call are ignored.
         if (
             confirmed
-            and self.coordinator._armed_operation == "recipe"
+            and self.coordinator.armed_operation == "recipe"
             and self.coordinator.selected_recipe == recipe_name
         ):
             try:
@@ -486,7 +470,7 @@ class XBloomExecuteRecipeTool(XBloomBaseTool):
             pour_overrides.append(entry)
 
         try:
-            if self.coordinator._armed_operation:
+            if self.coordinator.armed_operation:
                 # A standing arm (another recipe, stale overrides, or a
                 # grind/pour) — back out of its screen before re-arming.
                 await self.coordinator.async_cancel()
@@ -509,7 +493,7 @@ class XBloomExecuteRecipeTool(XBloomBaseTool):
         # Reflect the selection on the select entity.
         self.coordinator.async_update_listeners()
 
-        if self.coordinator._armed_operation != "recipe":
+        if self.coordinator.armed_operation != "recipe":
             # async_arm_recipe logs and swallows BLE failures.
             return llm.ToolResult(
                 data={

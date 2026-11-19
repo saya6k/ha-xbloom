@@ -10,6 +10,8 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
 
+from custom_components.xbloom.machine import Capability
+
 from .base import XBloomBaseTool
 
 _LOGGER = logging.getLogger(__name__)
@@ -18,6 +20,7 @@ _LOGGER = logging.getLogger(__name__)
 class XBloomCalibrateGrinderTool(XBloomBaseTool):
     """Trigger the XBloom's grinder gear-position calibration sweep."""
 
+    required = frozenset({Capability.CALIBRATE_GRINDER})
     name = "xbloom__calibrate_grinder"
     title = "Calibrate xBloom grinder"
     annotations = llm.ToolAnnotations(
@@ -38,26 +41,8 @@ class XBloomCalibrateGrinderTool(XBloomBaseTool):
         tool_input: llm.ToolInput,
         llm_context: llm.LLMContext,
     ) -> llm.ToolResult:
-        client = self.coordinator.client
-        if client is None or not client.is_connected:
-            try:
-                ok = await self.coordinator.async_connect()
-            except Exception as exc:
-                _LOGGER.exception("auto-connect before grinder calibration failed: %s", exc)
-                ok = False
-            if not ok:
-                return llm.ToolResult(
-                    data={
-                        "success": False,
-                        "error": "connect_failed",
-                        "instruction": (
-                            "Tell the user the xBloom could not be reached over "
-                            "Bluetooth. Ask them to check the machine is powered "
-                            "on and in range."
-                        ),
-                    },
-                    error=True,
-                )
+        if (unavailable := await self._unavailable()) is not None:
+            return unavailable
 
         try:
             await self.coordinator.async_calibrate_grinder()

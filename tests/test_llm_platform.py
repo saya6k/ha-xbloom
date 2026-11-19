@@ -26,6 +26,7 @@ from custom_components.xbloom.const import (
     XBLOOM_LLM_API_ID,
     XBLOOM_LLM_PROMPT,
 )
+from tests.machine_fakes import FakeStudio
 from tests.test_llm_prompt import REGISTERED_TOOLS
 
 COMPONENT_ROOT = (
@@ -105,7 +106,7 @@ def test_non_entry_domain_key_gets_none():
 def test_catalog_builds_the_full_tool_set():
     from custom_components.xbloom.llm.catalog import build_tools
 
-    coordinator, hass = SimpleNamespace(), SimpleNamespace()
+    coordinator, hass = FakeStudio(), SimpleNamespace()
     tools = build_tools(coordinator, hass)
     assert len(tools) == len(REGISTERED_TOOLS)
     assert {tool.name for tool in tools} == set(REGISTERED_TOOLS)
@@ -113,10 +114,35 @@ def test_catalog_builds_the_full_tool_set():
     assert all(tool.hass is hass for tool in tools)
 
 
+def test_catalog_offers_only_what_the_machine_can_do():
+    """A model without recipes (the Original) gets no recipe/slot/tare tools,
+    and its own ranges in the grind/pour schemas."""
+    from custom_components.xbloom.llm.catalog import build_tools
+    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+
+    original = SimpleNamespace(
+        capabilities=J20Coordinator.capabilities, limits=J20Coordinator.limits
+    )
+    tools = {tool.name: tool for tool in build_tools(original, SimpleNamespace())}
+    assert set(tools) == {
+        "xbloom__get_status",
+        "xbloom__grind",
+        "xbloom__pour",
+        "xbloom__cancel",
+        "xbloom__calibrate_grinder",
+    }
+    grind_schema = tools["xbloom__grind"].parameters
+    assert grind_schema({"grind_size": 30})["grind_size"] == 30
+    with pytest.raises(Exception):  # noqa: B017 — voluptuous Invalid
+        grind_schema({"grind_size": 31})
+    assert "rpm" not in {str(key) for key in grind_schema.schema}
+    assert "flow_rate" not in {str(key) for key in tools["xbloom__pour"].parameters.schema}
+
+
 def test_catalog_builds_fresh_instances_per_call():
     from custom_components.xbloom.llm.catalog import build_tools
 
-    coord_a, coord_b = SimpleNamespace(), SimpleNamespace()
+    coord_a, coord_b = FakeStudio(), FakeStudio()
     hass = SimpleNamespace()
     tools_a = build_tools(coord_a, hass)
     tools_b = build_tools(coord_b, hass)
@@ -134,7 +160,7 @@ def test_own_api_returns_tools_and_prompt():
     )
     from custom_components.xbloom import llm as llm_platform
 
-    coordinator = SimpleNamespace()
+    coordinator = FakeStudio()
     hass = _fake_hass({"entry1": _entry(coordinator)})
     result = llm_platform.async_get_tools(hass, None, _api_id("entry1"))
     assert result is not None
@@ -149,7 +175,7 @@ def test_two_entries_each_bind_their_own_coordinator():
     )
     from custom_components.xbloom import llm as llm_platform
 
-    coord_a, coord_b = SimpleNamespace(), SimpleNamespace()
+    coord_a, coord_b = FakeStudio(), FakeStudio()
     hass = _fake_hass({"entry_a": _entry(coord_a), "entry_b": _entry(coord_b)})
     result_a = llm_platform.async_get_tools(hass, None, _api_id("entry_a"))
     result_b = llm_platform.async_get_tools(hass, None, _api_id("entry_b"))
@@ -189,7 +215,7 @@ def test_api_shell_builds_instance_via_platform():
     )
     from custom_components.xbloom.llm_api import XBloomCoffeeAPI
 
-    coordinator = SimpleNamespace()
+    coordinator = FakeStudio()
     hass = _ShellHass({"entry1": _entry(coordinator)})
     api = XBloomCoffeeAPI(hass, "entry1", "AA:BB:CC:DD:EE:FF")
     instance = asyncio.run(api.async_get_api_instance(None))

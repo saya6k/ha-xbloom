@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from custom_components.xbloom import panel, pods
+from tests.machine_fakes import FakeStudio
 
 
 class _FakeStore:
@@ -110,7 +111,7 @@ def _hass_with(coordinator):
 
 
 def test_ws_pods_lists_the_library():
-    coordinator = SimpleNamespace(pod_library=SimpleNamespace(pods=lambda: [{"xid": "A"}]))
+    coordinator = FakeStudio(pod_library=SimpleNamespace(pods=lambda: [{"xid": "A"}]))
     conn = MagicMock()
     panel.ws_pods(_hass_with(coordinator), conn, {"id": 1, "entry_id": "e1"})
     conn.send_result.assert_called_once_with(1, {"pods": [{"xid": "A"}]})
@@ -122,7 +123,7 @@ def _save(recipes_store, added):
         {"name": "R1", "share_url": "https://share-h5.xbloom.com/?id=r1"},
     ]}
     calls = []
-    coordinator = SimpleNamespace(
+    coordinator = FakeStudio(
         pod_library=SimpleNamespace(get=lambda xid: pod if xid == "A" else None),
         save_pod_recipes=lambda recipes: calls.append(recipes) or added,
         recipes=recipes_store,
@@ -174,13 +175,13 @@ def test_ws_refresh_retries_the_lookup():
     async def lookup(xid):
         return DETAIL
 
-    coordinator = SimpleNamespace(pod_library=lib, _async_lookup_pod=lookup)
+    coordinator = FakeStudio(pod_library=lib, _async_lookup_pod=lookup)
     conn = _run_refresh(coordinator, "XB0001")
     conn.send_result.assert_called_once_with(5, {"updated": True})
     assert lib.get("XB0001")["name"] == "Mucho Berry"
 
 
 def test_ws_refresh_unknown_pod():
-    coordinator = SimpleNamespace(pod_library=_library(), _async_lookup_pod=None)
+    coordinator = FakeStudio(pod_library=_library(), _async_lookup_pod=None)
     conn = _run_refresh(coordinator, "NOPE")
     assert conn.send_error.call_args.args[1] == "not_found"

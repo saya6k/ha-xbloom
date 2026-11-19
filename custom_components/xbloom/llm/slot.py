@@ -8,6 +8,8 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
 
+from custom_components.xbloom.machine import Capability
+
 from .base import XBloomBaseTool
 from .recipe import _summarize_recipe
 
@@ -24,6 +26,7 @@ class XBloomWriteEasySlotTool(XBloomBaseTool):
     from the machine without opening Home Assistant or the app.
     """
 
+    required = frozenset({Capability.EASY_SLOTS})
     name = "xbloom__write_easy_slot"
     title = "Write xBloom easy slot"
     annotations = llm.ToolAnnotations(
@@ -76,26 +79,8 @@ class XBloomWriteEasySlotTool(XBloomBaseTool):
                 error=True,
             )
 
-        client = self.coordinator.client
-        if client is None or not client.is_connected:
-            try:
-                ok = await self.coordinator.async_connect()
-            except Exception as exc:
-                _LOGGER.exception("auto-connect before slot write failed: %s", exc)
-                ok = False
-            if not ok:
-                return llm.ToolResult(
-                    data={
-                        "success": False,
-                        "error": "connect_failed",
-                        "instruction": (
-                            "Tell the user the xBloom could not be reached over "
-                            "Bluetooth. Ask them to check the machine is powered "
-                            "on and in range."
-                        ),
-                    },
-                    error=True,
-                )
+        if (unavailable := await self._unavailable()) is not None:
+            return unavailable
 
         result = await self.coordinator.async_write_easy_slot(slot_letter, identifier=identifier)
         if not result.get("success"):

@@ -10,12 +10,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from custom_components.xbloom.models.j15.coordinator.recipes import RecipesMixin
+from custom_components.xbloom.recipes.store import RecipeStoreMixin
 
 COMPONENT = Path(__file__).parent.parent / "custom_components" / "xbloom"
 
 
-class _Coordinator(RecipesMixin):
+class _Coordinator(RecipeStoreMixin):
     def __init__(self, recipes: dict) -> None:
         self.recipes = recipes
 

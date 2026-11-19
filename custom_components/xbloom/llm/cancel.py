@@ -8,6 +8,8 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
 
+from custom_components.xbloom.machine import Capability
+
 from .base import XBloomBaseTool
 
 _LOGGER = logging.getLogger(__name__)
@@ -16,6 +18,7 @@ _LOGGER = logging.getLogger(__name__)
 class XBloomCancelTool(XBloomBaseTool):
     """Back out of an armed grind/pour/recipe, or stop a running one."""
 
+    required = frozenset({Capability.CANCEL})
     name = "xbloom__cancel"
     title = "Cancel xBloom"
     annotations = llm.ToolAnnotations(

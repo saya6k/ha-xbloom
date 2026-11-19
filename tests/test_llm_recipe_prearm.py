@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, Mock
 from homeassistant.helpers import llm
 
 from custom_components.xbloom.llm.recipe import XBloomExecuteRecipeTool
+from tests.machine_fakes import FakeStudio
 
 _V60 = {
     "name": "V60",
@@ -34,7 +35,7 @@ _WATER_ONLY = {
 
 
 def _coordinator(*, armed=None, selected=None, weight=0.0):
-    coord = SimpleNamespace(
+    coord = FakeStudio(
         client=SimpleNamespace(is_connected=True),
         recipes={"V60": _V60, "Hot water": _WATER_ONLY},
         water_source=0,

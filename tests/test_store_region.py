@@ -15,6 +15,7 @@ from unittest.mock import MagicMock
 from custom_components.xbloom import panel
 from custom_components.xbloom.const import DATA_COORDINATOR, DOMAIN
 from custom_components.xbloom.panel import stores
+from tests.machine_fakes import FakeStudio
 
 
 def test_region_follows_the_apps_rule():
@@ -83,7 +84,7 @@ def _detail_for(country, options=None, official=True):
         looked_up.append(name)
         return "https://xbloom.com/products/legacy"
 
-    coordinator = SimpleNamespace(
+    coordinator = FakeStudio(
         cloud_client=SimpleNamespace(fetch_collective_detail=fetch, find_store_product=find)
     )
     hass.data = {DOMAIN: {"e1": {DATA_COORDINATOR: coordinator}}}
@@ -116,7 +117,7 @@ def test_machine_payload_carries_the_weight_unit():
     hass = MagicMock()
     hass.config.country = "KR"
     hass.config_entries.async_get_entry.return_value = entry
-    coordinator = SimpleNamespace(
+    coordinator = FakeStudio(
         recipes={}, selected_recipe=None, mac_address="AA", cloud_login_configured=False,
         machine_cover_version=None,
         easy_slot_contents=lambda s: None, data={}, _weight_unit="ml",
@@ -125,9 +126,7 @@ def test_machine_payload_carries_the_weight_unit():
 
     with patch.object(panel.er, "async_get"), patch.object(
         panel.er, "async_entries_for_config_entry", return_value=[]
-    ), patch.object(panel, "_machine_serial", return_value=None), patch.object(
-        panel, "async_sign_path", side_effect=lambda h, path, ttl: path
-    ):
+    ), patch.object(panel, "async_sign_path", side_effect=lambda h, path, ttl: path):
         payload = panel._machine_payload(hass, "e1", coordinator)
     assert payload["weight_unit"] == "ml"
     assert payload["store_region"] == "kr"

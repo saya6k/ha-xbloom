@@ -319,9 +319,56 @@ def _coordinator(**attrs):
     from custom_components.xbloom.models.j20.coordinator import J20Coordinator
 
     fake = SimpleNamespace(**attrs)
-    for name in ("_async_reauthenticate", "_async_call", "_send"):
+    for name in (
+        "_async_reauthenticate", "_async_call", "_send",
+        "async_arm_grind", "async_confirm_grind", "async_arm_pour",
+        "async_confirm_pour", "async_cancel",
+    ):
         setattr(fake, name, getattr(J20Coordinator, name).__get__(fake))
     return fake
+
+
+def test_arm_only_records_then_confirm_sends():
+    """No machine-side arm page: arming sends nothing, confirming starts."""
+    coordinator = _coordinator(online=True, _armed=None, async_grind=AsyncMock())
+    assert asyncio.run(coordinator.async_arm_grind()) is True
+    coordinator.async_grind.assert_not_awaited()
+    assert coordinator._armed == "grind"
+    assert asyncio.run(coordinator.async_confirm_grind()) is True
+    coordinator.async_grind.assert_awaited_once()
+    assert coordinator._armed is None
+
+
+def test_confirm_without_arm_sends_nothing():
+    coordinator = _coordinator(online=True, _armed=None, async_pour=AsyncMock())
+    assert asyncio.run(coordinator.async_confirm_pour()) is False
+    coordinator.async_pour.assert_not_awaited()
+
+
+def test_offline_machine_cannot_be_armed():
+    coordinator = _coordinator(online=False, _armed=None)
+    assert asyncio.run(coordinator.async_arm_pour()) is False
+    assert coordinator._armed is None
+
+
+def test_cancel_drops_an_arm_without_sending():
+    coordinator = _coordinator(_armed="pour", data={"work_mode": 6}, async_stop=AsyncMock())
+    asyncio.run(coordinator.async_cancel())
+    assert coordinator._armed is None
+    coordinator.async_stop.assert_not_awaited()
+
+
+def test_cancel_stops_a_running_pour_but_not_a_grind():
+    from homeassistant.exceptions import HomeAssistantError
+
+    brewing = _coordinator(_armed=None, data={"work_mode": 6}, async_stop=AsyncMock())
+    asyncio.run(brewing.async_cancel())
+    brewing.async_stop.assert_awaited_once()
+
+    grinding = _coordinator(_armed=None, data={"work_mode": 4}, async_stop=AsyncMock())
+    with pytest.raises(HomeAssistantError):
+        asyncio.run(grinding.async_cancel())
+    grinding.async_stop.assert_not_awaited()
 
 
 def test_reauth_prefers_the_refresh_token() -> None:

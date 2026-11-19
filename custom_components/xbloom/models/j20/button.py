@@ -64,4 +64,4 @@ class J20CalibrateButton(_J20Button):
     _attr_unique_id = "xbloom_j20_calibrate"
 
     async def async_press(self) -> None:
-        await self.coordinator.async_calibrate()
+        await self.coordinator.async_calibrate_grinder()

@@ -16,6 +16,8 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
 
+from custom_components.xbloom.machine import Capability
+
 from .base import XBloomBaseTool
 from .cloud_recipe import _POUR_ARG_SCHEMA, _cloud_failure, _recipe_args_to_dict
 from .recipe import _RECIPE_ID_DESCRIPTION
@@ -63,6 +65,7 @@ _RECIPE_SCALAR_ARGS = {
 class XBloomCreateRecipeTool(XBloomBaseTool):
     """Create a new local recipe from scratch."""
 
+    required = frozenset({Capability.RECIPES})
     name = "xbloom__create_recipe"
     title = "Create xBloom recipe"
     annotations = llm.ToolAnnotations(
@@ -112,6 +115,7 @@ class XBloomCreateRecipeTool(XBloomBaseTool):
 class XBloomEditRecipeTool(XBloomBaseTool):
     """Change one or more fields of a local recipe."""
 
+    required = frozenset({Capability.RECIPES})
     name = "xbloom__edit_recipe"
     title = "Edit xBloom recipe"
     annotations = llm.ToolAnnotations(
@@ -173,6 +177,7 @@ class XBloomEditRecipeTool(XBloomBaseTool):
 class XBloomDeleteRecipeTool(XBloomBaseTool):
     """Delete a local recipe (cloud copies are untouched)."""
 
+    required = frozenset({Capability.RECIPES})
     name = "xbloom__delete_recipe"
     title = "Delete xBloom recipe"
     annotations = llm.ToolAnnotations(

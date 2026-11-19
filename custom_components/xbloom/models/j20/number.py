@@ -70,10 +70,10 @@ class J20VolumeNumber(J20Entity, NumberEntity):
 
     @property
     def native_value(self) -> float:
-        return float(self.coordinator.volume_ml)
+        return float(self.coordinator.volume)
 
     async def async_set_native_value(self, value: float) -> None:
-        self.coordinator.volume_ml = int(value)
+        self.coordinator.volume = int(value)
         self.async_write_ha_state()
 
 
@@ -91,8 +91,8 @@ class J20TemperatureNumber(J20Entity, NumberEntity):
 
     @property
     def native_value(self) -> float:
-        return float(self.coordinator.temperature_c)
+        return float(self.coordinator.temperature)
 
     async def async_set_native_value(self, value: float) -> None:
-        self.coordinator.temperature_c = float(value)
+        self.coordinator.temperature = float(value)
         self.async_write_ha_state()

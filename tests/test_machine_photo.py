@@ -200,10 +200,13 @@ def test_refresh_offline_keeps_what_is_cached(hass, downloads):
 
 def test_photo_view_serves_the_cached_photo_and_404s_without_one(hass, downloads, monkeypatch):
     from custom_components.xbloom import panel
+    from tests.machine_fakes import FakeStudio
 
-    coordinator = SimpleNamespace(data={"serial_number": SERIAL})
+    coordinator = FakeStudio(hass=hass, data={"serial_number": SERIAL})
     monkeypatch.setattr(
-        panel, "_coordinator", lambda h, entry_id: coordinator if entry_id == "e1" else None
+        panel,
+        "get_machine",
+        lambda h, entry_id, capability=None: coordinator if entry_id == "e1" else None,
     )
     request = SimpleNamespace(app={panel.KEY_HASS: hass})
     view = panel.MachinePhotoView()

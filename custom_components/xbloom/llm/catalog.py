@@ -10,9 +10,9 @@ update both together when a tool is added/removed/renamed.
 """
 from __future__ import annotations
 
-from homeassistant.core import HomeAssistant
+from typing import Any
 
-from custom_components.xbloom.models.j15.coordinator import XBloomCoordinator
+from homeassistant.core import HomeAssistant
 
 from .base import XBloomBaseTool
 from .calibrate import XBloomCalibrateGrinderTool
@@ -38,26 +38,30 @@ from .slot import XBloomWriteEasySlotTool
 from .status import XBloomStatusTool
 from .tare import XBloomTareScaleTool
 
+TOOL_CLASSES: tuple[type[XBloomBaseTool], ...] = (
+    XBloomStatusTool,
+    XBloomListRecipesTool,
+    XBloomGetRecipeTool,
+    XBloomCreateRecipeTool,
+    XBloomEditRecipeTool,
+    XBloomDeleteRecipeTool,
+    XBloomPourTool,
+    XBloomGrindTool,
+    XBloomCancelTool,
+    XBloomExecuteRecipeTool,
+    XBloomWriteEasySlotTool,
+    XBloomTareScaleTool,
+    XBloomCalibrateGrinderTool,
+    XBloomImportCloudRecipeTool,
+    XBloomSearchCollectiveRecipesTool,
+    XBloomExportRecipeTool,
+)
 
-def build_tools(
-    coordinator: XBloomCoordinator, hass: HomeAssistant
-) -> list[XBloomBaseTool]:
-    """Return fresh instances of every XBloom tool bound to one machine."""
+
+def build_tools(coordinator: Any, hass: HomeAssistant) -> list[XBloomBaseTool]:
+    """Fresh instances of every tool the machine's capabilities cover."""
     return [
-        XBloomStatusTool(coordinator, hass),
-        XBloomListRecipesTool(coordinator, hass),
-        XBloomGetRecipeTool(coordinator, hass),
-        XBloomCreateRecipeTool(coordinator, hass),
-        XBloomEditRecipeTool(coordinator, hass),
-        XBloomDeleteRecipeTool(coordinator, hass),
-        XBloomPourTool(coordinator, hass),
-        XBloomGrindTool(coordinator, hass),
-        XBloomCancelTool(coordinator, hass),
-        XBloomExecuteRecipeTool(coordinator, hass),
-        XBloomWriteEasySlotTool(coordinator, hass),
-        XBloomTareScaleTool(coordinator, hass),
-        XBloomCalibrateGrinderTool(coordinator, hass),
-        XBloomImportCloudRecipeTool(coordinator, hass),
-        XBloomSearchCollectiveRecipesTool(coordinator, hass),
-        XBloomExportRecipeTool(coordinator, hass),
+        tool(coordinator, hass)
+        for tool in TOOL_CLASSES
+        if tool.required <= coordinator.capabilities
     ]

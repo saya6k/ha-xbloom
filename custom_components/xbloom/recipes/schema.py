@@ -16,6 +16,9 @@ import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 
 _PATTERN_NAME_TO_INT = {"center": 0, "circular": 1, "spiral": 2}
+# Public name for the pour-pattern names ↔ ints (0=center, 1=circular,
+# 2=spiral), used by the LLM tools and the Studio's pattern select.
+POUR_PATTERN_OPTIONS = _PATTERN_NAME_TO_INT
 
 
 def _coerce_pour_pattern(value: Any) -> int:

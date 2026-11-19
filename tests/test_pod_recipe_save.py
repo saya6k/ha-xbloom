@@ -6,7 +6,7 @@ kept in the pod library (panel data, see pods.py); "save to my recipes"
 then stores one recipe, once (user decision 2026-10-15 — auto-saving every
 scan as a recipe cluttered the recipe store).
 
-Calls the real RecipesMixin.save_pod_recipes with a minimal stand-in for
+Calls the real RecipeStoreMixin.save_pod_recipes with a minimal stand-in for
 `self` (same pattern as tests/test_easy_slot_tea_rejected.py).
 """
 from __future__ import annotations
@@ -15,10 +15,10 @@ import asyncio
 
 import pytest
 
-from custom_components.xbloom.models.j15.coordinator.recipes import RecipesMixin
+from custom_components.xbloom.recipes.store import RecipeStoreMixin
 from tests.test_pod_detected_dispatch import _dispatch_pod, _FakeCloud
 
-save_pod_recipes = RecipesMixin.save_pod_recipes
+save_pod_recipes = RecipeStoreMixin.save_pod_recipes
 
 
 class _Store:

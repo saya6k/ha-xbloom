@@ -37,9 +37,7 @@ from ...const import (
     DEFAULT_WEIGHT_UNIT,
     DOMAIN,
 )
-from ...llm_api import register_llm_api
 from ...pods import PodLibrary
-from ...services import async_register_services, async_unload_services
 from .coordinator import XBloomCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -136,13 +134,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Register the LLM API so voice/chat agents can drive the machine.
-    # entry.async_on_unload handles the unregister when the entry unloads.
-    register_llm_api(hass, entry)
-
-    # Register integration services (idempotent across multiple entries).
-    async_register_services(hass)
-
     # React to options changes
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
@@ -217,7 +208,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
-        await async_unload_services(hass)
     return unload_ok
 
 

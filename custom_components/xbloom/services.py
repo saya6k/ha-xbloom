@@ -1,8 +1,9 @@
 """The integration's services (``xbloom.*``), shared by every machine model.
 
-Registered once while at least one machine is set up and removed with the
-last one. Each handler resolves its target machines from
-``hass.data[DOMAIN]``.
+Every service is about recipes (or a recipe-capable machine's settings),
+so they exist while at least one ``Capability.RECIPES`` machine is set up.
+Each handler resolves its targets through ``machine.machines`` filtered by
+the capability it needs, so a model without it is never called.
 """
 from __future__ import annotations
 
@@ -48,7 +49,6 @@ from .const import (
     ATTR_SRC,
     ATTR_VARIETAL,
     ATTR_VIBRATION_AMPLITUDE_LEVEL,
-    DATA_COORDINATOR,
     DOMAIN,
     SERVICE_ADVANCED_SETTINGS,
     SERVICE_CLOUD_EXPORT_RECIPE,
@@ -62,6 +62,7 @@ from .const import (
     SERVICE_LIST_RECIPES,
     SERVICE_WRITE_RECIPE_TO_EASY_SLOT,
 )
+from .machine import Capability, machines
 from .recipes.schema import find_recipe
 
 _LOGGER = logging.getLogger(__name__)
@@ -211,8 +212,12 @@ CLOUD_SEARCH_COLLECTIVE_RECIPES_SCHEMA = vol.Schema(
 
 
 
-def _coordinators_for_call(hass: HomeAssistant, call: ServiceCall) -> list:
-    """Resolve which machine coordinators a service call targets.
+def _coordinators_for_call(
+    hass: HomeAssistant,
+    call: ServiceCall,
+    capability: Capability = Capability.RECIPES,
+) -> list:
+    """Resolve which machines with ``capability`` a service call targets.
 
     With no config_entry target, applies to all configured machines
     (there is usually exactly one). A ``config_entry`` selector (not
@@ -235,11 +240,7 @@ def _coordinators_for_call(hass: HomeAssistant, call: ServiceCall) -> list:
     target machine failed with "No XBloom machine matched the service
     call," regardless of which service.
     """
-    all_coords = {
-        eid: data[DATA_COORDINATOR]
-        for eid, data in hass.data.get(DOMAIN, {}).items()
-        if isinstance(data, dict) and DATA_COORDINATOR in data
-    }
+    all_coords = machines(hass, capability)
     entry_id = call.data.get("config_entry_id")
     if not entry_id:
         return list(all_coords.values())
@@ -379,7 +380,7 @@ def async_register_services(hass: HomeAssistant) -> None:
     )
 
     async def _handle_write_recipe_to_easy_slot(call: ServiceCall) -> ServiceResponse:
-        coordinators = _coordinators_for_call(hass, call)
+        coordinators = _coordinators_for_call(hass, call, Capability.EASY_SLOTS)
         if not coordinators:
             raise HomeAssistantError("No xBloom machine matched the service call.")
         result = await coordinators[0].async_write_easy_slot(
@@ -400,7 +401,7 @@ def async_register_services(hass: HomeAssistant) -> None:
     )
 
     async def _handle_advanced_settings(call: ServiceCall) -> ServiceResponse:
-        coordinators = _coordinators_for_call(hass, call)
+        coordinators = _coordinators_for_call(hass, call, Capability.ADVANCED_SETTINGS)
         if not coordinators:
             raise HomeAssistantError("No xBloom machine matched the service call.")
         result = await coordinators[0].async_set_advanced_settings(
@@ -574,10 +575,7 @@ def async_register_services(hass: HomeAssistant) -> None:
 async def async_unload_services(hass: HomeAssistant) -> None:
     """After a machine unloads: drop the services once none are left,
     else refresh the remaining machines' recipe dropdowns."""
-    remaining = [
-        data for data in hass.data.get(DOMAIN, {}).values()
-        if isinstance(data, dict) and DATA_COORDINATOR in data
-    ]
+    remaining = list(machines(hass, Capability.RECIPES).values())
     if not remaining:
         for service in _SERVICES:
             if hass.services.has_service(DOMAIN, service):
@@ -585,4 +583,4 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         return
     # Drop the unloaded machine's recipes from the other machines'
     # recipe-service dropdowns (see _async_refresh_recipe_service_schemas).
-    await remaining[0][DATA_COORDINATOR]._async_refresh_recipe_service_schemas()
+    await remaining[0]._async_refresh_recipe_service_schemas()

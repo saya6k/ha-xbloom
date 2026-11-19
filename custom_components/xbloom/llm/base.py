@@ -2,23 +2,41 @@
 
 from __future__ import annotations
 
+from typing import Any, ClassVar
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
 
 from custom_components.xbloom.const import DOMAIN
-from custom_components.xbloom.models.j15.coordinator import XBloomCoordinator
+from custom_components.xbloom.machine import Capability
 
 
 class XBloomBaseTool(llm.Tool):
     """Base class for XBloom LLM tools.
 
-    Holds a reference to the coordinator so tools can read state and
-    drive BLE actions through the same code path the entities use.
+    Holds a reference to one machine (any model — see ``machine.py``) so
+    tools can read state and act through the same code path the entities
+    use. ``required`` lists the capabilities the machine must have for the
+    catalog to offer the tool at all.
     """
 
     integration = DOMAIN
+    required: ClassVar[frozenset[Capability]] = frozenset()
 
-    def __init__(self, coordinator: XBloomCoordinator, hass: HomeAssistant) -> None:
+    def __init__(self, coordinator: Any, hass: HomeAssistant) -> None:
         super().__init__()
         self.coordinator = coordinator
         self.hass = hass
+
+    async def _unavailable(self) -> llm.ToolResult | None:
+        """None when the machine is reachable, else the tool's error result."""
+        if await self.coordinator.async_ensure_available():
+            return None
+        return llm.ToolResult(
+            data={
+                "success": False,
+                "error": "connect_failed",
+                "instruction": self.coordinator.unreachable_hint,
+            },
+            error=True,
+        )
