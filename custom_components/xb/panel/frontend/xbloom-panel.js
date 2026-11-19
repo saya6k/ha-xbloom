@@ -634,7 +634,7 @@ class XBloomPanel extends HTMLElement {
   }
 
   _xb(service, data = {}) {
-    return this._call("xbloom", service, { ...data, config_entry_id: this._entryId }, true);
+    return this._call("xb", service, { ...data, config_entry_id: this._entryId }, true);
   }
 
   async _brewRecipe(recipe) {

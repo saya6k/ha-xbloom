@@ -248,3 +248,12 @@ def test_maintenance_guides_have_the_same_steps_in_every_language():
         assert len(blocks) == 2 and counts == {6}, (key, len(blocks), counts)
     assert '_maintGuideRow("calibrate_scale", "calibrating_scale", "scale_cal_steps")' in JS
     assert '_maintGuideRow("descale", "descaling", "descale_steps")' in JS
+
+
+def test_panel_calls_this_integrations_services():
+    """Found 2026-11-19: after the domain became ``xb`` the panel still
+    called ``xbloom.<service>`` — every recipe brew/edit from it failed."""
+    from custom_components.xb.const import DOMAIN
+
+    calls = set(re.findall(r'this\._call\("([a-z_]+)", service', JS))
+    assert calls == {DOMAIN}
