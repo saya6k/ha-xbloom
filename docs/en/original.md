@@ -14,7 +14,7 @@ not a Bluetooth or LAN client.
 > releases on the repository's
 > [`original`](https://github.com/saya6k/ha-xbloom/tree/original) branch.
 > If you own an Original and can help test them, see
-> [issue #ISSUE](https://github.com/saya6k/ha-xbloom/issues/ISSUE).
+> [issue #232](https://github.com/saya6k/ha-xbloom/issues/232).
 >
 > The login flow, request signing and endpoints were read from app 2.2.5 by
 > decompilation; see [`protocol-original-j20.md`](./protocol-original-j20.md).

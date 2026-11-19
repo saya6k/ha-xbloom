@@ -12,7 +12,7 @@ LAN 클라이언트가 아니라 그 클라우드의 클라이언트입니다.
 > 릴리스에서 빼고 저장소의
 > [`original`](https://github.com/saya6k/ha-xbloom/tree/original) 브랜치에
 > 두었습니다. Original을 가지고 있고 시험을 도와줄 수 있다면
-> [이슈 #ISSUE](https://github.com/saya6k/ha-xbloom/issues/ISSUE)를 봐 주세요.
+> [이슈 #232](https://github.com/saya6k/ha-xbloom/issues/232)를 봐 주세요.
 >
 > 로그인 흐름·요청 서명·엔드포인트는 앱 2.2.5를 디컴파일해 얻었습니다
 > ([`protocol-original-j20.md`](./protocol-original-j20.md) 참고).
