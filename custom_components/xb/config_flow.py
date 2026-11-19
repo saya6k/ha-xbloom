@@ -28,7 +28,6 @@ from .const import (
     CONF_J20_NAME,
     CONF_J20_PRODUCT_ID,
     CONF_J20_SERIAL_NUMBER,
-    CONF_LEGACY_ENTRY_ID,
     CONF_MAC_ADDRESS,
     CONF_PASSWORD,
     CONF_RECIPES,
@@ -46,13 +45,6 @@ from .const import (
     DEVICE_TYPE_ORIGINAL,
     DOMAIN,
 )
-from .legacy import (
-    async_flag_restart,
-    async_legacy_installed,
-    async_start_migration,
-    pending_legacy_entries,
-)
-from .migrations import _migrate_recipe_v1_to_v2, _migrate_recipe_v2_to_v3
 from .models.j15.ble.client import XBloomClient
 from .models.j15.ble.connection import HABleakConnection
 from .models.j15.ble.scanner import discover_devices
@@ -142,9 +134,6 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Handle a machine discovered via the service_uuid matcher in manifest.json."""
         mac = discovery_info.address.upper()
-        if any(old.unique_id == mac for old in pending_legacy_entries(self.hass)):
-            # Set up by the pre-3.0 install: move it rather than add it again.
-            return await self.async_step_migrate()
         await self.async_set_unique_id(mac)
         self._abort_if_unique_id_configured()
 
@@ -191,8 +180,6 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Pick the machine family before either family's setup starts."""
-        if pending_legacy_entries(self.hass):
-            return await self.async_step_migrate()
         return self.async_show_menu(
             step_id="user",
             menu_options=["studio", "original"],
@@ -384,58 +371,6 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_J20_NAME: str(device.get("theName") or ""),
                 CONF_TELEMETRY_INTERVAL: DEFAULT_J20_SCAN_INTERVAL,
             },
-        )
-
-    async def async_step_migrate(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Move the machines of a pre-3.0 install over (see legacy.py)."""
-        pending = pending_legacy_entries(self.hass)
-        if not pending:
-            return self.async_abort(reason="already_configured")
-        if user_input is None:
-            return self.async_show_form(
-                step_id="migrate",
-                data_schema=vol.Schema({}),
-                description_placeholders={
-                    "machines": ", ".join(old.title for old in pending),
-                },
-            )
-        restart = await async_legacy_installed(self.hass)
-        await async_start_migration(self.hass)
-        if restart:
-            async_flag_restart(self.hass)
-            return self.async_abort(reason="migration_restart")
-        return self.async_abort(reason="migration_done")
-
-    async def async_step_import(self, import_data: dict[str, Any]) -> FlowResult:
-        """Re-create a pre-3.0 ("xbloom" domain) entry here (see legacy.py).
-
-        Same title, data, options and unique id; the old entry's id rides
-        along so async_setup_entry can adopt its devices and entities.
-        """
-        old_id = import_data[CONF_LEGACY_ENTRY_ID]
-        old = self.hass.config_entries.async_get_entry(old_id)
-        if old is None:
-            return self.async_abort(reason="unknown_device")
-        await self.async_set_unique_id(old.unique_id)
-        self._abort_if_unique_id_configured()
-        options = dict(old.options)
-        recipes = options.get(CONF_RECIPES)
-        if isinstance(recipes, dict) and recipes and old.version < 3:
-            # The old entry never reached the v3 recipe schema; run the same
-            # steps migrations.async_migrate_entry would have.
-            if old.version < 2:
-                recipes = {
-                    name: _migrate_recipe_v1_to_v2(r) if r is not None else None
-                    for name, r in recipes.items()
-                }
-            options[CONF_RECIPES] = {
-                name: _migrate_recipe_v2_to_v3(r) if r is not None else None
-                for name, r in recipes.items()
-            }
-        return self.async_create_entry(
-            title=old.title,
-            data={**old.data, CONF_LEGACY_ENTRY_ID: old_id},
-            options=options,
         )
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:

@@ -49,12 +49,13 @@ This comparison reflects both projects as of November 2026; see the other projec
 
 ## Upgrading from 2.x
 
-Version 3 changed the integration's domain from `xbloom` to `xb` (the old one clashed with xbloom-studio in the HACS store). Home Assistant can't rename a domain by itself, so after HACS installs the update:
+Version 3 changed the integration's domain from `xbloom` to `xb` (the old one clashed with xbloom-studio in the HACS store). HACS can't update across a domain change, so this is a fresh install:
 
-1. Restart Home Assistant. The old version (left behind in `custom_components/xbloom`) keeps running your machines for now.
-2. Settings → Devices & Services → **Add integration** → "xBloom", and submit **Move machines from the previous version**. This deletes the old folder and re-creates every machine under the new version.
-3. Restart Home Assistant again. Your machines move over: entity ids, device and entity names, areas, labels, recipes, pod library and history are kept.
-4. Update what can't move automatically: `xbloom.*` actions in automations and scripts become `xb.*`, a `xbloom:` block in `configuration.yaml` becomes `xb:`, and a conversation agent using the xBloom LLM API needs it selected again.
+1. Note any recipes you made yourself — export them with `cloud_export_recipe`, or copy them from the recipe editor — because removing the old version deletes its configuration.
+2. HACS → xBloom Coffee Machine → ⋮ → **Remove** (deletes the configuration and the files).
+3. Download xBloom Coffee Machine again from the same custom repository and restart Home Assistant.
+4. Settings → Devices & Services → **Add integration** → "xBloom", and set each machine up again.
+5. Update what referred to the old install: entity ids are new (they follow the new device name, e.g. `xBloom Studio F64F`), `xbloom.*` actions become `xb.*`, a `xbloom:` block in `configuration.yaml` becomes `xb:`, and a conversation agent needs the xBloom LLM API selected again.
 
 ## Installation (HACS)
 

@@ -15,15 +15,7 @@ from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryError
 
-from .const import CONF_LEGACY_ENTRY_ID, DOMAIN
-from .legacy import (
-    async_adopt,
-    async_flag_restart,
-    async_legacy_installed,
-    async_restore_children,
-)
 from .llm_api import register_llm_api
 from .machine import Capability, get_machine
 from .migrations import async_migrate_entry as async_migrate_entry
@@ -35,37 +27,18 @@ from .services import async_register_services, async_unload_services
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Load the bundled + YAML recipe layers and register the sidebar panel.
-
-    While the pre-3.0 integration (domain ``xbloom``) is still running it
-    owns the panel URL; this one waits for the restart — see legacy.py.
-    """
+    """Load the bundled + YAML recipe layers and register the sidebar panel."""
     async_load_recipes(hass, config)
-    if await async_legacy_installed(hass):
-        async_flag_restart(hass)
-    else:
-        # Sidebar panel (global — it lists every configured machine).
-        await async_register_panel(hass)
+    # Sidebar panel (global — it lists every configured machine).
+    await async_register_panel(hass)
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up one machine with its model package, then the shared features
     its capabilities allow."""
-    if await async_legacy_installed(hass):
-        # The old integration still runs this machine until a restart.
-        raise ConfigEntryError(
-            translation_domain=DOMAIN, translation_key="legacy_restart_required"
-        )
-    children = None
-    if CONF_LEGACY_ENTRY_ID in entry.data:
-        # Re-created from a pre-3.0 entry: take over its devices and
-        # entities before the model registers any (entity ids are kept).
-        children = await async_adopt(hass, entry)
     if not await _model(entry).async_setup_entry(hass, entry):
         return False
-    if children:
-        async_restore_children(hass, entry.entry_id, children)
     machine = get_machine(hass, entry.entry_id)
     if machine is not None:
         # Voice/chat agents can drive any model through the LLM API; the
