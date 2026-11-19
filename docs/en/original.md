@@ -37,10 +37,13 @@ token for a new one, as the app does; the credentials are stored in the config
 entry only so it can log in again when that also fails. Remove the entry to
 remove them.
 
-While the shadow reports the machine offline, every entity except
-`binary_sensor.…_online` is unavailable and the buttons refuse to send
-anything (the app disables its start buttons too) — a command written then
-would wait in the shadow and run when the machine reconnects.
+While the shadow reports the machine offline, its live readings (state,
+warning, problem, grinding, brew progress, pod) read **unknown** — the
+shadow still holds the last reports, which aren't the current state — and
+the buttons refuse to send anything (the app disables its start buttons too):
+a command written then would wait in the shadow and run when the machine
+reconnects. Entities are unavailable only when the xBloom cloud can't be
+reached at all.
 
 ## Entities
 
@@ -71,7 +74,11 @@ Manual pour uses the app's exact encoding:
 (default 225); temperature is 85–96 °C (default 85), with the fixed RT 85 /
 BP 95 constants at the ends.
 
-The poll interval defaults to 15 s and can be changed in the entry's options
+Live changes arrive over the app's WebSocket
+(`wss://15qmk9hof3.execute-api.us-east-1.amazonaws.com/prod/`, the IoT token
+in an `Authorization` header, a ping every 30 s; the server pushes
+`{device_id, state: {reported: {…}}}` with only the changed fields). Polling
+stays on underneath as a fallback; its interval defaults to 15 s and can be changed in the entry's options
 (5–300 s).
 
 ## Recipes
@@ -123,12 +130,21 @@ either.
 ## What is not implemented
 
 - **Easy mode / auto mode.** The app can also store one recipe on the
-  machine's own start button (`tuAutoMode*.tuhtml`); not implemented.
-- **The WebSocket.** The app opens `wss://…execute-api…/prod/` for live
-  deltas; the subscribe/auth handshake is undocumented, so this integration
-  polls the thing shadow instead.
-- **Local discovery.** Port scanning and LAN control were not attempted; the
-  firmware is closed and the machine is cloud-bound.
+  machine's own start button (`tuAutoMode*.tuhtml`); not implemented yet.
+- **Firmware updates.** The app has no update path for the Original either:
+  its firmware is updated by the machine and the cloud themselves. The
+  power and panel MCU versions are shown as sensors.
+- **Local control.** The app never talks to the Original on the LAN; after
+  the Wi-Fi setup every command goes through the cloud, so there is nothing
+  local to discover or control.
+
+## Maintenance
+
+- **Grinder calibration** — `button.…_calibrate` or the panel. As in the
+  app, it's refused while the machine is asleep (tap the xPod dock to wake
+  it).
+- **Descaling** has no command in the app; it is done on the machine with
+  the button on the back. The panel's Settings tab shows the app's steps.
 
 ## Troubleshooting
 

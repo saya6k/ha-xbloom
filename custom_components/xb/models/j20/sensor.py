@@ -51,7 +51,7 @@ class J20StateSensor(_J20Sensor):
 
     @property
     def native_value(self) -> str | None:
-        state = work_mode_state(self.coordinator.data.get("work_mode"))
+        state = work_mode_state(self.coordinator.live.get("work_mode"))
         # A recipe waiting for its confirm (the panel's Start), as the
         # Studio reports it — only while the machine itself is not busy.
         if self.coordinator.armed_operation == "recipe" and state not in (
@@ -78,12 +78,14 @@ class J20WarningSensor(_J20Sensor):
     ]
 
     @property
-    def native_value(self) -> str:
-        return warning_state(self.coordinator.data.get("warning"))
+    def native_value(self) -> str | None:
+        if not self.coordinator.online:
+            return None
+        return warning_state(self.coordinator.live.get("warning"))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        warning = self.coordinator.data.get("warning")
+        warning = self.coordinator.live.get("warning")
         return {"warning_code": warning, "active": warning_active(warning)}
 
 
@@ -93,11 +95,11 @@ class J20BrewProgressSensor(_J20Sensor):
 
     @property
     def native_value(self) -> int | None:
-        return self.coordinator.data.get("disp_reserve")
+        return self.coordinator.live.get("disp_reserve")
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        value = self.coordinator.data.get("disp_reserve")
+        value = self.coordinator.live.get("disp_reserve")
         return {"meaning": DISP_RESERVE_MEANINGS.get(value)}
 
 
@@ -107,11 +109,11 @@ class J20PodSensor(_J20Sensor):
 
     @property
     def native_value(self) -> str | None:
-        return self.coordinator.data.get("pod")
+        return self.coordinator.live.get("pod")
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"pod_present": self.coordinator.data.get("pod") is not None}
+        return {"pod_present": self.coordinator.live.get("pod") is not None}
 
 
 class J20McuVersionSensor(_J20Sensor):

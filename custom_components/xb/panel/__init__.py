@@ -153,6 +153,9 @@ def _machine_payload(hass: HomeAssistant, entry_id: str, machine: Any) -> dict:
         "arm_buttons": bool(getattr(machine, "arming_buttons", False)),
         # Its "ready" state means ready to brew, not finished (the Original).
         "ready_is_idle": bool(getattr(machine, "ready_is_idle", False)),
+        # The panel's descaling how-to for a model without a scale (the
+        # Studio's comes with its scale-calibration guide).
+        "descale_guide": getattr(machine, "descale_guide", None),
         "entities": entities,
         "recipes": [],
         "selected_recipe": None,

@@ -72,6 +72,15 @@ const STRINGS = {
       "When asked, place the 500 g weight and wait until the screen shows DONE.",
       "If calibration fails, start again from step 2.",
     ],
+    descale_steps_j20: [
+      "Descale about every 3 months or 300 brews, with a descaler made for household coffee machines (no vinegar). Keep the solution away from eyes, skin and children.",
+      "Put a container of at least 300 ml under the water outlet and make sure the machine is on.",
+      "Fill the tank with 250 ml of water plus 60–65 ml of descaler and put it back.",
+      "Hold the button above the power cord on the back for about 10 seconds; release at two beeps. About 200 ml runs into the container — empty it.",
+      "Wait about 1 hour. Don't use the machine or add water meanwhile.",
+      "Hold the button for 10 seconds again and release at two beeps; the rest runs out. Empty the container.",
+      "Rinse the tank, fill it to the max line, put it back, then hold the button 10 seconds (release at two beeps) to run 200 ml of water. Repeat 4 times until the tank is empty.",
+    ],
     descale_steps: [
       "Mix descaler with water in the tank, about 1:20 (e.g. 25 g in 500 ml) or as the descaler says. Put a large container (about 1 L) under the dispenser.",
       "Press the middle knob to open the brew page, then quickly press it three more times to open descaling, and start it.",
@@ -169,6 +178,15 @@ const STRINGS = {
       "100 g 추를 저울 가운데에 올리고 기다리세요.",
       "안내가 나오면 500 g 추를 올리고, 화면에 DONE이 나올 때까지 기다리세요.",
       "캘리브레이션에 실패하면 2단계부터 다시 하세요.",
+    ],
+    descale_steps_j20: [
+      "약 3개월 또는 300회 추출마다, 가정용 커피머신 전용 디스케일러로 하세요(식초 금지). 용액이 눈·피부·아이에게 닿지 않게 하세요.",
+      "물 나오는 곳 아래에 300 ml 이상 들어가는 용기를 두고 기기가 켜져 있는지 확인하세요.",
+      "물통에 물 250 ml와 디스케일러 60–65 ml를 넣고 다시 끼우세요.",
+      "뒷면 전원선 위 버튼을 약 10초 누르고, 삐 소리가 두 번 나면 떼세요. 약 200 ml가 용기로 나오면 비우세요.",
+      "약 1시간 기다리세요. 그동안 기기를 쓰거나 물을 넣지 마세요.",
+      "다시 버튼을 10초 누르고 삐 소리 두 번에 떼면 남은 용액이 나옵니다. 용기를 비우세요.",
+      "물통을 헹구고 최대선까지 채워 끼운 뒤, 버튼을 10초 눌러(삐 두 번에 뗌) 물 200 ml를 내보내세요. 물통이 빌 때까지 4번 반복하세요.",
     ],
     descale_steps: [
       "물통에 디스케일러를 물과 약 1:20(예: 물 500 ml에 25 g)으로, 또는 제품 설명대로 섞으세요. 추출구 아래에 큰 용기(약 1 L)를 두세요.",
@@ -1980,7 +1998,7 @@ class XBloomPanel extends HTMLElement {
         ${level("display_brightness_level", "", 1, 3, "brightness")}
       </section>` : ""}
 
-      ${this._has("calibrate_grinder") || this._has("tare") ? `
+      ${this._has("calibrate_grinder") || this._has("tare") || m.descale_guide ? `
       <section class="card">
         <h2>${this._t("maintenance")}</h2>
         ${this._has("calibrate_grinder") ? `
@@ -1996,6 +2014,7 @@ class XBloomPanel extends HTMLElement {
         ${this._has("tare") ? `
         ${this._maintGuideRow("calibrate_scale", "calibrating_scale", "scale_cal_steps")}
         ${this._maintGuideRow("descale", "descaling", "descale_steps")}` : ""}
+        ${m.descale_guide ? this._maintGuideRow("descale", "descaling", m.descale_guide) : ""}
       </section>` : ""}
 
       <section class="card">

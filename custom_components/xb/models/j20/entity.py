@@ -23,9 +23,11 @@ class J20Entity(CoordinatorEntity[J20Coordinator]):
 
     @property
     def available(self) -> bool:
-        """Unavailable while the shadow reports the machine offline.
+        """Available while the cloud answers.
 
-        The shadow keeps its last reported values while the machine is off
-        Wi-Fi, so showing them would present stale state as current.
+        An offline machine's live readings are unknown, not unavailable:
+        the shadow keeps its last reported values while the machine is off
+        Wi-Fi, so those entities read ``coordinator.live`` (empty then) and
+        report None instead of stale state.
         """
-        return super().available and self.coordinator.online
+        return super().available

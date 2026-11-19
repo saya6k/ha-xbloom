@@ -126,6 +126,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, J20_PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_j20_listener))
     hass.async_create_task(coordinator.async_seed_recipes())
+    # Live shadow deltas over the app's WebSocket; cancelled on unload.
+    entry.async_create_background_task(
+        hass, coordinator.async_run_live_updates(), "xb_original_live_updates"
+    )
     return True
 
 

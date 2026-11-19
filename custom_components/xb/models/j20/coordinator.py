@@ -13,12 +13,15 @@ records the operation, confirming sends it.
 """
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 import time
 from collections.abc import Awaitable, Callable
 from datetime import timedelta
 from typing import Any, ClassVar, TypeVar
 
+import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
@@ -40,6 +43,7 @@ from ...recipes.schema import scale_pours_to_total
 from ...recipes.store import RecipeStoreMixin, is_tea_recipe
 from .client import (
     J20_PRODUCT_ID,
+    J20_WS_URL,
     J20ApiError,
     J20AuthError,
     J20CloudClient,
@@ -59,6 +63,7 @@ from .values import (
     VOLUME_MIN,
     WORK_MODE_BREWING,
     WORK_MODE_GRINDING,
+    WORK_MODE_SLEEPING,
     build_bruw_curve,
     recipe_start_blocked,
     warning_state,
@@ -73,6 +78,10 @@ _T = TypeVar("_T")
 # The Studio's arm lives on the machine's screen and ends with it; this one
 # has nothing to end it, so it lapses rather than firing hours later.
 ARM_TIMEOUT_S = 300
+
+_WS_HEARTBEAT_S = 30  # WsManager.HEARTBEAT_INTERVAL
+_WS_BACKOFF_MIN_S = 5
+_WS_BACKOFF_MAX_S = 300
 
 
 # warning codes that mean the tank is short of water (values.WARNING_STATES).
@@ -95,6 +104,8 @@ class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
     brews_tea = False
     # work_mode 5 ("ready") is ready to brew; finished is "complete".
     ready_is_idle = True
+    # Descaling has no command; the panel shows the app's steps (DescaleJ20Activity).
+    descale_guide = "descale_steps_j20"
     # Per-brew overrides its recipe run honours (llm/prompt.py): the run
     # command has no bypass, and the recipe's grind is sent as stored.
     recipe_overrides = frozenset({"dose_g", "ratio", "temperature_c", "pour_overrides"})
@@ -171,6 +182,8 @@ class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
         self._cloud_password: str = self._password
         # The run command fetched by the arm, sent by the confirm.
         self._armed_recipe_command: str | None = None
+        # The last full shadow; WebSocket deltas are merged into it.
+        self._raw_shadow: dict[str, Any] | None = None
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -186,6 +199,12 @@ class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
     @property
     def online(self) -> bool:
         return bool((self.data or {}).get("online"))
+
+    @property
+    def live(self) -> dict[str, Any]:
+        """The shadow's live readings, or nothing while the machine is
+        offline (they are its last reports then, not its current state)."""
+        return (self.data or {}) if self.online else {}
 
     # ------------------------------------------------------------------
     # machine.Machine interface
@@ -285,7 +304,17 @@ class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
             await self.async_stop()
 
     async def async_calibrate_grinder(self) -> None:
-        """Run the grinder auto-zero routine (``{auto_calibrate: 1}``)."""
+        """Run the grinder auto-zero routine (``{auto_calibrate: 1}``).
+
+        Like the app, refuse on a fresh shadow that says the machine is
+        asleep (MachineAdvancedFeaturesJ20Activity → Machine_Calibrate_Sleep).
+        """
+        await self.async_refresh()
+        if work_mode_state(self.live.get("work_mode")) == WORK_MODE_SLEEPING:
+            raise HomeAssistantError(
+                "The xBloom Original is asleep — tap the xPod dock to wake it, "
+                "then calibrate."
+            )
         await self._send({"auto_calibrate": 1})
 
     # ------------------------------------------------------------------
@@ -476,7 +505,68 @@ class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(f"XBloom Original cloud unreachable: {exc}") from exc
         if data is None:
             raise UpdateFailed("XBloom Original shadow request failed")
+        self._raw_shadow = dict(data)
         return parse_shadow(data)
+
+    # ------------------------------------------------------------------
+    # Live updates (AppWsManager / WsManager)
+    # ------------------------------------------------------------------
+
+    def handle_live_message(self, text: str) -> bool:
+        """Apply one WebSocket message; True when it changed this machine.
+
+        Messages carry ``{device_id, state: {reported: {...}}}`` with only
+        the fields that changed; ones for another machine on the account
+        and ``type`` messages are ignored, as in the app.
+        """
+        try:
+            message = json.loads(text)
+        except ValueError:
+            return False
+        if not isinstance(message, dict) or "type" in message:
+            return False
+        if message.get("device_id") not in (None, self.device_id):
+            return False
+        reported = (message.get("state") or {}).get("reported")
+        if not isinstance(reported, dict) or self._raw_shadow is None:
+            return False
+        self._raw_shadow.update(reported)
+        self.async_set_updated_data(parse_shadow(self._raw_shadow))
+        return True
+
+    async def async_run_live_updates(self) -> None:
+        """Keep the account WebSocket open (the app's 30 s ping), applying
+        its deltas; reconnects with back-off, renewing a rejected token.
+        Polling continues underneath as the fallback."""
+        session = async_get_clientsession(self.hass)
+        backoff = _WS_BACKOFF_MIN_S
+        while True:
+            token = self._client.project_token
+            try:
+                async with session.ws_connect(
+                    J20_WS_URL,
+                    headers={"Authorization": token or ""},
+                    heartbeat=_WS_HEARTBEAT_S,
+                ) as ws:
+                    backoff = _WS_BACKOFF_MIN_S
+                    _LOGGER.debug("XBloom Original live updates connected")
+                    async for msg in ws:
+                        if msg.type == aiohttp.WSMsgType.TEXT:
+                            self.handle_live_message(msg.data)
+                        elif msg.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR):
+                            break
+            except aiohttp.WSServerHandshakeError as exc:
+                if exc.status in (401, 403):
+                    try:
+                        await self._async_reauthenticate(token)
+                    except (ConfigEntryAuthFailed, J20ApiError) as err:
+                        _LOGGER.debug("XBloom Original live updates: %s", err)
+                else:
+                    _LOGGER.debug("XBloom Original live updates refused: %s", exc)
+            except (aiohttp.ClientError, TimeoutError) as exc:
+                _LOGGER.debug("XBloom Original live updates dropped: %s", exc)
+            await asyncio.sleep(backoff)
+            backoff = min(backoff * 2, _WS_BACKOFF_MAX_S)
 
     async def async_grind(self, size: int | None = None) -> None:
         """Start the grinder (``{grinding_start: 1, setting_grind_size: N}``)."""
