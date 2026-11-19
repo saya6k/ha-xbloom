@@ -254,6 +254,12 @@
     },
     "cloud_search_collective_recipes": {
       "service": "mdi:cloud-search-outline"
+    },
+    "write_recipe_to_auto_mode": {
+      "service": "mdi:gesture-tap-button"
+    },
+    "reset_auto_mode": {
+      "service": "mdi:restore"
     }
   }
 }

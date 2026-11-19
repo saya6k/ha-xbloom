@@ -80,6 +80,8 @@ ATTR_CHANGES = "changes"
 SERVICE_DELETE_RECIPE = "delete_recipe"
 
 SERVICE_WRITE_RECIPE_TO_EASY_SLOT = "write_recipe_to_easy_slot"
+SERVICE_WRITE_RECIPE_TO_AUTO_MODE = "write_recipe_to_auto_mode"
+SERVICE_RESET_AUTO_MODE = "reset_auto_mode"
 ATTR_SLOT = "slot"
 
 SERVICE_ADVANCED_SETTINGS = "advanced_settings"

@@ -57,6 +57,9 @@ const STRINGS = {
     arm_hint: "First tap opens the page on the machine, second tap starts it.",
     connection: "Connection", mode: "Machine mode", pro: "PRO", easy: "Easy",
     easy_slots: "Easy Mode slots", slot: "Slot", empty_slot: "Empty", write: "Write",
+    auto_mode: "Auto mode", auto_mode_hint: "The recipe the machine's own start button brews.",
+    auto_mode_unknown: "Not read yet", reset_auto_mode: "Restore default", confirm_reset: "Tap again to restore",
+    auto_mode_written: "Stored on the machine's start button.", auto_mode_reset: "Default recipe restored.",
     advanced: "Advanced", pour_radius: "Pour radius", vibration_amp: "Vibration strength",
     brightness: "Display brightness", apply: "Apply",
     maintenance: "Maintenance", calibrate_grinder: "Calibrate grinder",
@@ -164,6 +167,9 @@ const STRINGS = {
     arm_hint: "첫 번째 탭은 머신의 화면을 열고, 두 번째 탭에 시작합니다.",
     connection: "연결", mode: "머신 모드", pro: "PRO", easy: "Easy",
     easy_slots: "Easy 모드 슬롯", slot: "슬롯", empty_slot: "비어 있음", write: "쓰기",
+    auto_mode: "자동 모드", auto_mode_hint: "기기 자체 시작 버튼이 추출할 레시피입니다.",
+    auto_mode_unknown: "아직 읽지 못함", reset_auto_mode: "기본값 복원", confirm_reset: "한 번 더 누르면 복원",
+    auto_mode_written: "기기 시작 버튼에 저장했습니다.", auto_mode_reset: "기본 레시피를 복원했습니다.",
     advanced: "고급", pour_radius: "추출 반경", vibration_amp: "진동 진폭",
     brightness: "화면 밝기", apply: "적용",
     maintenance: "유지보수", calibrate_grinder: "그라인더 캘리브레이션",
@@ -967,6 +973,28 @@ class XBloomPanel extends HTMLElement {
         return this._deleteRecipe(arg);
       case "write-slot":
         return this._writeSlot(arg, this._recipeView);
+      case "write-auto-mode": {
+        const uid = this.shadowRoot.querySelector("#auto-mode")?.value;
+        if (!uid) return undefined;
+        return this._xb("write_recipe_to_auto_mode", { recipe: uid }).then(async (res) => {
+          if (res) {
+            this._toast(this._t("auto_mode_written"));
+            await this._loadMachines();
+          }
+        });
+      }
+      case "reset-auto-mode":
+        if (this._confirm !== "reset-auto-mode") {
+          this._confirm = "reset-auto-mode";
+          return this._render();
+        }
+        this._confirm = null;
+        return this._xb("reset_auto_mode").then(async (res) => {
+          if (res) {
+            this._toast(this._t("auto_mode_reset"));
+            await this._loadMachines();
+          }
+        });
       case "write-slot-from":
         return this._writeSlot(arg, this.shadowRoot.querySelector(`#slot-${arg}`)?.value);
       case "add-pour":
@@ -1988,6 +2016,28 @@ class XBloomPanel extends HTMLElement {
             </div>
           </div>`;
         }).join("")}
+      </section>` : ""}
+
+      ${this._has("auto_mode") ? `
+      <section class="card">
+        <h2>${this._t("auto_mode")}</h2>
+        <div class="muted small">${this._t("auto_mode_hint")}</div>
+        <div class="slot">
+          <div class="slot-body">
+            <div class="slot-name">${m.auto_mode ? esc(m.auto_mode.name || "") : `<span class="muted">${this._t("auto_mode_unknown")}</span>`}</div>
+            <div class="slot-write">
+              <select id="auto-mode"><option value="" selected disabled>${this._t("choose")}</option>${coffee
+                .map((r) => `<option value="${esc(r.uid)}" ${m.auto_mode?.uid === r.uid ? "selected" : ""}>${esc(r.name)}</option>`)
+                .join("")}</select>
+              <button class="btn small" data-action="write-auto-mode" ${this._connected ? "" : "disabled"}>${this._t("write")}</button>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <span></span>
+          <button class="btn small ${this._confirm === "reset-auto-mode" ? "danger" : ""}" data-action="reset-auto-mode" ${this._connected ? "" : "disabled"}>
+            ${this._t(this._confirm === "reset-auto-mode" ? "confirm_reset" : "reset_auto_mode")}</button>
+        </div>
       </section>` : ""}
 
       ${this._has("advanced_settings") ? `

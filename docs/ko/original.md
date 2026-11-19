@@ -116,13 +116,27 @@ Studio처럼 먼저 확인을 받습니다. Original에는 "대기(arm)" 화면�
 
 ## 구현되지 않은 것
 
-- **Easy 모드 / 자동 모드.** 앱은 레시피 하나를 기기 자체 시작 버튼에
-  저장할 수도 있습니다(`tuAutoMode*.tuhtml`). 아직 구현하지 않았습니다.
 - **펌웨어 업데이트.** 앱에도 Original 업데이트 경로가 없습니다. 펌웨어는
   기기와 클라우드가 스스로 업데이트합니다. 전원·패널 MCU 버전은 센서로
   보여 줍니다.
 - **로컬 제어.** 앱은 LAN에서 Original과 통신하지 않습니다. Wi-Fi 설정 뒤의
   모든 명령은 클라우드를 거치므로, 로컬에서 찾거나 제어할 대상이 없습니다.
+
+## 자동 모드 (기기 시작 버튼)
+
+앱처럼 레시피 하나를 Original 자체 시작 버튼에 저장해 Home Assistant 없이
+추출할 수 있습니다. 패널 설정 탭(**자동 모드**)이나 `xb.write_recipe_to_auto_mode` /
+`xb.reset_auto_mode` 서비스를 쓰세요. 쓰기는 `EasyModeJ20ViewModel`을
+따릅니다(실기 미검증):
+
+1. 기기 기록을 읽습니다(`tuAutoMode.tuhtml`, 시리얼·계정의 기기 번호·회원 국가로 찾음).
+2. 아직 xBloom 계정에 없는 레시피는 먼저 내보냅니다.
+3. 클라우드가 자동 모드 명령을 만들고(`tGetAutoModeRecipeMadeCmd.thtml`,
+   `xid: "IF0002"`), 이를 다른 명령처럼 기기에 보냅니다.
+4. 계정의 기록을 갱신합니다(`tuAutoModeSync.tuhtml`).
+
+초기화는 `tuAutoModeInit.tuhtml`의 공장 기본 레시피 명령을 보낸 뒤
+`tuAutoModeReset.tuhtml`로 기록합니다.
 
 ## 유지보수
 
