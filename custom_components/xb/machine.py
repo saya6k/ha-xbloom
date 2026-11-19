@@ -48,6 +48,9 @@ class ManualLimits:
     volume_ml: tuple[int, int]
     rpm: tuple[int, int] | None = None
     flow_rate: tuple[float, float] | None = None
+    # (brew method, finest, coarsest) on this grind scale, for the LLM's
+    # grind advice; None when no guide is known for the model's scale.
+    grind_guide: tuple[tuple[str, int, int], ...] | None = None
 
 
 class Machine(Protocol):

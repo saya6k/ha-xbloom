@@ -261,6 +261,9 @@
       },
       "j20_pour": {
         "name": "Pour"
+      },
+      "j20_execute_recipe": {
+        "name": "Execute Recipe"
       }
     },
     "number": {
@@ -392,7 +395,8 @@
           "grinding": "Grinding",
           "brewing": "Brewing",
           "complete": "Complete",
-          "sleeping": "Sleeping"
+          "sleeping": "Sleeping",
+          "armed_recipe": "Armed (Recipe)"
         }
       }
     },
@@ -424,6 +428,12 @@
           "center": "Center",
           "circular": "Circular",
           "spiral": "Spiral"
+        }
+      },
+      "j20_recipe": {
+        "name": "Recipe",
+        "state": {
+          "no_recipes_configured": "No recipes configured"
         }
       }
     },

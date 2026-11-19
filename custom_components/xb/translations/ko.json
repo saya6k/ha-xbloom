@@ -261,6 +261,9 @@
       },
       "j20_pour": {
         "name": "추출"
+      },
+      "j20_execute_recipe": {
+        "name": "레시피 실행"
       }
     },
     "number": {
@@ -392,7 +395,8 @@
           "grinding": "분쇄 중",
           "brewing": "추출 중",
           "complete": "완료",
-          "sleeping": "절전"
+          "sleeping": "절전",
+          "armed_recipe": "예약됨 (레시피)"
         }
       }
     },
@@ -424,6 +428,12 @@
           "center": "중앙",
           "circular": "원형",
           "spiral": "나선"
+        }
+      },
+      "j20_recipe": {
+        "name": "레시피",
+        "state": {
+          "no_recipes_configured": "설정된 레시피 없음"
         }
       }
     },

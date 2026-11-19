@@ -15,13 +15,13 @@ from .base import XBloomBaseTool
 _LOGGER = logging.getLogger(__name__)
 
 
-def _parameters(limits: ManualLimits, has_recipes: bool) -> vol.Schema:
+def _parameters(limits: ManualLimits) -> vol.Schema:
     """The tool schema, bounded by the machine's own grind range."""
     size_min, size_max = limits.grind_size
     reference = (
         " — see xbloom__execute_recipe's GRIND SIZE REFERENCE for "
         "recommended ranges per brew method."
-        if has_recipes
+        if limits.grind_guide
         else ". Other machines' grind numbers don't carry over to this scale."
     )
     fields: dict = {
@@ -58,6 +58,31 @@ def _parameters(limits: ManualLimits, has_recipes: bool) -> vol.Schema:
     return vol.Schema(fields)
 
 
+def _describe(*, arms_on_machine: bool, has_recipes: bool, has_rpm: bool) -> str:
+    """The same text for every model, minus what this one lacks."""
+    arm = (
+        "ARMS the machine — it opens its grind page showing the requested "
+        "settings without starting —"
+        if arms_on_machine
+        else "only ARMS the request — nothing is sent to the machine yet —"
+    )
+    after = (
+        "Use xbloom__pour afterwards for a manual pour, or "
+        "xbloom__execute_recipe to grind and pour a full recipe in one call."
+        if has_recipes
+        else "Use xbloom__pour afterwards for a manual pour."
+    )
+    return (
+        f"Grind beans on the xBloom with a custom grind size{' and RPM' if has_rpm else ''}. "
+        "This is a manual grind — it does NOT pour water. Two-phase flow: "
+        f"the first call (without confirmed) {arm} and you must then ask the "
+        "user to confirm. Call again with confirmed=true to start the grind; "
+        "if the user declines, call xbloom__cancel. confirmed=true only "
+        "starts a grind that is still armed — otherwise it arms again and you "
+        f"must ask again. {after}"
+    )
+
+
 class XBloomGrindTool(XBloomBaseTool):
     """Start a manual grind with the requested grind size (and RPM)."""
 
@@ -67,38 +92,16 @@ class XBloomGrindTool(XBloomBaseTool):
     annotations = llm.ToolAnnotations(
         read_only=False, destructive=True, idempotent=False, open_world=True
     )
-    description = (
-        "Grind beans on the xBloom with a custom grind size (and RPM where "
-        "the machine supports it). This "
-        "is a manual grind — it does NOT pour water. Two-phase flow: the "
-        "first call (without confirmed) ARMS the machine — it opens its "
-        "grind page showing the requested settings without starting — and "
-        "you must then ask the user to confirm. Call again with "
-        "confirmed=true to start the grind; if the user declines, call "
-        "xbloom__cancel to back out. confirmed=true only starts a grind "
-        "that is still armed — otherwise it arms again and you must ask "
-        "again. Use xbloom__pour afterwards for a "
-        "manual pour, or xbloom__execute_recipe to grind and pour a full "
-        "recipe in one call."
-    )
-    # For a machine with no on-machine arm page and no recipes.
-    _local_arm_description = (
-        "Grind beans on the xBloom with a custom grind size. This is a "
-        "manual grind — it does NOT pour water. Two-phase flow: the first "
-        "call (without confirmed) only ARMS the request — nothing is sent "
-        "to the machine yet — and you must then ask the user to confirm. "
-        "Call again with confirmed=true to start the grind; if the user "
-        "declines, call xbloom__cancel. confirmed=true only starts a grind "
-        "that is still armed — otherwise it arms again and you must ask "
-        "again. Use xbloom__pour afterwards for a manual pour."
-    )
+    description = ""  # built per machine in __init__ (_describe)
 
     def __init__(self, coordinator, hass: HomeAssistant) -> None:  # noqa: ANN001
         super().__init__(coordinator, hass)
-        has_recipes = Capability.RECIPES in coordinator.capabilities
-        self.parameters = _parameters(coordinator.limits, has_recipes)
-        if not (has_recipes and self._arms_on_machine):
-            self.description = self._local_arm_description
+        self.parameters = _parameters(coordinator.limits)
+        self.description = _describe(
+            arms_on_machine=self._arms_on_machine,
+            has_recipes=Capability.RECIPES in coordinator.capabilities,
+            has_rpm=coordinator.limits.rpm is not None,
+        )
 
     async def async_call(
         self,

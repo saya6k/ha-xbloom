@@ -322,15 +322,25 @@ class J20CloudClient:
         data = payload.get("data")
         return data if isinstance(data, dict) else None
 
-    async def async_send_desired(self, device_id: str, desired: dict[str, Any]) -> None:
-        """Push a desired-state document (``POST /api/device/command``)."""
+    async def async_send_desired(
+        self, device_id: str, desired: dict[str, Any] | str
+    ) -> None:
+        """Push a desired-state document (``POST /api/device/command``).
+
+        A dict is wrapped as the app's ``Desired`` object; a string is a
+        recipe command from ``tGetRecipeMadeCmd`` and goes out unchanged as
+        ``desired``, as the app sends it.
+        """
         if not desired:
             raise ValueError("desired state must not be empty")
         if not self.project_token:
             raise J20AuthError("not logged in")
-        payload = await self._signed_post(
-            "/api/device/command", command_payload(device_id, desired)
+        body = (
+            {"device_id": device_id, "product_id": J20_PRODUCT_ID, "desired": desired}
+            if isinstance(desired, str)
+            else command_payload(device_id, desired)
         )
+        payload = await self._signed_post("/api/device/command", body)
         if payload is None:
             raise J20ApiError("network error")
         code = _normalize_code(payload.get("code"))

@@ -25,6 +25,7 @@ const STRINGS = {
     load_recipe: "Load recipe", start_brew: "Start brewing",
     pause: "Pause", resume: "Resume", cancel: "Cancel",
     armed_hint: "The recipe is loaded on the machine. Place your cup, then start.",
+    armed_hint_local: "Ready to go. Add the beans, place the dripper with a filter and your cup, then start.",
     pour_armed_hint: "The pour page is open on the machine. Place your cup, then start.",
     grind_armed_hint: "The grind page is open on the machine. Add your beans, then start.",
     busy_hint: "Finish or cancel the current operation first.",
@@ -122,6 +123,7 @@ const STRINGS = {
     load_recipe: "레시피 불러오기", start_brew: "추출 시작",
     pause: "일시정지", resume: "재개", cancel: "취소",
     armed_hint: "머신에 레시피가 준비되었습니다. 컵을 놓은 뒤 시작하세요.",
+    armed_hint_local: "준비되었습니다. 원두를 넣고 필터를 끼운 드리퍼와 컵을 놓은 뒤 시작하세요.",
     pour_armed_hint: "머신에 추출 화면이 열렸습니다. 컵을 놓은 뒤 시작하세요.",
     grind_armed_hint: "머신에 분쇄 화면이 열렸습니다. 원두를 넣은 뒤 시작하세요.",
     busy_hint: "진행 중인 작업을 끝내거나 취소한 뒤 사용하세요.",
@@ -307,7 +309,7 @@ const ICONS = {
 const STAGES = ["beans", "grind", "pour", "enjoy"];
 const STAGE_OF_STATE = {
   armed_recipe: 0, recipe_loaded: 0, awaiting_confirm: 0, starting: 0,
-  grinding: 1, brewing: 2, paused: 2, ready: 3,
+  grinding: 1, brewing: 2, paused: 2, ready: 3, complete: 3,
 };
 
 // Per-browser convenience only (which machine was last open); storage can
@@ -1256,15 +1258,18 @@ class XBloomPanel extends HTMLElement {
     const recipe = m.recipes.find((r) => r.name === this._val("select.recipe"));
     const armed = ARMED_STATES.has(state);
     const busy = BUSY_STATES.has(state);
-    const pausable = PAUSABLE_STATES.has(state);
+    // Only a machine with a pause button can pause (the Original can't).
+    const pausable = PAUSABLE_STATES.has(state) && !!this._eid("button.pause");
     const target = recipe ? totalWater(recipe) + Number(recipe.bypass_volume || 0) : 0;
     const alerts = [];
-    if (this._val("binary_sensor.water_level") === "on" || state === "water_shortage") alerts.push(this._t("water_low"));
+    if (this._val("binary_sensor.water_level") === "on" || state === "water_shortage"
+      || ["water_low", "water_shortage"].includes(this._val("sensor.warning"))) alerts.push(this._t("water_low"));
     if (this._val("binary_sensor.problem") === "on") alerts.push(this._t("problem"));
 
     const options = (this._st("select.recipe")?.attributes.options || [])
       .filter((o) => m.recipes.some((r) => r.name === o));
-    const stage = STAGE_OF_STATE[state];
+    // The Studio reports "ready" after a brew; the Original before one.
+    const stage = m.ready_is_idle && state === "ready" ? undefined : STAGE_OF_STATE[state];
     return `
       ${alerts.map((a) => `<div class="alert">${esc(a)}</div>`).join("")}
       <div class="brew-grid">
@@ -1272,8 +1277,8 @@ class XBloomPanel extends HTMLElement {
           ${stage === undefined
             // Idle: the machine itself, like the app's home screen.
             ? `<div class="machine">
-                <img class="machine-img${this._photoCut[machineImage(m)] ? " cut" : ""}" src="${esc(machineImage(m))}" alt="xBloom Studio">
-                <div class="big" data-live="sensor.weight" data-live-fmt="weight">–</div>
+                ${this._has("photo") ? `<img class="machine-img${this._photoCut[machineImage(m)] ? " cut" : ""}" src="${esc(machineImage(m))}" alt="xBloom Studio">` : ""}
+                ${this._eid("sensor.weight") ? `<div class="big" data-live="sensor.weight" data-live-fmt="weight">–</div>` : ""}
                 <div class="sub">${esc(this._fmt("sensor.state"))}</div>
               </div>`
             : `<div class="ring" data-target="${target}">
@@ -1283,7 +1288,7 @@ class XBloomPanel extends HTMLElement {
                     stroke-dasharray="339.3" stroke-dashoffset="339.3"/>
                 </svg>
                 <div class="ring-center">
-                  <div class="big" data-live="sensor.weight" data-live-fmt="weight-brew">–</div>
+                  ${this._eid("sensor.weight") ? `<div class="big" data-live="sensor.weight" data-live-fmt="weight-brew">–</div>` : ""}
                   <div class="sub">${esc(this._fmt("sensor.state"))}</div>
                   ${target ? `<div class="sub dim">${this._t("target")} ${num(target)} ml</div>` : ""}
                 </div>
@@ -1291,11 +1296,11 @@ class XBloomPanel extends HTMLElement {
           <ol class="stages">${STAGES
             .map((s, i) => `<li class="${stage === i ? "active" : stage > i ? "done" : ""}">${ICONS[s]}<span>${this._t(`stage_${s}`)}</span></li>`)
             .join("")}</ol>
-          <div class="stats">
-            <div><span class="label">${this._t("brewer_temp")}</span><span class="stat" data-live="sensor.brewer_temperature" data-live-fmt="temp">–</span></div>
-            <div><span class="label">${this._t("flow")}</span><span class="stat" data-live="sensor.flow_rate">–</span></div>
-          </div>
-          ${armed ? `<div class="hint on-dark">${this._t("armed_hint")}</div>` : ""}
+          ${this._eid("sensor.brewer_temperature") || this._eid("sensor.flow_rate") ? `<div class="stats">
+            ${this._eid("sensor.brewer_temperature") ? `<div><span class="label">${this._t("brewer_temp")}</span><span class="stat" data-live="sensor.brewer_temperature" data-live-fmt="temp">–</span></div>` : ""}
+            ${this._eid("sensor.flow_rate") ? `<div><span class="label">${this._t("flow")}</span><span class="stat" data-live="sensor.flow_rate">–</span></div>` : ""}
+          </div>` : ""}
+          ${armed ? `<div class="hint on-dark">${this._t(m.arm_buttons ? "armed_hint" : "armed_hint_local")}</div>` : ""}
           <div class="actions">
             ${pausable
               ? `<button class="btn go" data-action="press" data-arg="button.pause">${this._t(state === "paused" ? "resume" : "pause")}</button>`

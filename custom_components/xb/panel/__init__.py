@@ -151,6 +151,8 @@ def _machine_payload(hass: HomeAssistant, entry_id: str, machine: Any) -> dict:
         # Whether the grind/pour/recipe buttons arm first and start on a
         # second press (the Studio) or act on the first press.
         "arm_buttons": bool(getattr(machine, "arming_buttons", False)),
+        # Its "ready" state means ready to brew, not finished (the Original).
+        "ready_is_idle": bool(getattr(machine, "ready_is_idle", False)),
         "entities": entities,
         "recipes": [],
         "selected_recipe": None,

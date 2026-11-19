@@ -235,7 +235,7 @@ xBloom 클라우드에서 조회해(계정 불필요) 찾은 정보를 덧붙입
 
 ## 알려진 제한사항
 
-- **xBloom Original은 실험적이며 클라우드 전용**: Original을 추가하면 기기가 아니라 xBloom 클라우드와 통신하는 별도 config entry 유형이 생성됩니다. xBloom 앱 계정으로 로그인하면 통합이 thing shadow를 폴링해 온라인/상태/경고/팟/MCU 버전 센서와 수동 추출(물량/온도/패턴)·분쇄·추출 중지·캘리브레이션을 제공합니다. 로컬 API는 없습니다. 로그인/서명/엔드포인트 정보는 앱 2.2.5 디컴파일에서 얻었으며, 실기나 실제 계정으로 검증되지 않았습니다 — 설정/엔티티는 [`original.md`](./original.md), 디컴파일 기반 지도는 [`protocol-original-j20.md`](./protocol-original-j20.md) 참고.
+- **xBloom Original은 실험적이며 클라우드 전용**: Original을 추가하면 기기가 아니라 xBloom 클라우드와 통신하는 별도 config entry 유형이 생성됩니다. xBloom 앱 계정으로 로그인하면 통합이 thing shadow를 폴링해 온라인/상태/경고/팟/MCU 버전 센서와 수동 추출(물량/온도/패턴)·분쇄·추출 중지·캘리브레이션과 저장된 커피 레시피 실행(차·바이패스 제외)을 제공합니다. 로컬 API는 없습니다. 로그인/서명/엔드포인트 정보는 앱 2.2.5 디컴파일에서 얻었으며, 실기나 실제 계정으로 검증되지 않았습니다 — 설정/엔티티는 [`original.md`](./original.md), 디컴파일 기반 지도는 [`protocol-original-j20.md`](./protocol-original-j20.md) 참고.
 - **일부 펌웨어의 MachineInfo**: 특정 펌웨어 리비전은 `RD_MachineInfo`를 아예 푸시하지 않아 Model / Serial / Firmware 센서가 `unknown`으로 남을 수 있음. 이런 펌웨어에서 수위 binary sensor는 이벤트 기반 감지로 fallback.
 - **수동 컵 감지**: 저울은 전원 인가 시 존재하는 모든 무게를 자동 영점화하므로, 부팅 전에 놓인 컵은 0 g으로 읽힘 — 이 경우 LLM `xbloom__execute_recipe` 도구가 레시피를 예약할 때 반환하는 체크리스트에 컵 확인을 추가.
 - **절전 중이거나 연결이 없을 때 무게는 unknown**: 절전 중인 머신은 저울이 비어 있어도 고정값 50 g을 보내므로, 무게 센서는 지어낸 값 대신 unknown을 표시함. 블루투스 연결이 없을 때(유휴 대기, 범위 밖)도 마찬가지. 실제 무게를 보려면 버튼을 누르거나 포드를 넣어 머신을 깨울 것.

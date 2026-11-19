@@ -62,6 +62,8 @@ would wait in the shadow and run when the machine reconnects.
 | `number.…_volume` | pour volume in ml (30–500, default 225) |
 | `number.…_temperature` | pour temperature in °C (85–96) |
 | `select.…_pattern` | pour pattern: center / circular / spiral |
+| `select.…_recipe` | the saved recipe the run button brews |
+| `button.…_execute_recipe` | run the selected recipe — first press checks the machine and prepares the run, second press starts it |
 
 Manual pour uses the app's exact encoding:
 `FFFF1005` + volume (4 hex) + temperature (2 hex) + `1E` + pattern
@@ -72,33 +74,61 @@ BP 95 constants at the ends.
 The poll interval defaults to 15 s and can be changed in the entry's options
 (5–300 s).
 
+## Recipes
+
+The Original keeps its own local recipe store, like a Studio: on first setup
+it is seeded once with the xBloom account's recipes, and recipes can be
+created, edited, imported from a share link or the community hub, and
+exported from the panel, the `xb.*` services or a conversation agent. Tea
+recipes are left out — the Original has no tea brewer.
+
+Running a recipe follows the app (`RecipeDetailActivity`, unverified on
+hardware):
+
+1. **Check.** The machine must be online, without a water warning, and
+   ready to brew (`work_mode` 5), or just woken (1) on current firmware.
+   On legacy firmware (an MCU outside 3.0.0–8.0.0) a recipe that skips the
+   grinder is refused.
+2. **Prepare.** The xBloom cloud turns the recipe (name, grind, ratio, dose,
+   pours) into the machine's run command (`tGetRecipeMadeCmd.thtml`).
+3. **Start.** After a second press (or `confirmed=true`), that command goes
+   to the machine unchanged (`POST /api/device/command`); grinding, brewing
+   and complete then show up in the state sensor.
+
+The `xb.execute_recipe` service does all three in one call. Per-brew
+overrides work as on the Studio for dose, ratio, temperature and single
+pours; the Original's run command has no bypass water, and a recipe's grind
+size is sent as stored (the cloud converts it to the Original's 1–30
+scale), so `grind_size`/`rpm` overrides don't apply.
+
 ## Sidebar panel and voice / chat agents
 
-The xBloom sidebar panel lists the Original next to any Studio. It shows
-the **Manual** tab (grind size, pour volume / temperature / pattern, start
-and stop) and **Settings** (grinder calibration, store region); the Brew and
-Recipes tabs, Easy slots and the scale only appear for a Studio.
+The xBloom sidebar panel lists the Original next to any Studio, with the
+**Brew**, **Recipes**, **Manual** and **Settings** tabs. Brew runs the
+selected recipe in two presses (prepare, then start) and follows the
+machine through grinding and brewing; Easy slots and the scale only appear
+for a Studio.
 
 The Original also gets its own LLM API ("XBloom Coffee Machine (<serial>)"),
 selectable in a conversation agent's settings. It offers only the tools the
-machine supports: `xbloom__get_status`, `xbloom__grind` (1–30),
+machine supports: status, the recipe tools (list, get, create, edit, delete,
+execute, import, export, community search), `xbloom__grind` (1–30),
 `xbloom__pour` (85–95 °C or boiling, 30–500 ml), `xbloom__cancel` and
-`xbloom__calibrate_grinder`. Grind and pour ask for confirmation first, as
-on the Studio; the Original has no "armed" page, so nothing reaches the
-machine until the confirmed call. `xbloom__cancel` stops a pour, but a
-running grind can't be stopped — the app has no command for it either.
+`xbloom__calibrate_grinder`. Recipes, grind and pour ask for confirmation
+first, as on the Studio; the Original has no "armed" page, so nothing
+reaches the machine until the confirmed call. `xbloom__cancel` stops a
+pour, but a running grind can't be stopped — the app has no command for it
+either.
 
 ## What is not implemented
 
-- **Recipes.** Starting a saved recipe goes through a server-generated
-  `getRecipeMadeCmd` payload; only manual pour and stop are exposed.
+- **Easy mode / auto mode.** The app can also store one recipe on the
+  machine's own start button (`tuAutoMode*.tuhtml`); not implemented.
 - **The WebSocket.** The app opens `wss://…execute-api…/prod/` for live
   deltas; the subscribe/auth handshake is undocumented, so this integration
   polls the thing shadow instead.
 - **Local discovery.** Port scanning and LAN control were not attempted; the
   firmware is closed and the machine is cloud-bound.
-- **Recipe services.** The `xbloom.*` services are all about recipes, so
-  they don't target an Original.
 
 ## Troubleshooting
 

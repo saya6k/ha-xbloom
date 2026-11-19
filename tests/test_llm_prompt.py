@@ -1,4 +1,4 @@
-"""XBLOOM_LLM_PROMPT must describe the current tool surface (SPEC §5).
+"""The Studio's LLM prompt must describe its current tool surface (SPEC §5).
 
 Mirrors the tool list in llm/catalog.py (build_tools) — update both together
 when a tool is added/removed/renamed; test_registered_tools_match_catalog
@@ -10,7 +10,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from custom_components.xb.const import XBLOOM_LLM_PROMPT
+from custom_components.xb.llm.prompt import build_prompt
+from tests.machine_fakes import FakeStudio
+
+STUDIO_PROMPT = build_prompt(FakeStudio())
 
 REGISTERED_TOOLS = (
     "xbloom__get_status",
@@ -41,12 +44,12 @@ REMOVED_TOOLS = (
 
 @pytest.mark.parametrize("tool_name", REGISTERED_TOOLS)
 def test_prompt_mentions_every_registered_tool(tool_name):
-    assert tool_name in XBLOOM_LLM_PROMPT
+    assert tool_name in STUDIO_PROMPT
 
 
 @pytest.mark.parametrize("tool_name", REMOVED_TOOLS)
 def test_prompt_does_not_mention_removed_tools(tool_name):
-    assert tool_name not in XBLOOM_LLM_PROMPT
+    assert tool_name not in STUDIO_PROMPT
 
 
 def test_registered_tools_match_catalog():

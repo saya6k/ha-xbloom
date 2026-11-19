@@ -17,6 +17,7 @@ from custom_components.xb.recipes.schema import (
 )
 
 from .base import XBloomBaseTool
+from .prompt import ALL_RECIPE_OVERRIDES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -217,6 +218,40 @@ class XBloomListRecipesTool(XBloomBaseTool):
         )
 
 
+def _describe_execute(*, arms_on_machine: bool, brews_tea: bool, allowed: frozenset) -> str:
+    arm = (
+        "ARMS the machine — it loads the recipe and shows its start prompt "
+        "without brewing —"
+        if arms_on_machine
+        else "checks the machine and prepares the run — nothing starts yet —"
+    )
+    items = "beans or tea leaves" if brews_tea else "beans"
+    names = [
+        name
+        for name in ("grind_size", "rpm", "dose_g", "ratio", "temperature_c", "cup_type", "bypass")
+        if name in allowed
+    ]
+    overrides = (
+        f" Any top-level scalar ({', '.join(names)}) can be overridden for "
+        "this brew only — the stored recipe is unchanged, and a dose/ratio "
+        "override rescales the pour volumes proportionally. Overrides are "
+        "applied when arming: pass them on the first call; to change them, "
+        "call again without confirmed."
+        if names
+        else ""
+    )
+    return (
+        f"Execute a saved xBloom recipe. Two-phase flow: the first call "
+        f"(without confirmed) {arm} and returns a checklist ({items}, "
+        "dripper, paper filter, cup) to ask the user about. Call again with "
+        "confirmed=true once the user confirms; if they decline, call "
+        "xbloom__cancel. confirmed=true only starts a recipe that is still "
+        f"armed — otherwise it arms again and you must ask again.{overrides} "
+        "Water level is checked automatically — the tool refuses to arm and "
+        "returns error='water_low' if the tank needs a refill."
+    )
+
+
 class XBloomExecuteRecipeTool(XBloomBaseTool):
     """Arm a saved recipe on the machine, then start it once the user confirms."""
 
@@ -342,6 +377,23 @@ class XBloomExecuteRecipeTool(XBloomBaseTool):
             ],
         }
     )
+
+    def __init__(self, coordinator, hass: HomeAssistant) -> None:  # noqa: ANN001
+        super().__init__(coordinator, hass)
+        # Offer only the overrides this machine's recipe run honours, and
+        # describe the flow the way this machine arms (see llm/prompt.py).
+        allowed = frozenset(getattr(coordinator, "recipe_overrides", ALL_RECIPE_OVERRIDES))
+        keep = {"recipe", "confirmed"} | allowed
+        if "bypass" in allowed:
+            keep |= {"bypass_volume", "bypass_temperature"}
+        self.parameters = vol.Schema(
+            {k: v for k, v in type(self).parameters.schema.items() if str(k) in keep}
+        )
+        self.description = _describe_execute(
+            arms_on_machine=self._arms_on_machine,
+            brews_tea=bool(getattr(coordinator, "brews_tea", True)),
+            allowed=allowed,
+        )
 
     async def async_call(
         self,
