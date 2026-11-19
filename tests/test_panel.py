@@ -66,6 +66,7 @@ def test_machine_payload_maps_entities_and_full_recipes():
         machine_cover_version=None,
         easy_slot_contents=lambda s: {"uid": "u1", "name": "Daily"} if s == "A" else None,
         data={"serial_number": "J15A02B4CV030"},
+        machine_name="xBloom Studio 4CV030",
     )
     entries = [
         SimpleNamespace(domain="sensor", translation_key="state",
@@ -89,6 +90,8 @@ def test_machine_payload_maps_entities_and_full_recipes():
     assert payload["easy_slots"]["A"] == {"uid": "u1", "name": "Daily"}
     assert payload["easy_slots"]["B"] is None
     assert payload["title"] == "Studio"
+    # The header shows the device name, not the entry title ("xBloom (MAC)").
+    assert payload["name"] == "xBloom Studio 4CV030"
     assert payload["mac"] == "AA:BB"
     # Serial "J15A02…" → the app's white-machine code; nothing picked yet.
     assert payload["detected_color"] == "moonlight_white"
@@ -128,6 +131,8 @@ def test_machine_payload_for_a_model_without_recipes():
     assert payload["recipes"] == [] and payload["easy_slots"] == {}
     assert payload["photo_url"] is None and payload["arm_buttons"] is False
     assert payload["mac"] == "SN1"
+    # No device name of its own: the header falls back to the entry title.
+    assert payload["name"] == "Original"
 
 
 def test_color_from_serial_follows_the_official_app():

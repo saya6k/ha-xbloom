@@ -141,6 +141,10 @@ def _machine_payload(hass: HomeAssistant, entry_id: str, machine: Any) -> dict:
     payload = {
         "entry_id": entry_id,
         "title": entry.title if entry else machine.machine_label,
+        # What the header shows: the device name ("xBloom Studio 4CV030")
+        # when the model has one, else the entry title.
+        "name": getattr(machine, "machine_name", None)
+        or (entry.title if entry else machine.machine_label),
         "mac": machine.machine_label,
         "capabilities": sorted(caps),
         # Whether the grind/pour/recipe buttons arm first and start on a

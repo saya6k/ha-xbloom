@@ -385,6 +385,7 @@ class XBloomPanel extends HTMLElement {
     this._tab = "home";
     this._machines = null;
     this._entryId = null;
+    this._machineMenu = false; // the header's machine switcher is open
     this._recipeView = null; // uid of the open recipe detail
     this._editor = null; // { uid|null, recipe }
     this._filter = { q: "", kind: "all" };
@@ -825,11 +826,27 @@ class XBloomPanel extends HTMLElement {
 
   _onClick(ev) {
     const el = ev.target.closest("[data-action]");
+    // Any click outside the open machine menu closes it.
+    if (this._machineMenu && el?.dataset.action !== "machine-menu" && el?.dataset.action !== "pick-machine") {
+      this._machineMenu = false;
+      this._render();
+    }
     if (!el || el.disabled) return;
     const a = el.dataset.action;
     const arg = el.dataset.arg;
     const recipe = this._findRecipe(arg);
     switch (a) {
+      case "machine-menu":
+        this._machineMenu = !this._machineMenu;
+        return this._render();
+      case "pick-machine":
+        this._machineMenu = false;
+        if (arg === this._entryId) return this._render();
+        this._entryId = arg;
+        savePref("machine", arg);
+        this._recipeView = null;
+        this._editor = null;
+        return this._render();
       case "tab":
         this._tab = arg;
         this._recipeView = null;
@@ -974,13 +991,6 @@ class XBloomPanel extends HTMLElement {
   _onChange(ev) {
     const el = ev.target;
     const d = el.dataset;
-    if (d.machine !== undefined) {
-      this._entryId = el.value;
-      savePref("machine", el.value);
-      this._recipeView = null;
-      this._editor = null;
-      return this._render();
-    }
     if (d.number) {
       return this._call("number", "set_value", { entity_id: this._eid(d.number), value: Number(el.value) });
     }
@@ -1073,12 +1083,23 @@ class XBloomPanel extends HTMLElement {
     const m = this._machine;
     const tabs = this._tabs;
     if (m && !tabs.includes(this._tab)) this._tab = tabs[0];
+    const name = (x) => x?.name || x?.title || "";
+    // Several machines: the name becomes a button that opens a menu of the
+    // others; one machine: just its name.
     const picker =
       (this._machines?.length || 0) > 1
-        ? `<select class="machine-picker" data-machine>${this._machines
-            .map((x) => `<option value="${esc(x.entry_id)}" ${x.entry_id === this._entryId ? "selected" : ""}>${esc(x.title)}</option>`)
-            .join("")}</select>`
-        : `<div class="title">${esc(m?.title || "")}</div>`;
+        ? `<div class="machine-switch">
+            <button class="machine-button" data-action="machine-menu" aria-haspopup="listbox"
+              aria-expanded="${this._machineMenu}">${esc(name(m))}<svg class="caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            ${this._machineMenu
+              ? `<div class="machine-list" role="listbox">${this._machines
+                  .map((x) => `<button role="option" aria-selected="${x.entry_id === this._entryId}"
+                    class="machine-option ${x.entry_id === this._entryId ? "current" : ""}"
+                    data-action="pick-machine" data-arg="${esc(x.entry_id)}">${esc(name(x))}</button>`)
+                  .join("")}</div>`
+              : ""}
+          </div>`
+        : `<div class="title">${esc(name(m))}</div>`;
     const chip = `<span class="dot"></span>${esc(this._connected ? this._fmt("sensor.state") : this._t("offline"))}`;
     // A machine without a connection switch (cloud models) can't be
     // connected from here — its chip only shows whether it is online.
@@ -2091,7 +2112,19 @@ const STYLE = `
   :host([dark]) .logo.dark { display: block; }
   .title { font-size: 14px; color: var(--xb-muted); padding-left: 10px; border-left: 1px solid var(--xb-line);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .machine-picker { font-size: 14px; }
+  .machine-switch { position: relative; min-width: 0; }
+  .machine-button { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font: inherit;
+    font-size: 14px; color: var(--xb-text); background: var(--xb-card); border: 1px solid var(--xb-line);
+    border-radius: 999px; padding: 5px 12px; cursor: pointer; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; }
+  .machine-button .caret { width: 14px; height: 14px; flex: none; color: var(--xb-muted); }
+  .machine-list { position: absolute; top: calc(100% + 6px); left: 0; min-width: 100%; z-index: 5;
+    display: flex; flex-direction: column; padding: 4px; background: var(--xb-card);
+    border: 1px solid var(--xb-line); border-radius: 12px; box-shadow: 0 8px 24px rgb(0 0 0 / 18%); }
+  .machine-option { font: inherit; font-size: 14px; text-align: left; white-space: nowrap; color: var(--xb-text);
+    background: none; border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+  .machine-option:hover { background: color-mix(in srgb, var(--xb-text) 8%, transparent); }
+  .machine-option.current { font-weight: 600; color: var(--xb-gold); }
   .spacer { flex: 1; }
   .chip { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--xb-line);
     border-radius: 999px; padding: 5px 12px; background: var(--xb-card); font-size: 13px; white-space: nowrap; }
