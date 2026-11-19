@@ -86,6 +86,7 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
     # The panel's generic entity keys -> this model's own translation keys.
     panel_entity_aliases: ClassVar[dict[str, str]] = {
         "sensor.state": "sensor.j20_state",
+        "binary_sensor.online": "binary_sensor.j20_online",
         "number.grind_size": "number.j20_grind_size",
         "number.volume": "number.j20_volume",
         "number.temperature": "number.j20_temperature",

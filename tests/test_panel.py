@@ -23,11 +23,23 @@ PLATFORMS = ("binary_sensor", "button", "event", "number", "select", "sensor", "
 
 
 def test_panel_entity_keys_exist():
+    """Every key the panel reads is a real entity key, or a generic key some
+    model maps onto its own entity (panel_entity_aliases) whose target is
+    real."""
+    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+
     strings = json.loads((PKG / "strings.json").read_text())["entity"]
+
+    def real(key: str) -> bool:
+        domain, name = key.split(".")
+        return name in strings.get(domain, {})
+
+    aliases = J20Coordinator.panel_entity_aliases
+    assert all(real(target) for target in aliases.values())
     pattern = re.compile(rf'"((?:{"|".join(PLATFORMS)})\.[a-z0-9_]+)"')
     keys = set(pattern.findall(JS))
     assert keys, "no entity keys found in the panel bundle"
-    missing = sorted(k for k in keys if k.split(".")[1] not in strings.get(k.split(".")[0], {}))
+    missing = sorted(k for k in keys if not real(k) and k not in aliases)
     assert not missing, f"panel references unknown entity keys: {missing}"
 
 
@@ -86,6 +98,36 @@ def test_machine_payload_maps_entities_and_full_recipes():
         hass, "/api/xbloom/machine_photo/entry1?v=02-None", panel._PHOTO_URL_TTL
     )
     assert panel.MachinePhotoView.requires_auth is True
+
+
+def test_machine_payload_for_a_model_without_recipes():
+    """An Original-like machine: capability-gated fields stay empty and its
+    own entity keys are aliased onto the panel's generic ones."""
+    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+
+    entry = SimpleNamespace(title="Original", data={}, options={})
+    hass = MagicMock()
+    hass.config.country = "US"
+    hass.config_entries.async_get_entry.return_value = entry
+    machine = SimpleNamespace(
+        capabilities=J20Coordinator.capabilities,
+        panel_entity_aliases=J20Coordinator.panel_entity_aliases,
+        machine_label="SN1",
+    )
+    entries = [
+        SimpleNamespace(domain="number", translation_key="j20_volume",
+                        entity_id="number.original_volume", disabled_by=None),
+    ]
+    with patch.object(panel.er, "async_get"), patch.object(
+        panel.er, "async_entries_for_config_entry", return_value=entries
+    ):
+        payload = panel._machine_payload(hass, "o1", machine)
+
+    assert payload["entities"]["number.volume"] == "number.original_volume"
+    assert payload["capabilities"] == sorted(J20Coordinator.capabilities)
+    assert payload["recipes"] == [] and payload["easy_slots"] == {}
+    assert payload["photo_url"] is None and payload["arm_buttons"] is False
+    assert payload["mac"] == "SN1"
 
 
 def test_color_from_serial_follows_the_official_app():

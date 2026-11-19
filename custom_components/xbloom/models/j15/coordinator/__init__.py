@@ -92,6 +92,8 @@ class XBloomCoordinator(
 
     # machine.Machine — the Studio supports every shared feature.
     capabilities = frozenset(Capability)
+    # Its grind/pour/recipe buttons arm on the first press (panel hint).
+    arming_buttons = True
     # Mirrors the number entities and the LLM tools' historical bounds; the
     # 96 °C setpoint is the slider's BP end, sent as the 98 °C constant.
     limits = ManualLimits(

@@ -143,6 +143,9 @@ def _machine_payload(hass: HomeAssistant, entry_id: str, machine: Any) -> dict:
         "title": entry.title if entry else machine.machine_label,
         "mac": machine.machine_label,
         "capabilities": sorted(caps),
+        # Whether the grind/pour/recipe buttons arm first and start on a
+        # second press (the Studio) or act on the first press.
+        "arm_buttons": bool(getattr(machine, "arming_buttons", False)),
         "entities": entities,
         "recipes": [],
         "selected_recipe": None,
