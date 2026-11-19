@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from custom_components.xbloom.config_flow import XBloomConfigFlow
-from custom_components.xbloom.entity import scope_unique_ids, scoped_unique_id
-from custom_components.xbloom.migrations import _scope_unique_id_migration
+from custom_components.xb.config_flow import XBloomConfigFlow
+from custom_components.xb.entity import scope_unique_ids, scoped_unique_id
+from custom_components.xb.migrations import _scope_unique_id_migration
 
 
 class _Entity:

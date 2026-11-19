@@ -13,9 +13,9 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from custom_components.xbloom import panel
-from custom_components.xbloom.cloud import client as _cloud_client
-from custom_components.xbloom.cloud.client import XBloomCloudClient
+from custom_components.xb import panel
+from custom_components.xb.cloud import client as _cloud_client
+from custom_components.xb.cloud.client import XBloomCloudClient
 from tests.machine_fakes import FakeStudio
 
 # Trimmed from the live response for community recipe 70577 (2026-10-15).
@@ -135,7 +135,7 @@ def test_store_failure_gives_no_link(monkeypatch):
 
 
 def _run_detail(coordinator, rid=70577):
-    from custom_components.xbloom.const import DATA_COORDINATOR, DOMAIN
+    from custom_components.xb.const import DATA_COORDINATOR, DOMAIN
 
     hass = MagicMock()
     hass.data = {DOMAIN: {"e1": {DATA_COORDINATOR: coordinator}}}

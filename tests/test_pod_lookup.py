@@ -12,7 +12,7 @@ import asyncio
 
 import pytest
 
-from custom_components.xbloom.cloud.client import XBloomCloudClient
+from custom_components.xb.cloud.client import XBloomCloudClient
 
 
 def _pour(volume, pattern=2):

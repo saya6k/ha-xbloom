@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, Mock
 
 from homeassistant.helpers import llm
 
-from custom_components.xbloom.llm.recipe import XBloomExecuteRecipeTool
+from custom_components.xb.llm.recipe import XBloomExecuteRecipeTool
 from tests.machine_fakes import FakeStudio
 
 _V60 = {

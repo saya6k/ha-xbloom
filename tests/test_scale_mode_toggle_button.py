@@ -12,7 +12,7 @@ import ast
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent / "custom_components" / "xbloom"
+ROOT = Path(__file__).parent.parent / "custom_components" / "xb"
 BUTTON = ROOT / "models" / "j15" / "button.py"
 
 

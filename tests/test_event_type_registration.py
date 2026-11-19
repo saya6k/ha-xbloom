@@ -13,8 +13,8 @@ import pytest
 
 pytest.importorskip("homeassistant.components.event")
 
-from custom_components.xbloom.models.j15.ble.client import _ERROR_MAP, _NOTIFICATION_MAP
-from custom_components.xbloom.models.j15.event import ERROR_EVENT_TYPES, NOTIFICATION_EVENT_TYPES
+from custom_components.xb.models.j15.ble.client import _ERROR_MAP, _NOTIFICATION_MAP
+from custom_components.xb.models.j15.event import ERROR_EVENT_TYPES, NOTIFICATION_EVENT_TYPES
 
 
 def test_every_notification_map_value_is_registered():
@@ -36,7 +36,7 @@ def test_event_types_have_translations():
     import json
     from pathlib import Path
 
-    root = Path(__file__).parent.parent / "custom_components" / "xbloom"
+    root = Path(__file__).parent.parent / "custom_components" / "xb"
     for fname in ("strings.json", "translations/en.json", "translations/ko.json"):
         data = json.loads((root / fname).read_text())
         notif = data["entity"]["event"]["notification_event"][

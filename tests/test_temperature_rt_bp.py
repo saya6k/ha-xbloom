@@ -17,11 +17,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from custom_components.xbloom.models.j15.coordinator import operations
-from custom_components.xbloom.models.j15.coordinator.operations import OperationsMixin
-from custom_components.xbloom.models.j15.coordinator.state import StateMixin
+from custom_components.xb.models.j15.coordinator import operations
+from custom_components.xb.models.j15.coordinator.operations import OperationsMixin
+from custom_components.xb.models.j15.coordinator.state import StateMixin
 
-ROOT = Path(__file__).parent.parent / "custom_components" / "xbloom"
+ROOT = Path(__file__).parent.parent / "custom_components" / "xb"
 
 
 @pytest.fixture(autouse=True)

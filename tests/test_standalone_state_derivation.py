@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from custom_components.xbloom.models.j15.ble.models import DeviceState
-from custom_components.xbloom.models.j15.coordinator.state import StateMixin
+from custom_components.xb.models.j15.ble.models import DeviceState
+from custom_components.xb.models.j15.coordinator.state import StateMixin
 
 
 class _Coordinator(StateMixin):

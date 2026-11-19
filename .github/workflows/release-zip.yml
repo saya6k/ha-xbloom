@@ -27,7 +27,7 @@ jobs:
         run: |
           python3 - "${TAG#v}" <<'PY'
           import json, sys
-          path = "custom_components/xbloom/manifest.json"
+          path = "custom_components/xb/manifest.json"
           with open(path) as f:
               data = json.load(f)
           data["version"] = sys.argv[1]
@@ -38,7 +38,7 @@ jobs:
 
       - name: Zip integration
         run: |
-          cd custom_components/xbloom
+          cd custom_components/xb
           zip -r "$GITHUB_WORKSPACE/xbloom.zip" .
 
       - name: Upload asset to release

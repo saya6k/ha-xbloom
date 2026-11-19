@@ -8,11 +8,11 @@ from unittest.mock import AsyncMock, Mock
 
 from homeassistant.helpers import llm
 
-from custom_components.xbloom.llm.catalog import build_tools
-from custom_components.xbloom.llm.cloud_recipe import _cloud_failure
-from custom_components.xbloom.llm.grind import XBloomGrindTool
-from custom_components.xbloom.llm.local_recipe import XBloomDeleteRecipeTool
-from custom_components.xbloom.llm.status import XBloomStatusTool
+from custom_components.xb.llm.catalog import build_tools
+from custom_components.xb.llm.cloud_recipe import _cloud_failure
+from custom_components.xb.llm.grind import XBloomGrindTool
+from custom_components.xb.llm.local_recipe import XBloomDeleteRecipeTool
+from custom_components.xb.llm.status import XBloomStatusTool
 from tests.machine_fakes import FakeStudio
 
 
@@ -98,7 +98,7 @@ def test_catalog_metadata_distinguishes_side_effects():
     tools = {tool.name: tool for tool in build_tools(FakeStudio(), None)}
     for tool in tools.values():
         assert tool.name.startswith("xbloom__"), tool.name
-        assert tool.integration == "xbloom"
+        assert tool.integration == "xb"
         assert tool.title
     for name in ("xbloom__grind", "xbloom__pour", "xbloom__execute_recipe"):
         assert not tools[name].annotations.read_only

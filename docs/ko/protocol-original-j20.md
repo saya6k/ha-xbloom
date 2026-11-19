@@ -7,7 +7,7 @@
 > 정적 디컴파일한 결과(zip/dex/소스 덤프로만 확인 — 배포·재배포된 적 없음)를
 > 바탕으로 작성되었습니다. **[`protocol.md`](./protocol.md)(Studio BLE)와 달리,
 > 여기 내용은 실기로 검증된 것이 하나도 없습니다.** 이제 이 통합에는
-> `custom_components/xbloom/j20/`의 클라우드 전용 J20 경로(config entry 유형
+> `custom_components/xb/j20/`의 클라우드 전용 J20 경로(config entry 유형
 > `original`: 계정 로그인, thing shadow 폴링, 분쇄/중지/캘리브레이션)가
 > 포함되어 있지만, 이 저장소에는 여전히 Original 실기와 실제 계정이 없어
 > 그 코드도 미검증입니다. 이 문서는 그 구현의 근거가 되는 디컴파일 기반

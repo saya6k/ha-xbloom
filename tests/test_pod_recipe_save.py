@@ -15,7 +15,7 @@ import asyncio
 
 import pytest
 
-from custom_components.xbloom.recipes.store import RecipeStoreMixin
+from custom_components.xb.recipes.store import RecipeStoreMixin
 from tests.test_pod_detected_dispatch import _dispatch_pod, _FakeCloud
 
 save_pod_recipes = RecipeStoreMixin.save_pod_recipes

@@ -10,9 +10,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from custom_components.xbloom.recipes.store import RecipeStoreMixin
+from custom_components.xb.recipes.store import RecipeStoreMixin
 
-COMPONENT = Path(__file__).parent.parent / "custom_components" / "xbloom"
+COMPONENT = Path(__file__).parent.parent / "custom_components" / "xb"
 
 
 class _Coordinator(RecipeStoreMixin):

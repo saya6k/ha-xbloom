@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 COMPONENT_ROOT = (
-    Path(__file__).resolve().parent.parent / "custom_components" / "xbloom"
+    Path(__file__).resolve().parent.parent / "custom_components" / "xb"
 )
 
 

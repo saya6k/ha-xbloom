@@ -1,0 +1,67 @@
+"""Tool: xbloom__calibrate_grinder — trigger the grinder gear-position
+calibration sweep (cmd 3502, via coordinator.async_calibrate_grinder(),
+the same call button.calibrate_grinder uses)."""
+
+from __future__ import annotations
+
+import logging
+
+import voluptuous as vol
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import llm
+
+from custom_components.xb.machine import Capability
+
+from .base import XBloomBaseTool
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class XBloomCalibrateGrinderTool(XBloomBaseTool):
+    """Trigger the XBloom's grinder gear-position calibration sweep."""
+
+    required = frozenset({Capability.CALIBRATE_GRINDER})
+    name = "xbloom__calibrate_grinder"
+    title = "Calibrate xBloom grinder"
+    annotations = llm.ToolAnnotations(
+        read_only=False, destructive=True, idempotent=False, open_world=True
+    )
+    description = (
+        "Run the xBloom's grinder gear-position calibration. Use this when "
+        "the user asks to calibrate, recalibrate, or reset the grinder "
+        "(e.g. after grind sizes seem off). The sweep runs autonomously on "
+        "the machine for about 120 seconds after this call returns — it "
+        "does not block. The action has no parameters."
+    )
+    parameters = vol.Schema({})
+
+    async def async_call(
+        self,
+        hass: HomeAssistant,
+        tool_input: llm.ToolInput,
+        llm_context: llm.LLMContext,
+    ) -> llm.ToolResult:
+        if (unavailable := await self._unavailable()) is not None:
+            return unavailable
+
+        try:
+            await self.coordinator.async_calibrate_grinder()
+        except Exception as exc:
+            _LOGGER.exception("xbloom__calibrate_grinder failed: %s", exc)
+            return llm.ToolResult(
+                data={
+                    "success": False,
+                    "error": f"Calibration failed: {exc!s}",
+                },
+                error=True,
+            )
+
+        return llm.ToolResult(
+            data={
+                "success": True,
+                "instruction": (
+                    "Tell the user grinder calibration has started and takes "
+                    "about 2 minutes to finish on its own."
+                ),
+            }
+        )

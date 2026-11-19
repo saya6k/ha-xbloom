@@ -8,8 +8,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
-from custom_components.xbloom.llm.grind import XBloomGrindTool
-from custom_components.xbloom.llm.pour import XBloomPourTool
+from custom_components.xb.llm.grind import XBloomGrindTool
+from custom_components.xb.llm.pour import XBloomPourTool
 from tests.machine_fakes import FakeStudio
 from tests.test_llm_recipe_prearm import _call
 from tests.test_llm_recipe_prearm import _coordinator as _recipe_coordinator

@@ -13,8 +13,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from custom_components.xbloom.models.j15.coordinator import operations
-from custom_components.xbloom.models.j15.coordinator.operations import OperationsMixin
+from custom_components.xb.models.j15.coordinator import operations
+from custom_components.xb.models.j15.coordinator.operations import OperationsMixin
 
 
 @pytest.fixture(autouse=True)

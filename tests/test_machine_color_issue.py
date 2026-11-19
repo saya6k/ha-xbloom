@@ -11,8 +11,8 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.parse import unquote
 
-from custom_components.xbloom.models.j15.coordinator import connection
-from custom_components.xbloom.models.j15.coordinator.connection import ConnectionMixin
+from custom_components.xb.models.j15.coordinator import connection
+from custom_components.xb.models.j15.coordinator.connection import ConnectionMixin
 
 
 def _sync(serial: str):
@@ -28,7 +28,7 @@ def test_unknown_code_raises_a_repairs_issue():
     create, delete = _sync("J15A06B4CV030")
     delete.assert_not_called()
     args, kwargs = create.call_args
-    assert args[1:] == ("xbloom", "unknown_machine_color_e1")
+    assert args[1:] == ("xb", "unknown_machine_color_e1")
     assert kwargs["translation_key"] == "unknown_machine_color"
     assert kwargs["translation_placeholders"]["code"] == "06"
     assert kwargs["is_fixable"] is False
@@ -58,7 +58,7 @@ def test_known_codes_clear_the_issue():
         create, delete = _sync(serial)
         create.assert_not_called()
         delete.assert_called_once()
-        assert delete.call_args.args[1:] == ("xbloom", "unknown_machine_color_e1")
+        assert delete.call_args.args[1:] == ("xb", "unknown_machine_color_e1")
 
 
 def test_too_short_a_serial_raises_nothing():

@@ -27,7 +27,7 @@ from pathlib import Path
 def _state_sensor_options() -> set[str]:
     path = (
         Path(__file__).parent.parent
-        / "custom_components" / "xbloom" / "models" / "j15" / "sensor.py"
+        / "custom_components" / "xb" / "models" / "j15" / "sensor.py"
     )
     tree = ast.parse(path.read_text())
     for node in ast.walk(tree):
@@ -64,7 +64,7 @@ def test_state_options_dropped_armed_grind_pour():
 
 
 def test_state_options_match_translations():
-    root = Path(__file__).parent.parent / "custom_components" / "xbloom"
+    root = Path(__file__).parent.parent / "custom_components" / "xb"
     options = _state_sensor_options()
     for fname in ("strings.json", "translations/en.json", "translations/ko.json"):
         data = json.loads((root / fname).read_text())

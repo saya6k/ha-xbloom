@@ -7,7 +7,7 @@
 > only, never published or redistributed). **Unlike [`protocol.md`](./protocol.md)
 > (Studio BLE), nothing here has been verified against real hardware.** The
 > integration now ships a cloud-only J20 path in
-> `custom_components/xbloom/j20/` (config-entry type ``original``: account
+> `custom_components/xb/j20/` (config-entry type ``original``: account
 > login, thing-shadow polling, grind/stop/calibrate), but there is still no
 > Original unit and no live account in this repo, so that code is unverified
 > too. This document is the decompile-derived map behind it — every claim

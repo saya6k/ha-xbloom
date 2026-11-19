@@ -1,6 +1,6 @@
-"""Make the repo root importable so tests can import custom_components.xbloom.
+"""Make the repo root importable so tests can import custom_components.xb.
 
-Per ADR-001 (amended 2026-07-18) the vendored `custom_components/xbloom/src/`
+Per ADR-001 (amended 2026-07-18) the vendored `custom_components/xb/src/`
 reference copies have been removed and no test imports `xbloom.*` anymore —
 the former parity tests now assert against frozen golden vectors instead —
 so there is nothing but the repo root to put on sys.path.

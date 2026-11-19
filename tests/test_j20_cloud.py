@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import pytest
 
-from custom_components.xbloom.models.j20.client import (
+from custom_components.xb.models.j20.client import (
     J20_API_BASE,
     J20_APP_ID,
     J20_APP_SECRET,
@@ -26,7 +26,7 @@ from custom_components.xbloom.models.j20.client import (
     parse_shadow,
     signed_headers,
 )
-from custom_components.xbloom.models.j20.values import (
+from custom_components.xb.models.j20.values import (
     GRIND_SIZE_DEFAULT,
     build_bruw_curve,
     warning_active,
@@ -341,7 +341,7 @@ def test_unmapped_warning_is_still_a_problem() -> None:
 def _coordinator(*, online=True, data=None, **attrs):
     """A real J20Coordinator without DataUpdateCoordinator.__init__ (no hass):
     the methods under test only touch the attributes set here."""
-    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+    from custom_components.xb.models.j20.coordinator import J20Coordinator
 
     coordinator = object.__new__(J20Coordinator)
     coordinator.data = {"online": online, **(data or {})}
@@ -349,13 +349,41 @@ def _coordinator(*, online=True, data=None, **attrs):
     coordinator._armed_at = 0.0
     coordinator.grind_size = 15
     coordinator.async_refresh = AsyncMock()
+    client = attrs.get("_client")
+    if client is not None and not hasattr(client, "auth_lock"):
+        client.auth_lock = asyncio.Lock()
+        client.project_token = getattr(client, "project_token", None)
     for name, value in attrs.items():
         setattr(coordinator, name, value)
     return coordinator
 
 
+def test_machines_sharing_an_account_renew_its_token_once() -> None:
+    """Two Originals on one account share a client: when both see the same
+    token rejected, only the first logs in again (a second login could
+    invalidate the first's new token)."""
+    async def login(email, password):
+        client.project_token = "new"
+        return True
+
+    client = SimpleNamespace(
+        project_token="old",
+        async_refresh_token=AsyncMock(return_value=False),
+        async_login=AsyncMock(side_effect=login),
+    )
+    first = _coordinator(_client=client, _email="e", _password="p")
+    second = _coordinator(_client=client, _email="e", _password="p")
+
+    async def both():
+        await first._async_reauthenticate("old")
+        await second._async_reauthenticate("old")
+
+    asyncio.run(both())
+    client.async_login.assert_awaited_once()
+
+
 def test_an_arm_lapses_instead_of_firing_later():
-    from custom_components.xbloom.models.j20 import coordinator as module
+    from custom_components.xb.models.j20 import coordinator as module
 
     coordinator = _coordinator(async_grind=AsyncMock())
     with patch.object(module.time, "monotonic", return_value=1000.0):
@@ -494,7 +522,7 @@ def test_command_auth_failure_starts_reauth() -> None:
 
 
 def test_reauth_account_must_own_the_machine() -> None:
-    from custom_components.xbloom.config_flow import _async_original_owns
+    from custom_components.xb.config_flow import _async_original_owns
 
     def client(result):
         return SimpleNamespace(async_list_devices=AsyncMock(**result))

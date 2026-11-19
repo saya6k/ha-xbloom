@@ -13,11 +13,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from custom_components.xbloom import panel
-from custom_components.xbloom.models.j15 import machine_color, machine_photo
+from custom_components.xb import panel
+from custom_components.xb.models.j15 import machine_color, machine_photo
 from tests.machine_fakes import FakeStudio
 
-PKG = Path(__file__).resolve().parent.parent / "custom_components" / "xbloom"
+PKG = Path(__file__).resolve().parent.parent / "custom_components" / "xb"
 JS = (PKG / "panel" / "frontend" / "xbloom-panel.js").read_text()
 PLATFORMS = ("binary_sensor", "button", "event", "number", "select", "sensor", "switch", "update")
 
@@ -26,7 +26,7 @@ def test_panel_entity_keys_exist():
     """Every key the panel reads is a real entity key, or a generic key some
     model maps onto its own entity (panel_entity_aliases) whose target is
     real."""
-    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+    from custom_components.xb.models.j20.coordinator import J20Coordinator
 
     strings = json.loads((PKG / "strings.json").read_text())["entity"]
 
@@ -103,7 +103,7 @@ def test_machine_payload_maps_entities_and_full_recipes():
 def test_machine_payload_for_a_model_without_recipes():
     """An Original-like machine: capability-gated fields stay empty and its
     own entity keys are aliased onto the panel's generic ones."""
-    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
+    from custom_components.xb.models.j20.coordinator import J20Coordinator
 
     entry = SimpleNamespace(title="Original", data={}, options={})
     hass = MagicMock()
@@ -182,7 +182,7 @@ def _run_cloud_search(coordinator, msg):
     hass.async_create_background_task, captured here)."""
     import asyncio
 
-    from custom_components.xbloom.const import DATA_COORDINATOR, DOMAIN
+    from custom_components.xb.const import DATA_COORDINATOR, DOMAIN
 
     hass = MagicMock()
     hass.data = {DOMAIN: {"entry1": {DATA_COORDINATOR: coordinator}}} if coordinator else {}
@@ -226,7 +226,7 @@ def test_cloud_search_errors():
 
 
 def test_collective_summary_carries_cover_image():
-    from custom_components.xbloom.cloud.client import _collective_result_to_summary
+    from custom_components.xb.cloud.client import _collective_result_to_summary
 
     row = {"communityRecipeId": 1, "recipeName": "Legacy",
            "imageUrl": "https://tbdprodpic.s3.us-east-1.amazonaws.com/x.png"}

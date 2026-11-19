@@ -13,8 +13,8 @@ import struct
 
 import pytest
 
-from custom_components.xbloom.models.j15.ble.client import XBloomClient
-from custom_components.xbloom.models.j15.ble.models import DeviceState
+from custom_components.xb.models.j15.ble.client import XBloomClient
+from custom_components.xb.models.j15.ble.models import DeviceState
 
 
 class _FakeConnection:
@@ -161,7 +161,7 @@ def test_unknown_status_code_is_logged_once_per_transition(caplog):
     per multi-Hz heartbeat frame).
     """
     client = _client()
-    with caplog.at_level(logging.INFO, logger="custom_components.xbloom.models.j15.ble.client"):
+    with caplog.at_level(logging.INFO, logger="custom_components.xb.models.j15.ble.client"):
         client._on_notification(None, bytearray(_heartbeat(0x77)))
         client._on_notification(None, bytearray(_heartbeat(0x77)))
     assert sum("0x77" in record.message for record in caplog.records) == 1
@@ -169,7 +169,7 @@ def test_unknown_status_code_is_logged_once_per_transition(caplog):
 
 def test_known_status_code_does_not_log_at_info(caplog):
     client = _client()
-    with caplog.at_level(logging.INFO, logger="custom_components.xbloom.models.j15.ble.client"):
+    with caplog.at_level(logging.INFO, logger="custom_components.xb.models.j15.ble.client"):
         client._on_notification(None, bytearray(_heartbeat(0x39)))  # scale-cal confirm
     assert not [
         record for record in caplog.records if "status code" in record.message
@@ -253,7 +253,7 @@ def test_high_rate_telemetry_does_not_log_at_info(caplog):
     "logging too frequently" limiter and buried everything else in
     home-assistant.log (hardware-reported 2026-08-24)."""
     client = _client()
-    with caplog.at_level(logging.INFO, logger="custom_components.xbloom.models.j15.ble.client"):
+    with caplog.at_level(logging.INFO, logger="custom_components.xb.models.j15.ble.client"):
         client._on_notification(None, bytearray(_frame(20501, struct.pack("<I", 0))))
         client._on_notification(None, bytearray(_frame(40523, struct.pack("<I", 0))))
     assert not [r for r in caplog.records if r.levelno >= logging.INFO]
@@ -261,7 +261,7 @@ def test_high_rate_telemetry_does_not_log_at_info(caplog):
 
 def test_other_commands_still_log_at_info(caplog):
     client = _client()
-    with caplog.at_level(logging.INFO, logger="custom_components.xbloom.models.j15.ble.client"):
+    with caplog.at_level(logging.INFO, logger="custom_components.xb.models.j15.ble.client"):
         client._on_notification(None, bytearray(_heartbeat(0x01)))
     assert [r for r in caplog.records if "RECV CMD: 8023" in r.getMessage()]
 
@@ -355,7 +355,7 @@ def test_settings_pages_are_a_known_screen(caplog):
     8005/8010/4508 SET commands open) — mapped so they stop logging as
     unknown codes."""
     client = _client()
-    with caplog.at_level(logging.INFO, logger="custom_components.xbloom.models.j15.ble.client"):
+    with caplog.at_level(logging.INFO, logger="custom_components.xb.models.j15.ble.client"):
         client._on_notification(None, bytearray(_heartbeat(0x18)))
     assert client.status.screen == "settings"
     assert not [r for r in caplog.records if "not in the known-code map" in r.message]
