@@ -1,6 +1,6 @@
 name: Release zip
 
-# Attach a xbloom.zip asset to every published release, prereleases
+# Attach an xb.zip asset to every published release, prereleases
 # included. The zip carries the integration files with manifest.json patched
 # to the exact tag version (including any -rc.N suffix); hacs.json declares
 # zip_release, so HACS installs this asset instead of the repo tree -- this is
@@ -39,10 +39,10 @@ jobs:
       - name: Zip integration
         run: |
           cd custom_components/xb
-          zip -r "$GITHUB_WORKSPACE/xbloom.zip" .
+          zip -r "$GITHUB_WORKSPACE/xb.zip" .
 
       - name: Upload asset to release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$TAG" xbloom.zip --clobber
+        run: gh release upload "$TAG" xb.zip --clobber
