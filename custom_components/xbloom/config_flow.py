@@ -21,9 +21,6 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from .ble.client import XBloomClient
-from .ble.connection import HABleakConnection
-from .ble.scanner import discover_devices
 from .const import (
     CONF_DEVICE_TYPE,
     CONF_EMAIL,
@@ -48,14 +45,17 @@ from .const import (
     DEVICE_TYPE_ORIGINAL,
     DOMAIN,
 )
-from .coordinator import WATER_SOURCE_OPTIONS
-from .j20.client import J20_PRODUCT_ID, J20CloudClient, is_original_device
-from .schema import (
+from .j15.ble.client import XBloomClient
+from .j15.ble.connection import HABleakConnection
+from .j15.ble.scanner import discover_devices
+from .j15.coordinator import WATER_SOURCE_OPTIONS
+from .j15.schema import (
     RECIPE_PROTECTED_FIELDS,
     RECIPE_SCHEMA,
     new_recipe_uid,
     strip_protected_recipe_fields,
 )
+from .j20.client import J20_PRODUCT_ID, J20CloudClient, is_original_device
 
 _LOGGER = logging.getLogger(__name__)
 

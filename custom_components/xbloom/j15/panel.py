@@ -29,7 +29,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.http import KEY_HASS, HomeAssistantView
 
-from .const import CONF_MAC_ADDRESS, CONF_STORE_REGION, DATA_COORDINATOR, DOMAIN
+from ..const import CONF_MAC_ADDRESS, CONF_STORE_REGION, DATA_COORDINATOR, DOMAIN
 from .machine_color import color_code, color_from_serial
 from .machine_photo import async_read_photo
 from .schema import find_recipe
@@ -42,7 +42,7 @@ _WEBCOMPONENT = "xbloom-panel"
 _STATIC_URL = "/xbloom_static"
 _FRONTEND_DIR = Path(__file__).parent / "frontend"
 _PANEL_FILE = "xbloom-panel.js"
-_BRAND_DIR = Path(__file__).parent / "brand"
+_BRAND_DIR = Path(__file__).parent.parent / "brand"
 # How long a signed photo URL stays valid, and how long the browser caches it.
 _PHOTO_URL_TTL = timedelta(days=1)
 

@@ -1,7 +1,7 @@
 """Tests for schema.find_recipe / share_id_of / dedupe_name."""
 from __future__ import annotations
 
-from custom_components.xbloom.schema import dedupe_name, find_recipe, share_id_of
+from custom_components.xbloom.j15.schema import dedupe_name, find_recipe, share_id_of
 
 RECIPES = {
     "Morning V60": {

@@ -12,8 +12,8 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from custom_components.xbloom import panel, stores
 from custom_components.xbloom.const import DATA_COORDINATOR, DOMAIN
+from custom_components.xbloom.j15 import panel, stores
 
 
 def test_region_follows_the_apps_rule():
@@ -66,7 +66,7 @@ def test_set_store_region_saves_and_auto_clears():
 
 
 def test_store_region_change_does_not_reload_the_entry():
-    from custom_components.xbloom import _NO_RELOAD_OPTION_KEYS
+    from custom_components.xbloom.j15 import _NO_RELOAD_OPTION_KEYS
 
     assert "store_region" in _NO_RELOAD_OPTION_KEYS
 

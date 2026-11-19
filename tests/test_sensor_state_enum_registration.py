@@ -25,7 +25,9 @@ from pathlib import Path
 
 
 def _state_sensor_options() -> set[str]:
-    path = Path(__file__).parent.parent / "custom_components" / "xbloom" / "sensor.py"
+    path = (
+        Path(__file__).parent.parent / "custom_components" / "xbloom" / "j15" / "sensor.py"
+    )
     tree = ast.parse(path.read_text())
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef) and node.name == "XBloomStateSensor":

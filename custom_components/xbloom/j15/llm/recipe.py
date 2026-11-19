@@ -8,12 +8,12 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
 
-from custom_components.xbloom.coordinator import (
+from custom_components.xbloom.j15.coordinator import (
     POUR_PATTERN_OPTIONS,
     WATER_SOURCE_TANK,
     XBloomCoordinator,
 )
-from custom_components.xbloom.schema import compute_total_water_ml, find_recipe
+from custom_components.xbloom.j15.schema import compute_total_water_ml, find_recipe
 
 from .base import XBloomBaseTool
 

@@ -1,10 +1,10 @@
-"""Tests for custom_components.xbloom.schema pure helpers."""
+"""Tests for custom_components.xbloom.j15.schema pure helpers."""
 from __future__ import annotations
 
 import pytest
 import voluptuous as vol
 
-from custom_components.xbloom.schema import (
+from custom_components.xbloom.j15.schema import (
     RECIPE_SCHEMA,
     new_recipe_uid,
     yaml_recipe_uid,

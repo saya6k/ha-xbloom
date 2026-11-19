@@ -1,5 +1,8 @@
 """LLM tools platform for the XBloom Coffee Machine integration.
 
+Only the platform hook lives here (HA looks it up at ``<domain>.llm``); the
+Studio tool implementations live in ``j15/llm/``.
+
 Discovered lazily by Home Assistant's `llm` integration (HA ≥ 2026.8) the
 first time any LLM API collects tools. This entry module MUST stay light:
 no tool/catalog/`homeassistant.components.llm` imports at module level, so
@@ -55,7 +58,9 @@ def async_get_tools(
     # path would defeat that lazy loading.
     from homeassistant.components.llm import LLMTools  # noqa: PLC0415
 
-    from .catalog import build_tools  # noqa: PLC0415
+    from custom_components.xbloom.j15.llm.catalog import (  # noqa: PLC0415
+        build_tools,
+    )
 
     return LLMTools(
         tools=build_tools(entry_data[DATA_COORDINATOR], hass),

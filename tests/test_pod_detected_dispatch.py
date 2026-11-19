@@ -10,7 +10,7 @@ import pytest
 
 pytest.importorskip("homeassistant")
 
-from custom_components.xbloom.coordinator import state as state_module
+from custom_components.xbloom.j15.coordinator import state as state_module
 from tests.test_finish_run_and_pause_gate import _Coordinator
 
 

@@ -2,8 +2,10 @@
 
 This package is wired into the existing ``xbloom`` integration as a second
 config-entry type (``device_type == "original"``) so HACS keeps shipping
-one domain. Nothing here imports or touches the BLE stack: Studio and
-Original are separate coordinators and separate entity sets.
+one domain. Nothing here imports ``j15`` or touches the BLE stack: Studio
+and Original are separate coordinators and separate entity sets. The
+coordinator lives in ``entry.runtime_data``, never in ``hass.data[DOMAIN]``,
+which Studio's services, panel and LLM tools iterate as "every Studio".
 
 The Original has no local control path. The integration is a client of
 xBloom's cloud, exactly like the official app:
@@ -28,9 +30,7 @@ from ..const import (
     CONF_EMAIL,
     CONF_PASSWORD,
     CONF_TELEMETRY_INTERVAL,
-    DATA_COORDINATOR,
     DEFAULT_J20_SCAN_INTERVAL,
-    DOMAIN,
 )
 from .client import J20CloudClient
 from .coordinator import J20Coordinator
@@ -46,7 +46,10 @@ J20_PLATFORMS = [
 ]
 
 
-async def async_setup_j20_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+type J20ConfigEntry = ConfigEntry[J20Coordinator]
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool:
     session = async_get_clientsession(hass)
     client = J20CloudClient(session)
     if not await client.async_login(
@@ -65,23 +68,15 @@ async def async_setup_j20_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool
     )
     await coordinator.async_config_entry_first_refresh()
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
-        DATA_COORDINATOR: coordinator,
-    }
+    entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, J20_PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_j20_listener))
     return True
 
 
-async def async_unload_j20_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    data = hass.data.get(DOMAIN, {}).get(entry.entry_id) or {}
-    coordinator = data.get(DATA_COORDINATOR)
-    if coordinator is not None:
-        await coordinator.async_shutdown()
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, J20_PLATFORMS)
-    if unload_ok:
-        hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
-    return unload_ok
+async def async_unload_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool:
+    await entry.runtime_data.async_shutdown()
+    return await hass.config_entries.async_unload_platforms(entry, J20_PLATFORMS)
 
 
 async def _async_update_j20_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:

@@ -13,10 +13,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from custom_components.xbloom import machine_color, machine_photo, panel
+from custom_components.xbloom.j15 import machine_color, machine_photo, panel
 
 PKG = Path(__file__).resolve().parent.parent / "custom_components" / "xbloom"
-JS = (PKG / "frontend" / "xbloom-panel.js").read_text()
+JS = (PKG / "j15" / "frontend" / "xbloom-panel.js").read_text()
 PLATFORMS = ("binary_sensor", "button", "event", "number", "select", "sensor", "switch", "update")
 
 
@@ -31,7 +31,7 @@ def test_panel_entity_keys_exist():
 
 def test_panel_registration_constants():
     assert panel.PANEL_ICON == "mdi:coffee-maker"
-    assert (PKG / "frontend" / panel._PANEL_FILE).is_file()
+    assert (PKG / "j15" / "frontend" / panel._PANEL_FILE).is_file()
     deps = json.loads((PKG / "manifest.json").read_text())["dependencies"]
     for dep in ("frontend", "http", "panel_custom", "websocket_api"):
         assert dep in deps

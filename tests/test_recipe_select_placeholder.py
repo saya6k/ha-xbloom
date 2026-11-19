@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from custom_components.xbloom.coordinator.recipes import RecipesMixin
+from custom_components.xbloom.j15.coordinator.recipes import RecipesMixin
 
 COMPONENT = Path(__file__).parent.parent / "custom_components" / "xbloom"
 

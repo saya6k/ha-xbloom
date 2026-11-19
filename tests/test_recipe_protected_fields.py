@@ -12,7 +12,7 @@ cloud_export_recipe at someone else's cloud_table_id.
 """
 from __future__ import annotations
 
-from custom_components.xbloom.schema import (
+from custom_components.xbloom.j15.schema import (
     RECIPE_PROTECTED_FIELDS,
     strip_protected_recipe_fields,
 )

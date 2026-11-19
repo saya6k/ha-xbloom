@@ -15,9 +15,9 @@ import asyncio
 
 import pytest
 
-from custom_components.xbloom.ble.client import AckTimeout
-from custom_components.xbloom.coordinator.connection import ConnectionMixin
-from custom_components.xbloom.coordinator.constants import (
+from custom_components.xbloom.j15.ble.client import AckTimeout
+from custom_components.xbloom.j15.coordinator.connection import ConnectionMixin
+from custom_components.xbloom.j15.coordinator.constants import (
     _WAKE_RETRY_DELAY_S,
     _WAKE_RETRY_MAX_ATTEMPTS,
 )

@@ -6,7 +6,7 @@ Live 2026-10-28: a two-steep tea brew sent 0x45 with each 9012
 """
 from __future__ import annotations
 
-from custom_components.xbloom.ble.client import XBloomClient
+from custom_components.xbloom.j15.ble.client import XBloomClient
 from tests.test_maintenance_states import _FakeConnection, _heartbeat
 
 

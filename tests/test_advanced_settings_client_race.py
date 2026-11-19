@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import asyncio
 
-from custom_components.xbloom.coordinator.advanced_settings import AdvancedSettingsMixin
+from custom_components.xbloom.j15.coordinator.advanced_settings import AdvancedSettingsMixin
 
 
 class _FakeClient:

@@ -20,7 +20,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import llm
 from homeassistant.helpers.importlib import async_import_module
 
-from .const import (
+from ..const import (
     CONF_MAC_ADDRESS,
     DOMAIN,
     XBLOOM_LLM_API_ID,
@@ -30,6 +30,7 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 _PLATFORM = f"custom_components.{DOMAIN}.llm"
+_CATALOG = f"custom_components.{DOMAIN}.j15.llm.catalog"
 
 
 class XBloomCoffeeAPI(llm.API):
@@ -49,7 +50,7 @@ class XBloomCoffeeAPI(llm.API):
         # Pre-import in the executor so the platform callback's function-level
         # imports are cache hits — HA's block_async_io flags a module's first
         # import inside the event loop.
-        await async_import_module(self.hass, f"{_PLATFORM}.catalog")
+        await async_import_module(self.hass, _CATALOG)
         platform = await async_import_module(self.hass, _PLATFORM)
         llm_tools = platform.async_get_tools(self.hass, llm_context, self.id)
         if llm_tools is None:

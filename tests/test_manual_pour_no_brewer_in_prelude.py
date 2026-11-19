@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import asyncio
 
-from custom_components.xbloom.coordinator.operations import OperationsMixin
+from custom_components.xbloom.j15.coordinator.operations import OperationsMixin
 
 
 class _FakeBrewer:

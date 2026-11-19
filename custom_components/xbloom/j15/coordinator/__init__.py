@@ -36,7 +36,6 @@ from homeassistant.helpers.device_registry import ChildDeviceInfo, DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from custom_components.xbloom._cloud_client import XBloomCloudClient
-from custom_components.xbloom.ble.client import XBloomClient
 from custom_components.xbloom.const import (
     DEFAULT_MODE,
     DEFAULT_SESSION_TIMEOUT,
@@ -45,7 +44,8 @@ from custom_components.xbloom.const import (
     DEFAULT_WEIGHT_UNIT,
     DOMAIN,
 )
-from custom_components.xbloom.pods import PodLibrary
+from custom_components.xbloom.j15.ble.client import XBloomClient
+from custom_components.xbloom.j15.pods import PodLibrary
 
 from .advanced_settings import AdvancedSettingsMixin
 from .connection import ConnectionMixin

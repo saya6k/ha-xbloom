@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 
-from custom_components.xbloom.llm.recipe import XBloomExecuteRecipeTool
+from custom_components.xbloom.j15.llm.recipe import XBloomExecuteRecipeTool
 from tests.test_llm_recipe_prearm import _call
 from tests.test_llm_recipe_prearm import _coordinator as _tool_coordinator
 from tests.test_recipes_arm_confirm import (

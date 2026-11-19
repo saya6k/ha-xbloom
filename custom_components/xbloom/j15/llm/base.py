@@ -6,7 +6,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
 
 from custom_components.xbloom.const import DOMAIN
-from custom_components.xbloom.coordinator import XBloomCoordinator
+from custom_components.xbloom.j15.coordinator import XBloomCoordinator
 
 
 class XBloomBaseTool(llm.Tool):

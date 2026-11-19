@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 
-from custom_components.xbloom.coordinator.connection import ConnectionMixin
+from custom_components.xbloom.j15.coordinator.connection import ConnectionMixin
 
 
 class _Client:

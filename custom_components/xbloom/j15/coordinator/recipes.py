@@ -14,18 +14,10 @@ import voluptuous as vol
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import service as service_helper
 
-from custom_components.xbloom import brewing
 from custom_components.xbloom._cloud_client import (
     cloud_recipe_to_local,
     local_recipe_to_cloud,
     validate_pour_volume_consistency,
-)
-from custom_components.xbloom.ble.models import (
-    CupType,
-    PourPattern,
-    PourStep,
-    VibrationPattern,
-    XBloomRecipe,
 )
 from custom_components.xbloom.const import (
     CONF_ACCOUNT_RECIPES_SEEDED,
@@ -35,7 +27,15 @@ from custom_components.xbloom.const import (
     DATA_COORDINATOR,
     DOMAIN,
 )
-from custom_components.xbloom.schema import (
+from custom_components.xbloom.j15 import brewing
+from custom_components.xbloom.j15.ble.models import (
+    CupType,
+    PourPattern,
+    PourStep,
+    VibrationPattern,
+    XBloomRecipe,
+)
+from custom_components.xbloom.j15.schema import (
     RECIPE_SCHEMA,
     compute_total_water_ml,
     dedupe_name,

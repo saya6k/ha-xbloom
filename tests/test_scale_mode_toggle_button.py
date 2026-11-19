@@ -16,12 +16,14 @@ ROOT = Path(__file__).parent.parent / "custom_components" / "xbloom"
 
 
 def _button_classes():
-    tree = ast.parse((ROOT / "button.py").read_text())
+    tree = ast.parse((ROOT / "j15" / "button.py").read_text())
     return {n.name: n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)}
 
 
 def _class_source(name: str) -> str:
-    return ast.get_source_segment((ROOT / "button.py").read_text(), _button_classes()[name])
+    return ast.get_source_segment(
+        (ROOT / "j15" / "button.py").read_text(), _button_classes()[name]
+    )
 
 
 def test_toggle_button_replaces_enter_exit_pair():

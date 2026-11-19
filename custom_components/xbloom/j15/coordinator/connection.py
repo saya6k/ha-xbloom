@@ -15,10 +15,6 @@ from urllib.parse import quote
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import issue_registry as ir
 
-from custom_components.xbloom.ble.client import AckTimeout, XBloomClient, strict_ascii
-from custom_components.xbloom.ble.connection import HABleakConnection
-from custom_components.xbloom.ble.constants import Command
-from custom_components.xbloom.ble.models import DeviceStatus
 from custom_components.xbloom.const import (
     CONF_MODE,
     CONF_TEMP_UNIT,
@@ -26,8 +22,12 @@ from custom_components.xbloom.const import (
     CONF_WEIGHT_UNIT,
     DOMAIN,
 )
-from custom_components.xbloom.machine_color import color_code, color_from_serial
-from custom_components.xbloom.machine_photo import async_cache_cover, async_cache_store_photo
+from custom_components.xbloom.j15.ble.client import AckTimeout, XBloomClient, strict_ascii
+from custom_components.xbloom.j15.ble.connection import HABleakConnection
+from custom_components.xbloom.j15.ble.constants import Command
+from custom_components.xbloom.j15.ble.models import DeviceStatus
+from custom_components.xbloom.j15.machine_color import color_code, color_from_serial
+from custom_components.xbloom.j15.machine_photo import async_cache_cover, async_cache_store_photo
 
 from .constants import (
     _BLE_SILENCE_TIMEOUT_S,

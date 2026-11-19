@@ -18,7 +18,7 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import llm
 
-from custom_components.xbloom.coordinator import POUR_PATTERN_OPTIONS
+from custom_components.xbloom.j15.coordinator import POUR_PATTERN_OPTIONS
 
 from .base import XBloomBaseTool
 

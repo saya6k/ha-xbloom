@@ -10,7 +10,7 @@ default), the same call this made for _async_drop_stale_link on 2026-07-19.
 """
 from __future__ import annotations
 
-from custom_components.xbloom.coordinator.connection import ConnectionMixin
+from custom_components.xbloom.j15.coordinator.connection import ConnectionMixin
 
 
 class _FakeHass:

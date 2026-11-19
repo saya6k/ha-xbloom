@@ -13,8 +13,8 @@ import pytest
 
 pytest.importorskip("homeassistant.components.event")
 
-from custom_components.xbloom.ble.client import _ERROR_MAP, _NOTIFICATION_MAP
-from custom_components.xbloom.event import ERROR_EVENT_TYPES, NOTIFICATION_EVENT_TYPES
+from custom_components.xbloom.j15.ble.client import _ERROR_MAP, _NOTIFICATION_MAP
+from custom_components.xbloom.j15.event import ERROR_EVENT_TYPES, NOTIFICATION_EVENT_TYPES
 
 
 def test_every_notification_map_value_is_registered():

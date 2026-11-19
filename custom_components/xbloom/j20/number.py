@@ -7,7 +7,6 @@ from homeassistant.const import UnitOfTemperature, UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from ..const import DATA_COORDINATOR, DOMAIN
 from ..entity import scope_unique_ids
 from .coordinator import J20Coordinator
 from .entity import J20Entity
@@ -24,7 +23,7 @@ from .values import (
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
-    coordinator: J20Coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
+    coordinator: J20Coordinator = entry.runtime_data
     async_add_entities(
         scope_unique_ids(entry.entry_id, [
             J20GrindSizeNumber(coordinator, entry),

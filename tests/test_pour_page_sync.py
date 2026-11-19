@@ -22,10 +22,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from custom_components.xbloom.ble.client import XBloomClient
-from custom_components.xbloom.coordinator import operations
-from custom_components.xbloom.coordinator.operations import OperationsMixin
-from custom_components.xbloom.coordinator.state import StateMixin
+from custom_components.xbloom.j15.ble.client import XBloomClient
+from custom_components.xbloom.j15.coordinator import operations
+from custom_components.xbloom.j15.coordinator.operations import OperationsMixin
+from custom_components.xbloom.j15.coordinator.state import StateMixin
 
 
 @pytest.fixture(autouse=True)

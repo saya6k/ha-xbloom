@@ -24,7 +24,7 @@ def _src(rel: str) -> str:
 
 
 def test_grind_tool_is_two_phase():
-    src = _src("llm/grind.py")
+    src = _src("j15/llm/grind.py")
     assert '"confirmed"' in src
     assert "async_arm_grind" in src
     assert "async_confirm_grind" in src
@@ -33,7 +33,7 @@ def test_grind_tool_is_two_phase():
 
 
 def test_pour_tool_is_two_phase():
-    src = _src("llm/pour.py")
+    src = _src("j15/llm/pour.py")
     assert '"confirmed"' in src
     assert "async_arm_pour" in src
     assert "async_confirm_pour" in src
@@ -43,20 +43,20 @@ def test_pour_tool_is_two_phase():
 def test_pour_boiling_maps_to_the_bp_slider_endpoint():
     """boiling=true must set the mirrored setpoint to the BP endpoint
     (96 — transmits 98), not a raw 100 that overflows the 39-96 slider."""
-    src = _src("llm/pour.py")
+    src = _src("j15/llm/pour.py")
     assert "TEMPERATURE_BOILING_C = 96" in src
 
 
 def test_cancel_tool_exists_and_is_registered():
-    src = _src("llm/cancel.py")
+    src = _src("j15/llm/cancel.py")
     assert 'name = "xbloom__cancel"' in src
     assert "async_cancel" in src
-    catalog = _src("llm/catalog.py")
+    catalog = _src("j15/llm/catalog.py")
     assert "XBloomCancelTool" in catalog
 
 
 def test_tool_descriptions_document_the_flow():
-    for rel in ("llm/grind.py", "llm/pour.py"):
+    for rel in ("j15/llm/grind.py", "j15/llm/pour.py"):
         src = _src(rel)
         assert "confirmed=true" in src, rel
         assert "xbloom__cancel" in src, rel

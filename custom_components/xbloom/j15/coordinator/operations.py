@@ -8,8 +8,8 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from custom_components.xbloom import brewing
-from custom_components.xbloom.ble.constants import Command
+from custom_components.xbloom.j15 import brewing
+from custom_components.xbloom.j15.ble.constants import Command
 
 from .constants import _CMD_RECIPE_PAUSE, _CMD_RECIPE_RESTART
 

@@ -13,8 +13,9 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from custom_components.xbloom import _cloud_client, panel
+from custom_components.xbloom import _cloud_client
 from custom_components.xbloom._cloud_client import XBloomCloudClient
+from custom_components.xbloom.j15 import panel
 
 # Trimmed from the live response for community recipe 70577 (2026-10-15).
 DETAIL_RESPONSE = {

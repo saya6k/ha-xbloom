@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from homeassistant.core import HomeAssistant
 
-from custom_components.xbloom.coordinator import XBloomCoordinator
+from custom_components.xbloom.j15.coordinator import XBloomCoordinator
 
 from .base import XBloomBaseTool
 from .calibrate import XBloomCalibrateGrinderTool

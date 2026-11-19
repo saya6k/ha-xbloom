@@ -9,7 +9,7 @@ on the earlier 0x1E and reported "waiting for confirmation".
 """
 from __future__ import annotations
 
-from custom_components.xbloom.ble.client import XBloomClient
+from custom_components.xbloom.j15.ble.client import XBloomClient
 from tests.test_maintenance_states import _FakeConnection, _heartbeat
 
 # 20501 weight frame, 50.0 g (captured live 2026-10-28).

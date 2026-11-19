@@ -12,7 +12,7 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from custom_components.xbloom.ble.models import DeviceStatus
+from custom_components.xbloom.j15.ble.models import DeviceStatus
 
 from .constants import (
     _BLE_SILENCE_TIMEOUT_S,
