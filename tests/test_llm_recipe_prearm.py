@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, Mock
 
 from homeassistant.helpers import llm
 
-from custom_components.xbloom.j15.llm.recipe import XBloomExecuteRecipeTool
+from custom_components.xbloom.llm.recipe import XBloomExecuteRecipeTool
 
 _V60 = {
     "name": "V60",

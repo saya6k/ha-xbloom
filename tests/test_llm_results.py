@@ -8,11 +8,11 @@ from unittest.mock import AsyncMock, Mock
 
 from homeassistant.helpers import llm
 
-from custom_components.xbloom.j15.llm.catalog import build_tools
-from custom_components.xbloom.j15.llm.cloud_recipe import _cloud_failure
-from custom_components.xbloom.j15.llm.grind import XBloomGrindTool
-from custom_components.xbloom.j15.llm.local_recipe import XBloomDeleteRecipeTool
-from custom_components.xbloom.j15.llm.status import XBloomStatusTool
+from custom_components.xbloom.llm.catalog import build_tools
+from custom_components.xbloom.llm.cloud_recipe import _cloud_failure
+from custom_components.xbloom.llm.grind import XBloomGrindTool
+from custom_components.xbloom.llm.local_recipe import XBloomDeleteRecipeTool
+from custom_components.xbloom.llm.status import XBloomStatusTool
 
 
 def call(tool, args=None):

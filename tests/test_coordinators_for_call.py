@@ -1,4 +1,4 @@
-"""Tests for j15/__init__._coordinators_for_call.
+"""Tests for services._coordinators_for_call.
 
 Hardware-reported 2026-07-17: a real `xbloom.advanced_settings` call with a
 real `config_entry_id` failed with "No XBloom machine matched the service
@@ -18,7 +18,7 @@ import pytest
 pytest.importorskip("homeassistant.core")
 
 from custom_components.xbloom.const import DATA_COORDINATOR, DOMAIN
-from custom_components.xbloom.j15 import _coordinators_for_call
+from custom_components.xbloom.services import _coordinators_for_call
 
 
 def _hass_with_entries(entries: dict):

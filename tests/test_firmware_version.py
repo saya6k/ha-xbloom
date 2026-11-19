@@ -8,7 +8,7 @@ citation.
 """
 from __future__ import annotations
 
-from custom_components.xbloom.j15.coordinator import (
+from custom_components.xbloom.models.j15.coordinator import (
     MIN_FIRMWARE_EASY_MODE,
     MIN_FIRMWARE_TEA,
     _firmware_at_least,

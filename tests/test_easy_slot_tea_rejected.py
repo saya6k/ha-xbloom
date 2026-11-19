@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import asyncio
 
-from custom_components.xbloom.j15.coordinator.recipes import RecipesMixin
+from custom_components.xbloom.models.j15.coordinator.recipes import RecipesMixin
 
 _async_write_easy_slot = RecipesMixin.async_write_easy_slot
 

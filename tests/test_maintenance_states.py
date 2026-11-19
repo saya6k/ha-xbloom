@@ -13,8 +13,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from custom_components.xbloom.j15.ble.client import XBloomClient
-from custom_components.xbloom.j15.coordinator.state import StateMixin
+from custom_components.xbloom.models.j15.ble.client import XBloomClient
+from custom_components.xbloom.models.j15.coordinator.state import StateMixin
 
 
 class _FakeConnection:

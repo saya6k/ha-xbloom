@@ -17,9 +17,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from custom_components.xbloom.j15.coordinator import operations
-from custom_components.xbloom.j15.coordinator.operations import OperationsMixin
-from custom_components.xbloom.j15.coordinator.state import StateMixin
+from custom_components.xbloom.models.j15.coordinator import operations
+from custom_components.xbloom.models.j15.coordinator.operations import OperationsMixin
+from custom_components.xbloom.models.j15.coordinator.state import StateMixin
 
 ROOT = Path(__file__).parent.parent / "custom_components" / "xbloom"
 
@@ -134,7 +134,7 @@ def test_round_trip_is_a_fixed_point(slider):
 
 
 def test_number_entity_spans_39_to_96():
-    tree = ast.parse((ROOT / "j15" / "number.py").read_text())
+    tree = ast.parse((ROOT / "models" / "j15" / "number.py").read_text())
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef) and node.name == "XBloomTemperatureNumber":
             attrs = {

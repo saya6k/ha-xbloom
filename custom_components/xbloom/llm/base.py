@@ -1,0 +1,24 @@
+"""Base tool class for XBloom LLM tools."""
+
+from __future__ import annotations
+
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import llm
+
+from custom_components.xbloom.const import DOMAIN
+from custom_components.xbloom.models.j15.coordinator import XBloomCoordinator
+
+
+class XBloomBaseTool(llm.Tool):
+    """Base class for XBloom LLM tools.
+
+    Holds a reference to the coordinator so tools can read state and
+    drive BLE actions through the same code path the entities use.
+    """
+
+    integration = DOMAIN
+
+    def __init__(self, coordinator: XBloomCoordinator, hass: HomeAssistant) -> None:
+        super().__init__()
+        self.coordinator = coordinator
+        self.hass = hass

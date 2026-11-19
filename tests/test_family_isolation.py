@@ -39,16 +39,24 @@ def _imported_modules(path: Path) -> set[str]:
     return found
 
 
-@pytest.mark.parametrize(("family", "other"), [("j15", "j20"), ("j20", "j15")])
-def test_families_do_not_import_each_other(family, other):
-    forbidden = f"custom_components.xbloom.{other}"
-    for path in sorted((COMPONENT / family).rglob("*.py")):
+MODELS = sorted(
+    p.name for p in (COMPONENT / "models").iterdir()
+    if p.is_dir() and not p.name.startswith("__")
+)
+
+
+@pytest.mark.parametrize("model", MODELS)
+def test_models_do_not_import_each_other(model):
+    forbidden = tuple(
+        f"custom_components.xbloom.models.{other}" for other in MODELS if other != model
+    )
+    for path in sorted((COMPONENT / "models" / model).rglob("*.py")):
         leaks = {m for m in _imported_modules(path) if m.startswith(forbidden)}
         assert not leaks, f"{path.relative_to(COMPONENT)} imports {leaks}"
 
 
 def test_original_never_stores_state_in_domain_data():
-    for path in sorted((COMPONENT / "j20").rglob("*.py")):
+    for path in sorted((COMPONENT / "models" / "j20").rglob("*.py")):
         uses = [
             node.lineno
             for node in ast.walk(ast.parse(path.read_text()))

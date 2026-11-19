@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from custom_components.xbloom.j15.ble.models import (
+from custom_components.xbloom.models.j15.ble.models import (
     CupType,
     PourPattern,
     PourStep,

@@ -17,9 +17,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from custom_components.xbloom.j15 import brewing
-from custom_components.xbloom.j15.ble.client import XBloomClient
-from custom_components.xbloom.j15.ble.models import CupType, PourStep, XBloomRecipe
+from custom_components.xbloom.models.j15 import brewing
+from custom_components.xbloom.models.j15.ble.client import XBloomClient
+from custom_components.xbloom.models.j15.ble.models import CupType, PourStep, XBloomRecipe
 
 
 class _FakeClient:

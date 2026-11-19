@@ -32,9 +32,9 @@ import asyncio
 
 import pytest
 
-from custom_components.xbloom.j15.ble.client import AckTimeout
-from custom_components.xbloom.j15.coordinator import connection as connection_module
-from custom_components.xbloom.j15.coordinator.connection import ConnectionMixin
+from custom_components.xbloom.models.j15.ble.client import AckTimeout
+from custom_components.xbloom.models.j15.coordinator import connection as connection_module
+from custom_components.xbloom.models.j15.coordinator.connection import ConnectionMixin
 
 # Captured before the autouse fixture below patches it out.
 _REAL_SETTLE_S = connection_module._SETTINGS_PAGE_SETTLE_S

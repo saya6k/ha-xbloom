@@ -11,8 +11,8 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from urllib.parse import unquote
 
-from custom_components.xbloom.j15.coordinator import connection
-from custom_components.xbloom.j15.coordinator.connection import ConnectionMixin
+from custom_components.xbloom.models.j15.coordinator import connection
+from custom_components.xbloom.models.j15.coordinator.connection import ConnectionMixin
 
 
 def _sync(serial: str):
@@ -71,7 +71,7 @@ def test_issue_text_exists_in_every_translation():
     import json
     from pathlib import Path
 
-    base = Path(connection.__file__).resolve().parents[2]
+    base = Path(connection.__file__).resolve().parents[3]
     for path in (base / "strings.json", *sorted((base / "translations").glob("*.json"))):
         issue = json.loads(path.read_text())["issues"]["unknown_machine_color"]
         assert "{code}" in issue["description"] and "{report_url}" in issue["description"], path

@@ -11,7 +11,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent / "custom_components" / "xbloom" / "j15"
+ROOT = Path(__file__).parent.parent / "custom_components" / "xbloom" / "models" / "j15"
 
 
 def test_volume_defaults_to_250():

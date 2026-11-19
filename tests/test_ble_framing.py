@@ -21,7 +21,7 @@ import struct
 
 import pytest
 
-from custom_components.xbloom.j15.ble import framing
+from custom_components.xbloom.models.j15.ble import framing
 
 
 def test_crc16_matches_golden():

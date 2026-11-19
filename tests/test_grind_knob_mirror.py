@@ -12,9 +12,9 @@ import asyncio
 import struct
 from types import SimpleNamespace
 
-from custom_components.xbloom.j15.ble.client import XBloomClient
-from custom_components.xbloom.j15.coordinator.operations import OperationsMixin
-from custom_components.xbloom.j15.coordinator.state import StateMixin
+from custom_components.xbloom.models.j15.ble.client import XBloomClient
+from custom_components.xbloom.models.j15.coordinator.operations import OperationsMixin
+from custom_components.xbloom.models.j15.coordinator.state import StateMixin
 
 # ── client side: knob pushes fire the internal settings event ────────────
 

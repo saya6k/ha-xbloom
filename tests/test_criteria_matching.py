@@ -1,7 +1,7 @@
 """Tests for _cloud_client._resolve_criteria_values (code-or-name matching)."""
 from __future__ import annotations
 
-from custom_components.xbloom._cloud_client import _resolve_criteria_values
+from custom_components.xbloom.cloud.client import _resolve_criteria_values
 
 FACET = [
     {"name": "Studio", "value": "J15"},

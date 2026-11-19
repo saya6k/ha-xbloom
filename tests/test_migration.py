@@ -1,7 +1,7 @@
 """Tests for the v2 -> v3 recipe migration (pure function only)."""
 from __future__ import annotations
 
-from custom_components.xbloom.j15 import _migrate_recipe_v2_to_v3
+from custom_components.xbloom.migrations import _migrate_recipe_v2_to_v3
 
 
 def test_v3_injects_uid_and_source():

@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from custom_components.xbloom.j15 import machine_photo
-from custom_components.xbloom.j15.coordinator.connection import ConnectionMixin
+from custom_components.xbloom.models.j15 import machine_photo
+from custom_components.xbloom.models.j15.coordinator.connection import ConnectionMixin
 
 SERIAL = "J15A04B4CV030"
 PNG, PNG_END = b"\x89PNG\r\n\x1a\n", b"IEND\xaeB`\x82"
@@ -199,7 +199,7 @@ def test_refresh_offline_keeps_what_is_cached(hass, downloads):
 
 
 def test_photo_view_serves_the_cached_photo_and_404s_without_one(hass, downloads, monkeypatch):
-    from custom_components.xbloom.j15 import panel
+    from custom_components.xbloom import panel
 
     coordinator = SimpleNamespace(data={"serial_number": SERIAL})
     monkeypatch.setattr(

@@ -6,8 +6,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import CONF_DEVICE_TYPE, DEVICE_TYPE_ORIGINAL
-from .j15.binary_sensor import async_setup_entry as _async_setup_j15
-from .j20.binary_sensor import async_setup_entry as _async_setup_j20
+from .models.j15.binary_sensor import async_setup_entry as _async_setup_j15
+from .models.j20.binary_sensor import async_setup_entry as _async_setup_j20
 
 
 async def async_setup_entry(

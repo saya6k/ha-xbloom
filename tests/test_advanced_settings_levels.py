@@ -6,7 +6,7 @@ MachineSetVibrationAmplitudeActivity).
 """
 from __future__ import annotations
 
-from custom_components.xbloom.j15.coordinator import (
+from custom_components.xbloom.models.j15.coordinator import (
     _pour_radius_level_to_raw,
     _vibration_level_to_raw,
 )

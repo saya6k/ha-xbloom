@@ -5,7 +5,7 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from custom_components.xbloom.j15 import panel, pods
+from custom_components.xbloom import panel, pods
 
 
 class _FakeStore:

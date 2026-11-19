@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from custom_components.xbloom._cloud_client import _parse_latest_firmware_response
+from custom_components.xbloom.cloud.client import _parse_latest_firmware_response
 
 _REAL_RESPONSE = {
     "data": (

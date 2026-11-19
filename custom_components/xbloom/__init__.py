@@ -1,55 +1,55 @@
 """XBloom Coffee Machine integration for Home Assistant.
 
-One domain, two machine families, each in its own package:
+Layout:
 
-* ``j15`` — Studio (J15): Bluetooth LE, recipes, services, panel, LLM tools.
-* ``j20`` — Original (J20): Wi-Fi, driven through the xBloom cloud only.
+* ``models/<model>/`` — one package per machine model (transport,
+  coordinator, entities). ``j15`` is the Studio (Bluetooth LE), ``j20`` the
+  Original (Wi-Fi, xBloom cloud only).
+* Shared features that work on any model — ``services``, ``llm``,
+  ``panel``, ``recipes``, ``cloud`` — never import ``models``.
 
-This module only routes each config entry to its family. The two never
-share runtime state: Studio keeps its coordinators in ``hass.data[DOMAIN]``
-(which its services, panel, and LLM tools iterate), and Original keeps its
-coordinator in ``entry.runtime_data``.
+This module loads the integration-wide pieces once (``async_setup``) and
+routes each config entry to its model package.
 """
 from __future__ import annotations
+
+from types import ModuleType
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from . import j15, j20
 from .const import CONF_DEVICE_TYPE, DEVICE_TYPE_ORIGINAL
+from .migrations import async_migrate_entry as async_migrate_entry
+from .models import j15, j20
+from .panel import async_register_panel
+from .recipes import CONFIG_SCHEMA as CONFIG_SCHEMA
+from .recipes import async_load_recipes
 
-# configuration.yaml's ``xbloom: recipes:`` block and the Studio services are
-# integration-wide, so the Studio package also owns ``async_setup``.
-from .j15 import CONFIG_SCHEMA as CONFIG_SCHEMA
-from .j15 import async_setup as async_setup
+
+def _model(entry: ConfigEntry) -> ModuleType:
+    return j20 if entry.data.get(CONF_DEVICE_TYPE) == DEVICE_TYPE_ORIGINAL else j15
 
 
-def _is_original(entry: ConfigEntry) -> bool:
-    return entry.data.get(CONF_DEVICE_TYPE) == DEVICE_TYPE_ORIGINAL
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Load the bundled + YAML recipe layers and register the sidebar panel."""
+    async_load_recipes(hass, config)
+    # Sidebar panel (global — it lists every configured machine).
+    await async_register_panel(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up a Studio or Original config entry."""
-    if _is_original(entry):
-        return await j20.async_setup_entry(hass, entry)
-    return await j15.async_setup_entry(hass, entry)
-
-
-async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Migrate a config entry; Original entries were born at the current version."""
-    if _is_original(entry):
-        return True
-    return await j15.async_migrate_entry(hass, entry)
+    """Set up one machine with its model package."""
+    return await _model(entry).async_setup_entry(hass, entry)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a Studio or Original config entry."""
-    if _is_original(entry):
-        return await j20.async_unload_entry(hass, entry)
-    return await j15.async_unload_entry(hass, entry)
+    """Unload one machine."""
+    return await _model(entry).async_unload_entry(hass, entry)
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Clean up stores owned by a removed entry (Studio only has any)."""
-    if not _is_original(entry):
-        await j15.async_remove_entry(hass, entry)
+    """Clean up stores owned by a removed machine."""
+    remove = getattr(_model(entry), "async_remove_entry", None)
+    if remove is not None:
+        await remove(hass, entry)

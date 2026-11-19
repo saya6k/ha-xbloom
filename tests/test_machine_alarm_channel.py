@@ -12,7 +12,7 @@ import struct
 
 import pytest
 
-from custom_components.xbloom.j15.ble.client import XBloomClient
+from custom_components.xbloom.models.j15.ble.client import XBloomClient
 
 
 class _FakeConnection:
@@ -101,7 +101,7 @@ def test_c1_marker_on_the_alarm_id_is_ignored():
 
 
 def test_alarm_event_types_are_registered_on_the_event_entity():
-    from custom_components.xbloom.j15.event import ERROR_EVENT_TYPES
+    from custom_components.xbloom.models.j15.event import ERROR_EVENT_TYPES
 
     for event_type in (
         "mismatched_power", "brewing_error", "dock_moving_error",

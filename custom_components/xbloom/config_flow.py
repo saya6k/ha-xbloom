@@ -45,21 +45,21 @@ from .const import (
     DEVICE_TYPE_ORIGINAL,
     DOMAIN,
 )
-from .j15.ble.client import XBloomClient
-from .j15.ble.connection import HABleakConnection
-from .j15.ble.scanner import discover_devices
-from .j15.coordinator import WATER_SOURCE_OPTIONS
-from .j15.schema import (
-    RECIPE_PROTECTED_FIELDS,
-    RECIPE_SCHEMA,
-    new_recipe_uid,
-    strip_protected_recipe_fields,
-)
-from .j20.client import (
+from .models.j15.ble.client import XBloomClient
+from .models.j15.ble.connection import HABleakConnection
+from .models.j15.ble.scanner import discover_devices
+from .models.j15.coordinator import WATER_SOURCE_OPTIONS
+from .models.j20.client import (
     J20_PRODUCT_ID,
     J20ApiError,
     J20CloudClient,
     is_original_device,
+)
+from .recipes.schema import (
+    RECIPE_PROTECTED_FIELDS,
+    RECIPE_SCHEMA,
+    new_recipe_uid,
+    strip_protected_recipe_fields,
 )
 
 _LOGGER = logging.getLogger(__name__)

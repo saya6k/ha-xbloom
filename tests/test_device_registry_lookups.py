@@ -13,8 +13,8 @@ COMPONENT_ROOT = (
 def test_device_registry_lookups_use_scoped_identifier_api():
     """The unscoped lookup was deprecated in Home Assistant 2026.8."""
     coordinator_sources = (
-        (COMPONENT_ROOT / "j15" / "coordinator" / "__init__.py").read_text(),
-        (COMPONENT_ROOT / "j15" / "coordinator" / "connection.py").read_text(),
+        (COMPONENT_ROOT / "models" / "j15" / "coordinator" / "__init__.py").read_text(),
+        (COMPONENT_ROOT / "models" / "j15" / "coordinator" / "connection.py").read_text(),
     )
 
     assert all("async_get_device(" not in source for source in coordinator_sources)
@@ -28,9 +28,9 @@ def test_device_registry_lookups_use_scoped_identifier_api():
 def test_machine_components_are_registered_as_child_devices():
     """Grinder, scale, and brewer are logical parts of the main machine."""
     coordinator_source = (
-        COMPONENT_ROOT / "j15" / "coordinator" / "__init__.py"
+        COMPONENT_ROOT / "models" / "j15" / "coordinator" / "__init__.py"
     ).read_text()
-    setup_source = (COMPONENT_ROOT / "j15" / "__init__.py").read_text()
+    setup_source = (COMPONENT_ROOT / "models" / "j15" / "__init__.py").read_text()
 
     assert "def _sub_device_info(self, key: str) -> ChildDeviceInfo:" in coordinator_source
     assert "return ChildDeviceInfo(" in coordinator_source

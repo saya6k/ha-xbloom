@@ -33,7 +33,7 @@ COMPONENT_ROOT = (
 )
 
 # Modules that hold tool implementations (plus the catalog that aggregates
-# them), all under j15/llm/. None of these may be imported at module level
+# them), all under llm/. None of these may be imported at module level
 # by the platform hook llm/__init__.py.
 TOOL_MODULES = {
     "base",
@@ -103,7 +103,7 @@ def test_non_entry_domain_key_gets_none():
 
 
 def test_catalog_builds_the_full_tool_set():
-    from custom_components.xbloom.j15.llm.catalog import build_tools
+    from custom_components.xbloom.llm.catalog import build_tools
 
     coordinator, hass = SimpleNamespace(), SimpleNamespace()
     tools = build_tools(coordinator, hass)
@@ -114,7 +114,7 @@ def test_catalog_builds_the_full_tool_set():
 
 
 def test_catalog_builds_fresh_instances_per_call():
-    from custom_components.xbloom.j15.llm.catalog import build_tools
+    from custom_components.xbloom.llm.catalog import build_tools
 
     coord_a, coord_b = SimpleNamespace(), SimpleNamespace()
     hass = SimpleNamespace()
@@ -176,7 +176,7 @@ class _ShellHass(SimpleNamespace):
 
 def test_api_shell_keeps_id_and_name_format():
     from custom_components.xbloom.const import XBLOOM_LLM_API_NAME
-    from custom_components.xbloom.j15.llm_api import XBloomCoffeeAPI
+    from custom_components.xbloom.llm_api import XBloomCoffeeAPI
 
     api = XBloomCoffeeAPI(_ShellHass({}), "entry1", "AA:BB:CC:DD:EE:FF")
     assert api.id == f"{XBLOOM_LLM_API_ID}_entry1"
@@ -187,7 +187,7 @@ def test_api_shell_builds_instance_via_platform():
     pytest.importorskip(
         "homeassistant.components.llm", reason="HA ≥ 2026.8 (devcontainer image)"
     )
-    from custom_components.xbloom.j15.llm_api import XBloomCoffeeAPI
+    from custom_components.xbloom.llm_api import XBloomCoffeeAPI
 
     coordinator = SimpleNamespace()
     hass = _ShellHass({"entry1": _entry(coordinator)})
@@ -203,7 +203,7 @@ def test_api_shell_raises_when_entry_is_gone():
     hand the agent an empty APIInstance."""
     from homeassistant.exceptions import HomeAssistantError
 
-    from custom_components.xbloom.j15.llm_api import XBloomCoffeeAPI
+    from custom_components.xbloom.llm_api import XBloomCoffeeAPI
 
     hass = _ShellHass({})
     api = XBloomCoffeeAPI(hass, "gone", "AA:BB:CC:DD:EE:FF")
@@ -243,10 +243,9 @@ def test_platform_entry_module_stays_light():
     at module level — a foreign API's collection would load them otherwise."""
     relative, absolute = _module_level_imports(COMPONENT_ROOT / "llm" / "__init__.py")
     heavy = {mod for mod in relative if mod.split(".")[0] in TOOL_MODULES}
-    # The tools live in j15/llm/ — reaching them (or anything Studio) at
-    # module level would also load them.
-    heavy |= {mod for mod in absolute if ".j15" in mod}
-    heavy |= {mod for mod in relative if mod.split(".")[0] == "j15"}
+    # Reaching a machine model at module level would load the tools' deps.
+    heavy |= {mod for mod in absolute if ".models" in mod}
+    heavy |= {mod for mod in relative if mod.split(".")[0] == "models"}
     assert not heavy, f"llm/__init__.py imports tool modules at module level: {heavy}"
     assert "homeassistant.components.llm" not in absolute, (
         "llm/__init__.py must import homeassistant.components.llm inside "
@@ -256,19 +255,20 @@ def test_platform_entry_module_stays_light():
 
 
 def test_setup_path_never_imports_the_platform_package():
-    """The setup path (__init__.py, j15/__init__.py, j15/llm_api.py) must not
-    import the llm platform or the j15/llm tool package at module level — a
-    submodule import executes the package __init__ (and the catalog pulls
-    every tool), defeating lazy loading."""
-    for fname in ("__init__.py", "j15/__init__.py", "j15/llm_api.py"):
+    """The setup path (__init__.py, the model packages' __init__, llm_api.py)
+    must not import the llm package or any llm.* submodule at module level —
+    a submodule import executes llm/__init__.py (and the catalog pulls every
+    tool), defeating lazy loading."""
+    platform = "custom_components.xbloom.llm"
+    for fname in (
+        "__init__.py",
+        "models/j15/__init__.py",
+        "models/j20/__init__.py",
+        "llm_api.py",
+    ):
         relative, absolute = _module_level_imports(COMPONENT_ROOT / fname)
-        offending = {
-            mod for mod in relative
-            if mod in ("llm", "j15.llm") or mod.startswith(("llm.", "j15.llm."))
-        }
+        offending = {mod for mod in relative if mod == "llm" or mod.startswith("llm.")}
         offending |= {
-            mod for mod in absolute
-            if mod.startswith("custom_components.xbloom")
-            and ".llm" in mod.removeprefix("custom_components.xbloom")
+            mod for mod in absolute if mod == platform or mod.startswith(f"{platform}.")
         }
-        assert not offending, f"{fname} imports an llm package: {offending}"
+        assert not offending, f"{fname} imports the llm/ package: {offending}"

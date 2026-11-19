@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock
 import aiohttp
 import pytest
 
-from custom_components.xbloom.j20.client import (
+from custom_components.xbloom.models.j20.client import (
     J20_API_BASE,
     J20_APP_ID,
     J20_APP_SECRET,
@@ -26,7 +26,7 @@ from custom_components.xbloom.j20.client import (
     parse_shadow,
     signed_headers,
 )
-from custom_components.xbloom.j20.values import (
+from custom_components.xbloom.models.j20.values import (
     GRIND_SIZE_DEFAULT,
     build_bruw_curve,
     warning_active,
@@ -316,7 +316,7 @@ def test_unmapped_warning_is_still_a_problem() -> None:
 
 
 def _coordinator(**attrs):
-    from custom_components.xbloom.j20.coordinator import J20Coordinator
+    from custom_components.xbloom.models.j20.coordinator import J20Coordinator
 
     fake = SimpleNamespace(**attrs)
     for name in ("_async_reauthenticate", "_async_call", "_send"):

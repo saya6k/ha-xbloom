@@ -15,7 +15,7 @@ import asyncio
 
 import pytest
 
-from custom_components.xbloom.j15.coordinator.recipes import RecipesMixin
+from custom_components.xbloom.models.j15.coordinator.recipes import RecipesMixin
 from tests.test_pod_detected_dispatch import _dispatch_pod, _FakeCloud
 
 save_pod_recipes = RecipesMixin.save_pod_recipes
