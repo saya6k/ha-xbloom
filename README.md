@@ -11,7 +11,12 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/saya6k)
 
-Local Bluetooth control of an [xBloom Studio](https://xbloom.com/) coffee machine from Home Assistant. Pour, grind, run saved recipes from an app-style sidebar dashboard, expose the brewer to Assist (LLM) — all without the cloud.
+Control xBloom coffee machines from Home Assistant:
+
+- **xBloom Studio** — local Bluetooth, no cloud needed.
+- **xBloom Original** (**experimental**) — through xBloom's cloud, the way the official app does it; it has no local API. Home Assistant can also do the machine's first-time Wi-Fi setup over Bluetooth. Built from the official app's code and not yet tested on a real Original.
+
+For the Studio: pour, grind, run saved recipes from an app-style sidebar dashboard, expose the brewer to Assist (LLM) — all without the cloud.
 
 Built on the protocol work of two reverse-engineered BLE upstreams. The BLE client here is a **clean-room native implementation** ([`custom_components/xb/ble/`](custom_components/xb/ble/), see [ADR-001](adr/001-clean-room-reimplementation-of-xbloom-ble.md)) — it does not import or copy either upstream. Both were formerly vendored under `custom_components/xb/src/` as unmodified reference copies and have since been removed; they are credited by link only:
 
@@ -45,7 +50,7 @@ It drives the same entities and services as everything else, so nothing it does 
 ## Features
 
 - **Sidebar dashboard** — an app-style page for brewing, recipes, manual control and machine settings (see [Dashboard](#dashboard)).
-- **xBloom Original (J20) cloud mode — unverified** — add an Original by signing in with the xBloom app account; the integration polls its thing shadow and exposes online/state/warning/pod/MCU-version sensors plus manual pour (volume/temperature/pattern), grind, stop-pour, and calibrate. Cloud-only, no local API; see [docs/en/original.md](docs/en/original.md).
+- **xBloom Original (J20) — experimental** — add an Original by signing in with the xBloom app account, or set up a new one from Bluetooth discovery (Home Assistant sends it the Wi-Fi settings, as the app does); the integration polls its thing shadow and exposes online/state/warning/pod/MCU-version sensors plus manual pour (volume/temperature/pattern), grind, stop-pour, and calibrate. Cloud-only, no local API; see [docs/en/original.md](docs/en/original.md).
 - **Local recipes are the source of truth** — every recipe gets a stable local `uid` and lives in HA; that's what the Recipe dropdown shows and brews. Seeded once at install (from your cloud account if linked, else xBloom's official public recipes), then no background sync — manage it from the HA UI, the recipe services, or `configuration.yaml`.
 - **Cross-identifier addressing** — every service/tool takes one `recipe` field: local uid, cloud table id, share URL/id, or exact name.
 - **Manual control** — pour with custom temperature/volume/flow rate/pour pattern, grind with custom size/RPM, **tare** the scale, vibrate the tray.
@@ -64,6 +69,7 @@ It drives the same entities and services as everything else, so nothing it does 
 
 | | This integration (ha-xbloom) | xbloom-studio |
 |---|---|---|
+| Machines | Studio, plus Original (experimental) | Studio |
 | Interface | Built-in app-style sidebar panel (brew, recipes, cloud hub search, manual, settings) | Ready-made dashboard YAML built from stock cards |
 | Recipes | Local store is the source of truth; the cloud is an import/export boundary | Local library, or cloud sync that writes back to your xBloom account |
 | BLE client | Clean-room implementation in this repository, no PyPI dependency | [`xbloom-py`](https://pypi.org/project/xbloom-py/), installed from PyPI on first setup |
@@ -95,7 +101,9 @@ This integration is not in the HACS default store yet, so add it as a custom rep
 2. Install **xBloom Coffee Machine**.
 3. Restart Home Assistant.
 4. Settings → Devices & Services → **Add integration** → search "xBloom".
-5. Enter the device's BLE MAC address (`xbloom scan` from a terminal, or check xBloom Studio).
+5. Pick the machine:
+   - **Studio**: usually found automatically by Bluetooth discovery; otherwise enter its Bluetooth MAC address.
+   - **Original** (experimental): sign in with the xBloom app account that owns it. A new Original waiting for its Wi-Fi setup also shows up in Bluetooth discovery, and Home Assistant sets it up like the app — see [docs/en/original.md](docs/en/original.md).
 
 ## Manual installation
 
@@ -103,7 +111,7 @@ Copy `custom_components/xb/` into your HA config's `custom_components/` folder a
 
 ## Configuration
 
-The config flow handles MAC + telemetry interval + idle disconnect timeout. The
+The config flow handles MAC + telemetry interval + idle disconnect timeout (0, the default, keeps the Bluetooth link up). The
 Settings step (Settings → Devices & Services → xBloom → **Configure** →
 **Settings**) also sets the machine's *own* onboard display units — weight
 (g/oz/ml) and temperature (°C/°F) — pushed to the machine on every reconnect.
@@ -270,7 +278,7 @@ Through Assist (LLM), the same surface is exposed as tools: `xbloom__list_recipe
 
 ## Known limitations
 
-- **xBloom Original is cloud-only and unverified**: an Original is added as a separate config-entry type that talks to xBloom's cloud (account login required), not to the machine. It exposes thing-shadow sensors plus grind, stop-pour, calibrate, and grind-size entities; there is no local API. The cloud calls come from decompiling app 2.2.5 and have not been tested with hardware or a live account.
+- **xBloom Original is experimental and cloud-only**: an Original is added as a separate config-entry type that talks to xBloom's cloud (account login required), not to the machine. It exposes thing-shadow sensors plus grind, stop-pour, calibrate, and grind-size entities; there is no local API. The cloud calls and the Bluetooth Wi-Fi setup come from decompiling app 2.2.5 and have not been tested with hardware or a live account.
 - **MachineInfo on some firmwares**: certain firmware revisions never push `RD_MachineInfo`, so the Model / Serial / Firmware sensors may stay `unknown`. The water-level binary sensor falls back to event-driven detection on those firmwares.
 - **Manual cup detection**: the scale auto-tares any weight present at power-on, so a cup placed before boot reads as 0 g — when this happens the LLM `xbloom__execute_recipe` tool adds the cup to the checklist it returns when it arms the recipe.
 - **Weight reads unknown while the machine sleeps or is disconnected**: asleep, the machine reports a fixed 50 g with nothing on the scale, so the weight sensor shows unknown instead of a made-up reading. The same applies while the Bluetooth link is down (idle standby, out of range). Wake the machine (a button press or a pod insert) to get a live reading.

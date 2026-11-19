@@ -6,7 +6,7 @@ thing-shadow* update, and the machine's reported state comes back from the
 same cloud. This integration's Original support is a client of that cloud,
 not a Bluetooth or LAN client.
 
-> **Unverified.** There is no Original hardware and no live account in this
+> **Experimental.** There is no Original hardware and no live account in this
 > repository. The login flow, request signing, and endpoints were read from
 > app 2.2.5 by decompilation; see
 > [`protocol-original-j20.md`](./protocol-original-j20.md). Everything below
@@ -19,6 +19,18 @@ not a Bluetooth or LAN client.
 2. Choose **Original (Wi-Fi / cloud)**.
 3. Enter the email/password of the xBloom app account that owns the machine.
 4. If the account owns more than one Original, pick one.
+
+### A new machine (first-time Wi-Fi setup)
+
+An Original that hasn't been set up yet waits for its Wi-Fi settings over
+Bluetooth. If Home Assistant has Bluetooth in range, the machine shows up in
+**Discovered** as *xBloom Original*. Configure it, enter the xBloom account and
+the Wi-Fi network (2.4 GHz only), and Home Assistant does what the app does:
+it sends the Wi-Fi settings to the machine, waits for it to link to the
+account, adds it to the account's machine list and creates the entry. This
+uses the app's onboarding protocol
+([`protocol-original-j20.md`](./protocol-original-j20.md#wire-protocol-mxchip-locklib-implemented-in-modelsj20provisionpy))
+and has not been tried on a real machine.
 
 When the cloud rejects the token, the integration first exchanges the refresh
 token for a new one, as the app does; the credentials are stored in the config
