@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 
+from homeassistant.components.bluetooth import async_last_service_info
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -22,6 +23,7 @@ from ...const import (
     CONF_PASSWORD,
     CONF_RECIPES,
     CONF_RECIPES_SEEDED,
+    CONF_SERIAL_SUFFIX,
     CONF_SESSION_TIMEOUT,
     CONF_STORE_REGION,
     CONF_TELEMETRY_INTERVAL,
@@ -50,7 +52,7 @@ from . import (  # noqa: F401
     switch,
     update,
 )
-from .coordinator import XBloomCoordinator
+from .coordinator import XBloomCoordinator, serial_suffix_from_name
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -71,6 +73,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
 
     mac = entry.data[CONF_MAC_ADDRESS]
+    serial_suffix = entry.data.get(CONF_SERIAL_SUFFIX)
+    if serial_suffix is None:
+        # Set up before the config flow stored it: read it from the
+        # advertisement once and keep it, so the device name doesn't change.
+        info = async_last_service_info(hass, mac, connectable=True)
+        serial_suffix = serial_suffix_from_name(info.name if info else None)
+        if serial_suffix:
+            hass.config_entries.async_update_entry(
+                entry, data={**entry.data, CONF_SERIAL_SUFFIX: serial_suffix}
+            )
     telemetry_interval = entry.options.get(
         CONF_TELEMETRY_INTERVAL,
         entry.data.get(CONF_TELEMETRY_INTERVAL, DEFAULT_TELEMETRY_INTERVAL),
@@ -102,6 +114,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         session_timeout=session_timeout,
         cloud_email=entry.data.get(CONF_EMAIL),
         cloud_password=entry.data.get(CONF_PASSWORD),
+        serial_suffix=serial_suffix,
     )
 
     # Recipe merge order — lowest precedence first:

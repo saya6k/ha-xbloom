@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from collections.abc import Callable
 from datetime import timedelta
@@ -79,6 +80,16 @@ from .state import StateMixin
 _LOGGER = logging.getLogger(__name__)
 
 
+_ADVERTISED_NAME = re.compile(r"^XBLOOM[ _-]?([A-Z0-9]{6})$", re.IGNORECASE)
+
+
+def serial_suffix_from_name(name: str | None) -> str | None:
+    """"XBLOOM 4CV030" (the Studio's Bluetooth name) → "4CV030"."""
+    if name and (match := _ADVERTISED_NAME.match(name.strip())):
+        return match.group(1).upper()
+    return None
+
+
 class XBloomCoordinator(
     ConnectionMixin,
     StateMixin,
@@ -122,6 +133,7 @@ class XBloomCoordinator(
         session_timeout: int = DEFAULT_SESSION_TIMEOUT,
         cloud_email: str | None = None,
         cloud_password: str | None = None,
+        serial_suffix: str | None = None,
     ) -> None:
         super().__init__(
             hass,
@@ -130,6 +142,7 @@ class XBloomCoordinator(
             update_interval=timedelta(seconds=update_interval),
         )
         self.mac_address = mac_address
+        self.serial_suffix = serial_suffix
         self.entry_id = entry_id
         self.parent_device_id: str | None = None
         self.client: XBloomClient | None = None
@@ -386,9 +399,11 @@ class XBloomCoordinator(
 
     @property
     def machine_name(self) -> str:
-        """Device name, told apart by the MAC's last two bytes ("xBloom
-        Studio F64F") so several Studios get distinct names and entity ids."""
-        suffix = self.mac_address.replace(":", "").upper()[-4:]
+        """Device name, told apart by the serial number's last six
+        characters ("xBloom Studio 4CV030", as the machine advertises
+        itself) so several Studios get distinct names and entity ids. Falls
+        back to the MAC's last two bytes when the serial wasn't read."""
+        suffix = self.serial_suffix or self.mac_address.replace(":", "").upper()[-4:]
         return f"xBloom Studio {suffix}"
 
     @property
