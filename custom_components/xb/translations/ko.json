@@ -66,10 +66,6 @@
           "email": "이메일",
           "password": "비밀번호"
         }
-      },
-      "migrate": {
-        "title": "이전 버전의 기기 옮기기",
-        "description": "다음 기기들은 이전 xBloom 통합 구성요소(버전 3 이전, 도메인 `xbloom`)로 설정되어 있습니다: {machines}.\n\n제출하면 이 기기들을 이곳으로 옮깁니다. 엔티티 ID, 이름, 영역, 레시피, 기록은 그대로 유지됩니다. 이전 통합 구성요소 폴더는 삭제되며, 아직 실행 중이라면 마치기 위해 Home Assistant를 재시작해야 합니다."
       }
     },
     "error": {
@@ -88,9 +84,7 @@
       "no_devices_found": "주변에서 xBloom 기기를 찾을 수 없습니다. 머신 전원을 확인하세요.",
       "unknown_device": "선택한 기기를 더 이상 이 계정에서 찾을 수 없습니다.",
       "reauth_successful": "재인증에 성공했습니다.",
-      "reauth_failed": "재인증에 실패했습니다.",
-      "migration_restart": "Home Assistant를 재시작하면 기기가 옮겨집니다. 지금 재시작한 뒤 `xbloom.*` 액션 호출을 `xb.*`로 바꾸고, 대화 에이전트에서 xBloom API를 다시 선택하세요.",
-      "migration_done": "기기를 옮겼습니다. `xbloom.*` 액션 호출을 `xb.*`로 바꾸고, 대화 에이전트에서 xBloom API를 다시 선택하세요."
+      "reauth_failed": "재인증에 실패했습니다."
     }
   },
   "options": {
@@ -913,18 +907,9 @@
     }
   },
   "issues": {
-    "legacy_restart_required": {
-      "title": "xBloom 기기 이전을 마치려면 Home Assistant를 재시작하세요",
-      "description": "이전 xBloom 통합 구성요소(도메인 `xbloom`)가 아직 설치되어 있거나 실행 중이어서 새 버전이 대기하고 있습니다. `custom_components/xbloom` 폴더가 남아 있다면 xBloom 통합 구성요소를 다시 추가(설정 → 기기 및 서비스 → 통합 구성요소 추가)해 기기를 옮기거나 폴더를 직접 삭제하세요. 그다음 Home Assistant를 재시작하세요."
-    },
     "unknown_machine_color": {
       "title": "xBloom 기기 색상을 알 수 없음",
       "description": "이 기기의 일련 번호에 들어 있는 색상 코드 **{code}**를 통합 구성요소가 아직 모릅니다. 그래서 패널에는 미드나이트 블랙 사진이 표시됩니다.\n\n등록을 도와주세요: [미리 채워진 GitHub 이슈 열기]({report_url})에서 기기 색상을 적어 주시면 됩니다. 전체 일련 번호가 아니라 두 글자 코드만 포함됩니다."
-    }
-  },
-  "exceptions": {
-    "legacy_restart_required": {
-      "message": "이전 xBloom 통합 구성요소가 아직 이 기기를 실행하고 있습니다. 이전을 마치려면 Home Assistant를 재시작하세요."
     }
   }
 }

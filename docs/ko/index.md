@@ -49,12 +49,13 @@
 
 ## 2.x에서 업그레이드
 
-버전 3에서 통합 구성요소의 도메인이 `xbloom`에서 `xb`로 바뀌었습니다(기존 도메인이 HACS 스토어의 xbloom-studio와 겹쳤음). Home Assistant는 도메인 변경을 스스로 처리하지 못하므로, HACS가 업데이트를 설치한 뒤:
+버전 3에서 통합 구성요소의 도메인이 `xbloom`에서 `xb`로 바뀌었습니다(기존 도메인이 HACS 스토어의 xbloom-studio와 겹쳤음). HACS는 도메인이 바뀐 업데이트를 설치하지 못하므로 새로 설치해야 합니다:
 
-1. Home Assistant를 재시작합니다. `custom_components/xbloom`에 남은 이전 버전이 당분간 기기를 계속 실행합니다.
-2. 설정 → 기기 및 서비스 → **통합 구성요소 추가** → "xBloom"을 선택하고 **이전 버전의 기기 옮기기**를 제출합니다. 이전 폴더를 삭제하고 모든 기기를 새 버전으로 다시 만듭니다.
-3. Home Assistant를 다시 재시작합니다. 기기가 옮겨지며 엔티티 ID, 기기·엔티티 이름, 영역, 라벨, 레시피, 포드 라이브러리, 기록이 유지됩니다.
-4. 자동으로 옮겨지지 않는 것을 고칩니다: 자동화·스크립트의 `xbloom.*` 액션은 `xb.*`로, `configuration.yaml`의 `xbloom:` 블록은 `xb:`로 바꾸고, xBloom LLM API를 쓰는 대화 에이전트에서는 API를 다시 선택하세요.
+1. 직접 만든 레시피가 있다면 먼저 백업하세요(`cloud_export_recipe`로 내보내거나 레시피 편집기에서 옮겨 적기). 이전 버전을 제거하면 설정도 함께 삭제됩니다.
+2. HACS → xBloom Coffee Machine → ⋮ → **제거**(설정과 파일을 함께 삭제).
+3. 같은 사용자 지정 저장소에서 xBloom Coffee Machine을 다시 다운로드하고 Home Assistant를 재시작합니다.
+4. 설정 → 기기 및 서비스 → **통합 구성요소 추가** → "xBloom"에서 기기를 다시 설정합니다.
+5. 이전 설치를 가리키던 것을 고칩니다: 엔티티 ID가 새로 생기고(새 기기 이름 `xBloom Studio F64F` 등을 따름), `xbloom.*` 액션은 `xb.*`로, `configuration.yaml`의 `xbloom:` 블록은 `xb:`로 바꾸고, 대화 에이전트에서 xBloom LLM API를 다시 선택하세요.
 
 ## 설치 (HACS)
 

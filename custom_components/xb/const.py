@@ -217,7 +217,3 @@ CONF_J20_SERIAL_NUMBER = "j20_serial_number"
 CONF_J20_NAME = "j20_name"
 
 DEFAULT_J20_SCAN_INTERVAL = 15  # seconds between thing-shadow polls
-
-# Set on an entry re-created from a pre-3.0 ("xbloom" domain) entry until
-# legacy.async_adopt has moved that entry's devices and entities over.
-CONF_LEGACY_ENTRY_ID = "legacy_entry_id"

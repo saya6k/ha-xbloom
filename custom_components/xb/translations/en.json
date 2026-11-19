@@ -66,10 +66,6 @@
           "email": "Email",
           "password": "Password"
         }
-      },
-      "migrate": {
-        "title": "Move machines from the previous version",
-        "description": "These machines were set up by the previous xBloom integration (before version 3, domain `xbloom`): {machines}.\n\nSubmit to move them here. Entity ids, names, areas, recipes and history are kept. The old integration folder is deleted; if it is still running, restart Home Assistant afterwards to finish."
       }
     },
     "error": {
@@ -88,9 +84,7 @@
       "no_devices_found": "No xBloom devices found nearby. Make sure the machine is powered on.",
       "unknown_device": "The selected machine is no longer available on this account.",
       "reauth_successful": "Reauthentication successful.",
-      "reauth_failed": "Reauthentication failed.",
-      "migration_restart": "The machines will move over when Home Assistant restarts. Restart now, then change any `xbloom.*` action calls to `xb.*` and re-select the xBloom API in your conversation agent.",
-      "migration_done": "Your machines were moved over. Change any `xbloom.*` action calls to `xb.*` and re-select the xBloom API in your conversation agent."
+      "reauth_failed": "Reauthentication failed."
     }
   },
   "options": {
@@ -913,18 +907,9 @@
     }
   },
   "issues": {
-    "legacy_restart_required": {
-      "title": "Restart Home Assistant to finish moving your xBloom machines",
-      "description": "The previous xBloom integration (domain `xbloom`) is still installed or running, so the new version waits. If `custom_components/xbloom` still exists, add the xBloom integration again (Settings → Devices & services → Add integration) to move your machines, or delete that folder yourself. Then restart Home Assistant."
-    },
     "unknown_machine_color": {
       "title": "xBloom machine colour not recognised",
       "description": "This machine's serial number carries colour code **{code}**, which the integration doesn't know yet, so the panel shows the Midnight Black photo instead.\n\nPlease help map it: [open a pre-filled GitHub issue]({report_url}) and add which colour your machine is. Only the two-character code is included, not the full serial number."
-    }
-  },
-  "exceptions": {
-    "legacy_restart_required": {
-      "message": "The previous xBloom integration is still running this machine. Restart Home Assistant to finish moving it over."
     }
   }
 }
