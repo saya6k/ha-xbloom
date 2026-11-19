@@ -28,6 +28,12 @@ def _join(items: list[str], conjunction: str = "and") -> str:
 
 
 def _intro(caps: frozenset, brews_tea: bool) -> str:
+    if not caps:
+        return (
+            "You can check an xBloom coffee machine's status. It can't be "
+            "controlled from here yet — no brewing, grinding, pouring or "
+            "recipes; tell the user to use the machine or the xBloom app."
+        )
     missing = []
     if Capability.RECIPES not in caps:
         missing.append("saved recipes")
@@ -231,7 +237,8 @@ _CLOUD = (
 def build_prompt(coordinator: Any) -> str:
     """The API prompt for one machine."""
     caps = frozenset(coordinator.capabilities)
-    limits = coordinator.limits
+    # A status-only machine (no controls) has no manual limits.
+    limits = getattr(coordinator, "limits", None)
     brews_tea = bool(getattr(coordinator, "brews_tea", True))
     recipes = Capability.RECIPES in caps
     overrides = frozenset(getattr(coordinator, "recipe_overrides", ALL_RECIPE_OVERRIDES))

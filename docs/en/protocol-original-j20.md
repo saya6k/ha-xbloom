@@ -6,11 +6,12 @@
 > `com.chisalsoft.andite`, via `jadx` — inspected as a zip/dex/source dump
 > only, never published or redistributed). **Unlike [`protocol.md`](./protocol.md)
 > (Studio BLE), nothing here has been verified against real hardware.** The
-> integration now ships a cloud-only J20 path in
-> `custom_components/xb/j20/` (config-entry type ``original``: account
-> login, thing-shadow polling, grind/stop/calibrate), but there is still no
-> Original unit and no live account in this repo, so that code is unverified
-> too. This document is the decompile-derived map behind it — every claim
+> releases ship a **status-only** J20 path in `custom_components/xb/models/j20/`
+> (config-entry type ``original``: account login, thing-shadow polling, live
+> WebSocket updates). The write paths below (commands, recipes, auto mode,
+> Wi-Fi onboarding) are implemented on the
+> [`original`](https://github.com/saya6k/ha-xbloom/tree/original) branch and
+> stay out of releases until confirmed on a real machine. This document is the decompile-derived map behind it — every claim
 > traces to a specific class/method; anything not cross-checked is marked
 > unconfirmed.
 
@@ -114,7 +115,7 @@ user picks. It is not the ongoing control channel either — control always goes
 through the thing-shadow endpoints below. A custom activation URL would at most
 intercept the one-time activation call, not redirect the machine's control path.
 
-### Wire protocol (MXChip `locklib`), implemented in `models/j20/provision.py`
+### Wire protocol (MXChip `locklib`), implemented in `models/j20/provision.py` on the `original` branch
 
 Home Assistant runs this onboarding itself when Bluetooth discovery finds an
 Original waiting for Wi-Fi (Add integration is not needed). **Unverified on

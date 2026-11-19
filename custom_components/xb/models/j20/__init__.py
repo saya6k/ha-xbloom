@@ -1,21 +1,17 @@
-"""XBloom Original (J20) — cloud-only support.
+"""XBloom Original (J20) — status only, through xBloom's cloud.
 
-This package is wired into the existing ``xbloom`` integration as a second
-config-entry type (``device_type == "original"``) so HACS keeps shipping
-one domain. Nothing here imports ``j15`` or touches the BLE stack: Studio
-and Original are separate coordinators and separate entity sets. The
+A second config-entry type (``device_type == "original"``) in the same
+domain. Nothing here imports ``j15`` or touches the BLE stack. The
 coordinator registers in ``hass.data[DOMAIN]`` like every model, so the
-shared LLM tools and panel reach it — limited to its ``capabilities``
-(manual grind/pour, stop, calibrate; no recipes, so no services).
+panel and the LLM status tool reach it; it declares no capabilities, so
+nothing shared can send it a command.
 
-The Original has no local control path. The integration is a client of
-xBloom's cloud, exactly like the official app:
-
-* read: ``POST /api/device/thing_shadow/`` (polled)
-* write: ``POST /api/device/command`` with a ``desired`` shadow document
-
-The app's WebSocket is intentionally not used in v1 — polling covers the
-state HA needs, and the subscribe/auth handshake is undocumented.
+The Original has no local API; the integration reads what the official app
+reads: the thing shadow (``POST /api/device/thing_shadow/``, polled) and its
+live deltas (the app's WebSocket). It sends the machine nothing. Controls
+(grind, pour, recipes, auto mode, Wi-Fi setup) wait on the repository's
+``original`` branch until an Original owner has confirmed them on real
+hardware.
 """
 from __future__ import annotations
 
@@ -24,19 +20,12 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import (
-    ConfigEntryAuthFailed,
-    ConfigEntryNotReady,
-    HomeAssistantError,
-)
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from ...const import (
-    CONF_ACCOUNT_RECIPES_SEEDED,
     CONF_EMAIL,
     CONF_PASSWORD,
-    CONF_RECIPES,
-    CONF_RECIPES_SEEDED,
     CONF_TELEMETRY_INTERVAL,
     DATA_COORDINATOR,
     DEFAULT_J20_SCAN_INTERVAL,
@@ -44,19 +33,13 @@ from ...const import (
 )
 
 # The entity platform modules, found by models.async_setup_platform_entry.
-from . import binary_sensor, button, number, select, sensor  # noqa: F401
+from . import binary_sensor, sensor  # noqa: F401
 from .client import J20ApiError, J20CloudClient
 from .coordinator import J20Coordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-J20_PLATFORMS = [
-    Platform.BINARY_SENSOR,
-    Platform.BUTTON,
-    Platform.NUMBER,
-    Platform.SELECT,
-    Platform.SENSOR,
-]
+J20_PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
 
 type J20ConfigEntry = ConfigEntry[J20Coordinator]
@@ -118,20 +101,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool:
         raise
 
     entry.runtime_data = coordinator
-    # Recipe store, as for the Studio: bundled defaults on a fresh install,
-    # then (in the background) a one-time seed of the account's recipes.
-    coordinator.seed_bundled_recipes()
-    coordinator._rebuild_recipes()
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
-        DATA_COORDINATOR: coordinator,
-        "options_snapshot": dict(entry.options),
-    }
-    await coordinator._async_refresh_recipe_service_schemas()
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {DATA_COORDINATOR: coordinator}
     await hass.config_entries.async_forward_entry_setups(entry, J20_PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_j20_listener))
-    hass.async_create_task(coordinator.async_seed_recipes())
-    # What the machine's start button holds (auto mode), for the panel.
-    hass.async_create_task(_async_read_auto_mode(coordinator))
     # Live shadow deltas over the app's WebSocket; cancelled on unload.
     entry.async_create_background_task(
         hass, coordinator.async_run_live_updates(), "xb_original_live_updates"
@@ -148,26 +120,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool
     return unload_ok
 
 
-async def _async_read_auto_mode(coordinator: J20Coordinator) -> None:
-    try:
-        await coordinator.async_refresh_auto_mode()
-    except HomeAssistantError as exc:
-        _LOGGER.debug("Couldn't read the Original's auto mode: %s", exc)
-
-
-# Options written by the recipe store (CRUD, seeding): a rebuild is enough.
-_RECIPE_ONLY_OPTION_KEYS = {CONF_RECIPES, CONF_RECIPES_SEEDED, CONF_ACCOUNT_RECIPES_SEEDED}
-
-
 async def _async_update_j20_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
-    if data and DATA_COORDINATOR in data:
-        prev = data.get("options_snapshot") or {}
-        cur = dict(entry.options)
-        changed = {k for k in set(prev) | set(cur) if prev.get(k) != cur.get(k)}
-        data["options_snapshot"] = cur
-        if changed and changed <= _RECIPE_ONLY_OPTION_KEYS:
-            data[DATA_COORDINATOR]._rebuild_recipes()
-            data[DATA_COORDINATOR].async_update_listeners()
-            return
     await hass.config_entries.async_reload(entry.entry_id)

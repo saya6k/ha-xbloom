@@ -1,18 +1,15 @@
 """Config flow for XBloom integration."""
 from __future__ import annotations
 
-import asyncio
 import logging
 import re
 from typing import Any
 
 import voluptuous as vol
 import yaml
-from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 from homeassistant import config_entries
 from homeassistant.components.bluetooth import (
     BluetoothServiceInfoBleak,
-    async_ble_device_from_address,
     async_last_service_info,
 )
 from homeassistant.core import HomeAssistant, callback
@@ -31,7 +28,6 @@ from .const import (
     CONF_DEVICE_TYPE,
     CONF_EMAIL,
     CONF_J20_DEVICE_ID,
-    CONF_J20_MAC,
     CONF_J20_NAME,
     CONF_J20_PRODUCT_ID,
     CONF_J20_SERIAL_NUMBER,
@@ -44,8 +40,6 @@ from .const import (
     CONF_TEMP_UNIT,
     CONF_WATER_SOURCE,
     CONF_WEIGHT_UNIT,
-    CONF_WIFI_PASSWORD,
-    CONF_WIFI_SSID,
     DEFAULT_J20_SCAN_INTERVAL,
     DEFAULT_SESSION_TIMEOUT,
     DEFAULT_TELEMETRY_INTERVAL,
@@ -65,8 +59,6 @@ from .models.j20.client import (
     J20CloudClient,
     is_original_device,
 )
-from .models.j20.provision import SERVICE_UUID as ORIGINAL_SERVICE_UUID
-from .models.j20.provision import ProvisionError, advertised_identity, async_provision
 from .recipes.schema import (
     RECIPE_PROTECTED_FIELDS,
     RECIPE_SCHEMA,
@@ -77,12 +69,6 @@ from .recipes.schema import (
 _LOGGER = logging.getLogger(__name__)
 
 MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
-
-
-def _plain_mac(value: Any) -> str | None:
-    """A MAC as 12 lower-case hex digits (the onboarding cloud's form)."""
-    digits = re.sub(r"[^0-9a-fA-F]", "", str(value or "")).lower()
-    return digits if len(digits) == 12 else None
 
 
 async def _async_original_login(
@@ -146,21 +132,12 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._j20_devices: list[dict[str, Any]] = []
         self._j20_email: str = ""
         self._j20_password: str = ""
-        self._onboard_address: str | None = None
-        self._onboard_mac: str | None = None
-        self._onboard_input: dict[str, Any] = {}
-        self._onboard_client: J20CloudClient | None = None
-        self._onboard_task: asyncio.Task | None = None
-        self._onboard_device: dict[str, Any] | None = None
-        self._onboard_error: str | None = None
         self._reauth_entry: config_entries.ConfigEntry | None = None
 
     async def async_step_bluetooth(
         self, discovery_info: BluetoothServiceInfoBleak
     ) -> FlowResult:
         """Handle a machine discovered via the service_uuid matcher in manifest.json."""
-        if ORIGINAL_SERVICE_UUID in discovery_info.service_uuids:
-            return await self._async_original_discovered(discovery_info)
         mac = discovery_info.address.upper()
         await self.async_set_unique_id(mac)
         self._abort_if_unique_id_configured()
@@ -407,153 +384,9 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_J20_PRODUCT_ID: device.get("productId") or J20_PRODUCT_ID,
                 CONF_J20_SERIAL_NUMBER: device.get("serialNumber") or "",
                 CONF_J20_NAME: str(device.get("theName") or ""),
-                CONF_J20_MAC: _plain_mac(device.get("macAddress")),
                 CONF_TELEMETRY_INTERVAL: DEFAULT_J20_SCAN_INTERVAL,
             },
         )
-
-    # ── Original (J20) Wi-Fi onboarding over Bluetooth (see j20/provision.py) ──
-
-    async def _async_original_discovered(
-        self, discovery_info: BluetoothServiceInfoBleak
-    ) -> FlowResult:
-        """An Original waiting for its Wi-Fi setup (service 0x0922)."""
-        mac = advertised_identity(discovery_info.manufacturer_data)
-        if mac is None:
-            return self.async_abort(reason="not_supported")  # another 0x0922 device
-        if any(
-            _plain_mac(entry.data.get(CONF_J20_MAC)) == mac
-            for entry in self._async_current_entries(include_ignore=False)
-        ):
-            return self.async_abort(reason="already_configured")
-        await self.async_set_unique_id(f"j20_ble_{mac}")
-        self._abort_if_unique_id_configured()
-        self._onboard_address = discovery_info.address
-        self._onboard_mac = mac
-        self.context["title_placeholders"] = {"name": "xBloom Original"}
-        return await self.async_step_original_onboard()
-
-    async def async_step_original_onboard(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """xBloom account plus the Wi-Fi network the machine should join."""
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            email = (user_input.get(CONF_EMAIL) or "").strip()
-            client = J20CloudClient(async_get_clientsession(self.hass))
-            login = await _async_original_login(client, email, user_input[CONF_PASSWORD])
-            if login is not None:
-                errors["base"] = login
-            else:
-                self._onboard_input = {**user_input, CONF_EMAIL: email}
-                self._onboard_client = client
-                return await self.async_step_original_provision()
-        return self.async_show_form(
-            step_id="original_onboard",
-            data_schema=self.add_suggested_values_to_schema(
-                vol.Schema(
-                    {
-                        vol.Required(CONF_EMAIL): str,
-                        vol.Required(CONF_PASSWORD): TextSelector(
-                            TextSelectorConfig(type=TextSelectorType.PASSWORD)
-                        ),
-                        vol.Required(CONF_WIFI_SSID): str,
-                        vol.Required(CONF_WIFI_PASSWORD): TextSelector(
-                            TextSelectorConfig(type=TextSelectorType.PASSWORD)
-                        ),
-                    }
-                ),
-                {k: v for k, v in self._onboard_input.items() if k in (CONF_EMAIL, CONF_WIFI_SSID)},
-            ),
-            errors=errors,
-        )
-
-    async def async_step_original_provision(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Hand the Wi-Fi credentials over and wait for the cloud binding."""
-        if self._onboard_task is None:
-            self._onboard_task = self.hass.async_create_task(self._async_onboard())
-        if not self._onboard_task.done():
-            return self.async_show_progress(
-                step_id="original_provision",
-                progress_action="original_provision",
-                progress_task=self._onboard_task,
-            )
-        task, self._onboard_task = self._onboard_task, None
-        try:
-            self._onboard_device = task.result()
-        except ProvisionError as err:
-            self._onboard_error = err.reason
-            return self.async_show_progress_done(next_step_id="original_provision_failed")
-        return self.async_show_progress_done(next_step_id="original_provision_done")
-
-    async def async_step_original_provision_done(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        assert self._onboard_device is not None
-        await self.async_set_unique_id(
-            f"j20_{self._onboard_device['deviceId']}", raise_on_progress=False
-        )
-        return await self._async_create_original_entry(
-            self._onboard_device,
-            self._onboard_input[CONF_EMAIL],
-            self._onboard_input[CONF_PASSWORD],
-        )
-
-    async def async_step_original_provision_failed(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        return self.async_abort(reason=f"original_{self._onboard_error or 'wifi_failed'}")
-
-    async def _async_onboard(self) -> dict[str, Any]:
-        """Connect, provision, then list the machine on the account."""
-        client = self._onboard_client
-        assert client is not None and self._onboard_mac and self._onboard_address
-        ble_device = async_ble_device_from_address(
-            self.hass, self._onboard_address, connectable=True
-        )
-        if ble_device is None:
-            raise ProvisionError("ble_failed")
-        try:
-            ble_client = await establish_connection(
-                BleakClientWithServiceCache, ble_device, "xBloom Original"
-            )
-        except Exception as err:
-            raise ProvisionError("ble_failed") from err
-        try:
-            bound = await async_provision(
-                ble_client,
-                client,
-                self._onboard_mac,
-                self._onboard_input[CONF_WIFI_SSID],
-                self._onboard_input[CONF_WIFI_PASSWORD],
-            )
-        finally:
-            await ble_client.disconnect()
-        device_id = str(bound["device_id"])
-        serial = str(bound.get("sn") or "")
-        if not serial:
-            try:
-                detail = await client.async_iot_data(
-                    "/api/device/detail/", {"device_id": device_id}, method="GET"
-                )
-                serial = str(detail.get("sn") or "")
-            except J20ApiError:
-                _LOGGER.warning("Couldn't read the new Original's serial number")
-        if not await client.async_add_machine(bound, serial):
-            # The machine is bound and works; only the app's list misses it.
-            _LOGGER.warning(
-                "The Original was set up but couldn't be added to the xBloom "
-                "app's machine list; add it there from the app if needed"
-            )
-        return {
-            "deviceId": device_id,
-            "productId": bound.get("product_id") or J20_PRODUCT_ID,
-            "serialNumber": serial,
-            "theName": "xBloom Original",
-            "macAddress": self._onboard_mac,
-        }
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
         """Cloud token rejected — ask for the account password again."""
