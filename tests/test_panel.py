@@ -112,8 +112,10 @@ def test_machine_payload_for_a_model_without_recipes():
     hass = MagicMock()
     hass.config.country = "US"
     hass.config_entries.async_get_entry.return_value = entry
+    from custom_components.xb.machine import Capability
+
     machine = SimpleNamespace(
-        capabilities=J20Coordinator.capabilities,
+        capabilities=J20Coordinator.capabilities - {Capability.RECIPES},
         panel_entity_aliases=J20Coordinator.panel_entity_aliases,
         machine_label="SN1",
     )
@@ -127,7 +129,7 @@ def test_machine_payload_for_a_model_without_recipes():
         payload = panel._machine_payload(hass, "o1", machine)
 
     assert payload["entities"]["number.volume"] == "number.original_volume"
-    assert payload["capabilities"] == sorted(J20Coordinator.capabilities)
+    assert payload["capabilities"] == sorted(machine.capabilities)
     assert payload["recipes"] == [] and payload["easy_slots"] == {}
     assert payload["photo_url"] is None and payload["arm_buttons"] is False
     assert payload["mac"] == "SN1"

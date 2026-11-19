@@ -17,7 +17,10 @@ async def async_setup_entry(
 ) -> None:
     coordinator: J20Coordinator = entry.runtime_data
     async_add_entities(
-        scope_unique_ids(entry.entry_id, [J20PatternSelect(coordinator, entry)])
+        scope_unique_ids(
+            entry.entry_id,
+            [J20PatternSelect(coordinator, entry), J20RecipeSelect(coordinator, entry)],
+        )
     )
 
 
@@ -39,3 +42,22 @@ class J20PatternSelect(J20Entity, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         self.coordinator.pattern = option
         self.async_write_ha_state()
+
+
+class J20RecipeSelect(J20Entity, SelectEntity):
+    """The recipe the execute button and the panel brew."""
+
+    _attr_translation_key = "j20_recipe"
+    _attr_unique_id = "xbloom_j20_recipe"
+
+    @property
+    def options(self) -> list[str]:
+        return self.coordinator.recipe_names
+
+    @property
+    def current_option(self) -> str | None:
+        return self.coordinator.selected_recipe
+
+    async def async_select_option(self, option: str) -> None:
+        if option in (self.coordinator.recipes or {}):
+            self.coordinator.select_recipe(option)

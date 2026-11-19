@@ -55,8 +55,27 @@ _CLOUD_EDIT_PRESERVE_KEYS = (
 _OFFICIAL_RECIPE_SYNC_LIMIT = 20
 
 
+def is_tea_recipe(recipe: dict) -> bool:
+    return str(recipe.get("cup_type", "")).strip().lower() == "tea"
+
+
+_TEA_UNSUPPORTED = {
+    "success": False,
+    "error": "tea_unsupported",
+    "message": "This machine has no tea brewer — it can't use tea recipes.",
+}
+
+
 class RecipeStoreMixin:
     """Local recipe store CRUD, seeding, and cloud recipe sync."""
+
+    # Whether the machine can brew tea recipes. A model without a tea
+    # brewer (the Original) never sees them: they are filtered out of the
+    # merged view and the seeds, and creating or importing one is refused.
+    brews_tea: bool = True
+
+    def _recipe_allowed(self, recipe: dict) -> bool:
+        return self.brews_tea or not is_tea_recipe(recipe)
 
     # ------------------------------------------------------------------
     # Cloud account (recipe sync) — all optional, never required for BLE use
@@ -112,6 +131,8 @@ class RecipeStoreMixin:
                 "error": "invalid_recipe",
                 "message": f"Fetched recipe failed validation: {exc}",
             }
+        if not self._recipe_allowed(validated):
+            return dict(_TEA_UNSUPPORTED)
 
         entry = self.hass.config_entries.async_get_entry(self.entry_id)
         if entry is None:
@@ -162,14 +183,18 @@ class RecipeStoreMixin:
         Safe to call at any time; does not touch the network.
         """
         merged: dict[str, dict] = {}
-        merged.update(self.hass.data.get(DOMAIN, {}).get("yaml_recipes", {}))
+        merged.update(
+            (name, recipe)
+            for name, recipe in self.hass.data.get(DOMAIN, {}).get("yaml_recipes", {}).items()
+            if self._recipe_allowed(recipe)
+        )
         entry = self.hass.config_entries.async_get_entry(self.entry_id)
         options_recipes = (entry.options.get(CONF_RECIPES) if entry else None) or {}
         if isinstance(options_recipes, dict):
             for name, recipe in options_recipes.items():
                 if recipe is None:
                     merged.pop(name, None)
-                else:
+                elif self._recipe_allowed(recipe):
                     merged[name] = recipe
         self.recipes = merged
         # _rebuild_recipes is sync (called from many non-async contexts —
@@ -362,6 +387,8 @@ class RecipeStoreMixin:
                 "error": "invalid_recipe",
                 "message": f"Recipe failed validation: {exc}",
             }
+        if not self._recipe_allowed(validated):
+            return dict(_TEA_UNSUPPORTED)
         options_recipes = self._options_recipes()
         # Dedupe against the *visible* names — a tombstoned name is free
         # to reuse (writing it just replaces the tombstone).
@@ -409,6 +436,8 @@ class RecipeStoreMixin:
             }
 
         options_recipes = self._options_recipes()
+        if not self._recipe_allowed(validated):
+            return dict(_TEA_UNSUPPORTED)
         new_name = validated["name"]
         if new_name != old_name and new_name in (self.recipes or {}):
             return {
@@ -472,6 +501,8 @@ class RecipeStoreMixin:
         seeded: dict[str, dict] = {}
         defaults = self.hass.data.get(DOMAIN, {}).get("default_recipes") or {}
         for name, recipe in defaults.items():
+            if not self._recipe_allowed(recipe):
+                continue
             local = dict(recipe)
             local["uid"] = new_recipe_uid()
             local["source"] = "seed_bundled"
@@ -556,6 +587,8 @@ class RecipeStoreMixin:
                 _LOGGER.warning(
                     "Skipping seed recipe %r: %s", local.get("name"), exc
                 )
+                continue
+            if not self._recipe_allowed(validated):
                 continue
             name = validated["name"]
             # Existing local recipes, tombstones (user deletions), and

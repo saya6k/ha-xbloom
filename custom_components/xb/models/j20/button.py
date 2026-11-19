@@ -21,6 +21,7 @@ async def async_setup_entry(
             J20PourButton(coordinator, entry),
             J20StopButton(coordinator, entry),
             J20CalibrateButton(coordinator, entry),
+            J20ExecuteRecipeButton(coordinator, entry),
         ])
     )
 
@@ -66,3 +67,18 @@ class J20CalibrateButton(_J20Button):
 
     async def async_press(self) -> None:
         await self.coordinator.async_calibrate_grinder()
+
+
+class J20ExecuteRecipeButton(_J20Button):
+    """Two presses, like the app's Start then "Let's go": the first checks
+    the machine and fetches the selected recipe's run command, the second
+    sends it."""
+
+    _attr_translation_key = "j20_execute_recipe"
+    _attr_unique_id = "xbloom_j20_execute_recipe"
+
+    async def async_press(self) -> None:
+        if self.coordinator.armed_operation == "recipe":
+            await self.coordinator.async_confirm_recipe()
+        else:
+            await self.coordinator.async_arm_recipe()

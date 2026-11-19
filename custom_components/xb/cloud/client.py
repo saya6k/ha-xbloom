@@ -1022,6 +1022,41 @@ class XBloomCloudClient:
         share_url = (created_raw or {}).get("shareRecipeLink") or ""
         return {"table_id": table_id, "share_url": share_url}
 
+    async def async_recipe_machine_command(
+        self, local_recipe: dict, device_id: str, product_id: str
+    ) -> str | None:
+        """Have the cloud turn a recipe into an Original's run command.
+
+        The app's ``RecipeDetailActivity.getRecipeMadeCmdJ20``
+        (``tGetRecipeMadeCmd.thtml``): the recipe's name, grind, ratio, dose
+        and pour list in, an opaque ``desired`` string out, which the app
+        then sends unchanged as ``POST /api/device/command``'s ``desired``.
+        ``None`` if not logged in or the call fails.
+        """
+        if not self.logged_in:
+            return None
+        fields = local_recipe_to_cloud(local_recipe)
+        payload = {
+            **_auth_base(self.member_id, self.token),
+            "theName": fields["theName"],
+            "isSetGrinderSize": fields["isSetGrinderSize"],
+            "grinderSize": fields["grinderSize"],
+            "grandWater": fields["grandWater"],
+            "dose": fields["dose"],
+            "pourDataJSONStr": fields["pourDataJSONStr"],
+            "xid": "",
+            "device_id": device_id,
+            "product_id": product_id,
+        }
+        resp = await self._post_encrypted("tGetRecipeMadeCmd.thtml", payload)
+        if not resp or resp.get("result") != "success":
+            _LOGGER.warning(
+                "XBloom cloud recipe command rejected: %s",
+                (resp or {}).get("info", "no response"),
+            )
+            return None
+        return resp.get("desired") or None
+
     async def get_recipe(self, table_id: int) -> dict | None:
         """Fetch one recipe's current raw cloud-shape dict by ``tableId``.
 

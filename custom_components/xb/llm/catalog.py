@@ -64,17 +64,22 @@ TOOL_CLASSES: tuple[type[XBloomBaseTool], ...] = (
 def build_prompt(coordinator: Any) -> str:
     """The API prompt for one machine.
 
-    A recipe-capable machine (the Studio) gets the full XBLOOM_LLM_PROMPT.
-    Anything else gets a prompt built from its own capabilities and
-    ManualLimits, so the agent is never told about tools, ranges or a
-    transport the machine doesn't have.
+    The Studio (recipes, scale and Easy slots) gets the full
+    XBLOOM_LLM_PROMPT. Anything else gets a prompt built from its own
+    capabilities and ManualLimits, so the agent is never told about tools,
+    ranges or a transport the machine doesn't have.
     """
     caps = coordinator.capabilities
-    if Capability.RECIPES in caps:
+    if {Capability.RECIPES, Capability.TARE, Capability.EASY_SLOTS} <= caps:
         return XBLOOM_LLM_PROMPT
     limits = coordinator.limits
+    has_recipes = Capability.RECIPES in caps
     parts = [
-        "You can control an xBloom coffee machine for manual grinds and "
+        "You can control an xBloom coffee machine: saved coffee recipes plus "
+        "manual grinds and pours. It has no tea brewer, Easy Mode slots or "
+        "scale here — don't offer them."
+        if has_recipes
+        else "You can control an xBloom coffee machine for manual grinds and "
         "pours. It has no saved recipes, Easy Mode slots or scale here — "
         "don't offer them.",
         "Use xbloom__get_status to check whether the machine is reachable "
@@ -101,6 +106,25 @@ def build_prompt(coordinator: Any) -> str:
             "arms the request, then you ask the user to confirm and call the "
             "same tool again with confirmed=true. Never pass confirmed=true on "
             "a first call."
+        )
+    if has_recipes:
+        parts.append(
+            "LOCAL RECIPES are the source of truth. Use xbloom__list_recipes "
+            "to see them and xbloom__get_recipe for one recipe's detail; every "
+            "`recipe` argument accepts the local uid, cloud table id, share "
+            "URL/id or exact name. xbloom__create_recipe, xbloom__edit_recipe "
+            "and xbloom__delete_recipe manage them (ask the user to confirm a "
+            "delete before passing confirmed=true). xbloom__execute_recipe runs "
+            "a saved recipe in two phases too: the first call checks the "
+            "machine and prepares the run, then ask the user about every item "
+            "on the returned checklist and call again with confirmed=true. For "
+            "this brew only you can pass dose_g and/or ratio (pours rescale), "
+            "temperature_c and pour_overrides; this machine has no bypass "
+            "water. The machine must be awake and ready — if the tool says it "
+            "isn't, tell the user to wake it. xbloom__import_cloud_recipe saves "
+            "a shared recipe locally, xbloom__export_recipe pushes one to the "
+            "user's xBloom account, and xbloom__search_collective_recipes "
+            "browses the public recipe hub."
         )
     if Capability.CANCEL in caps:
         parts.append(

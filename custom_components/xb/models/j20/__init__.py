@@ -28,8 +28,11 @@ from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from ...const import (
+    CONF_ACCOUNT_RECIPES_SEEDED,
     CONF_EMAIL,
     CONF_PASSWORD,
+    CONF_RECIPES,
+    CONF_RECIPES_SEEDED,
     CONF_TELEMETRY_INTERVAL,
     DATA_COORDINATOR,
     DEFAULT_J20_SCAN_INTERVAL,
@@ -111,9 +114,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool:
         raise
 
     entry.runtime_data = coordinator
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {DATA_COORDINATOR: coordinator}
+    # Recipe store, as for the Studio: bundled defaults on a fresh install,
+    # then (in the background) a one-time seed of the account's recipes.
+    coordinator.seed_bundled_recipes()
+    coordinator._rebuild_recipes()
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
+        DATA_COORDINATOR: coordinator,
+        "options_snapshot": dict(entry.options),
+    }
+    await coordinator._async_refresh_recipe_service_schemas()
     await hass.config_entries.async_forward_entry_setups(entry, J20_PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_j20_listener))
+    hass.async_create_task(coordinator.async_seed_recipes())
     return True
 
 
@@ -126,5 +138,19 @@ async def async_unload_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool
     return unload_ok
 
 
+# Options written by the recipe store (CRUD, seeding): a rebuild is enough.
+_RECIPE_ONLY_OPTION_KEYS = {CONF_RECIPES, CONF_RECIPES_SEEDED, CONF_ACCOUNT_RECIPES_SEEDED}
+
+
 async def _async_update_j20_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if data and DATA_COORDINATOR in data:
+        prev = data.get("options_snapshot") or {}
+        cur = dict(entry.options)
+        changed = {k for k in set(prev) | set(cur) if prev.get(k) != cur.get(k)}
+        data["options_snapshot"] = cur
+        if changed and changed <= _RECIPE_ONLY_OPTION_KEYS:
+            data[DATA_COORDINATOR]._rebuild_recipes()
+            data[DATA_COORDINATOR].async_update_listeners()
+            return
     await hass.config_entries.async_reload(entry.entry_id)

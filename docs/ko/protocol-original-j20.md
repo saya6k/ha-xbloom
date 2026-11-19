@@ -214,6 +214,24 @@ DeviceCommandReq {
   `"FFFF11"`은 정지 센티넬입니다.
 - `home_id`는 data 클래스 필드지만 추적된 모든 호출 지점에서 null입니다.
 
+## 레시피 실행 (`RecipeDetailActivity`, J20 경로)
+
+`Desired` 모델에는 레시피 필드가 없고, 실행 명령은 클라우드가 만듭니다.
+사용자가 레시피를 시작하면 앱은
+
+1. 새 shadow를 읽고 `J20RecipeExecution.evaluate`를 적용합니다. `work_mode`가
+   5(추출 준비)이거나, 펌웨어가 구형이 아니면 1(깨어 있음)일 때 진행합니다
+   (`J20Firmware.isLegacyFirmware`: 두 MCU 중 하나라도 3.0.0–8.0.0 밖).
+   구형 펌웨어에서는 `isSetGrinderSize == 2`(분쇄 없음) 레시피를 거부하고,
+   물통 급수에서 `warning == 169`이면 물 부족을 확인받습니다.
+2. `tGetRecipeMadeCmd.thtml`(client-api, 다른 `BaseTransfer`처럼 RSA 암호화
+   폼)에 `theName`, `isSetGrinderSize`, `grinderSize`, `grandWater`(비율),
+   `dose`, `pourDataJSONStr`, `xid: ""`, `device_id`, `product_id: "53DDY4"`를
+   보내 `desired`(**문자열**)를 받습니다.
+3. 시작 대화상자를 보여 준 뒤 그 문자열을 그대로 `desired`로 하여
+   `POST /api/device/command`를 보내고, `AppJ20AutoManager`로 `work_mode`
+   (분쇄 → 추출 → 완료)를 따라갑니다.
+
 ## 상태 / 텔레메트리 (읽기 경로)
 
 `manager/AppWsManager.java`가 WebSocket을 열고 각 프레임의 `state.reported`

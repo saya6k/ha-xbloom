@@ -275,7 +275,7 @@ def async_register_services(hass: HomeAssistant) -> None:
             if not name or name not in (coord.recipes or {}):
                 _LOGGER.warning(
                     "execute_recipe: recipe %r not found for %s",
-                    identifier or name, coord.mac_address,
+                    identifier or name, coord.machine_label,
                 )
                 continue
             # select_recipe syncs the grind/RPM sliders to the recipe;
@@ -283,7 +283,7 @@ def async_register_services(hass: HomeAssistant) -> None:
             coord.select_recipe(name)
             if ATTR_GRIND_SIZE in call.data:
                 coord.grind_size = int(call.data[ATTR_GRIND_SIZE])
-            if ATTR_RPM in call.data:
+            if ATTR_RPM in call.data and Capability.GRIND_SPEED in coord.capabilities:
                 coord.rpm = int(call.data[ATTR_RPM])
             coord.async_update_listeners()
             overrides = {
@@ -301,7 +301,7 @@ def async_register_services(hass: HomeAssistant) -> None:
                 # e.g. low water — don't let one machine's pre-brew check
                 # abort the recipe for the rest of the targeted machines.
                 _LOGGER.warning(
-                    "execute_recipe skipped for %s: %s", coord.mac_address, exc,
+                    "execute_recipe skipped for %s: %s", coord.machine_label, exc,
                 )
 
     hass.services.async_register(
@@ -327,7 +327,7 @@ def async_register_services(hass: HomeAssistant) -> None:
             if not name or name not in (coord.recipes or {}):
                 _LOGGER.warning(
                     "execute_tea_recipe: recipe %r not found for %s",
-                    identifier or name, coord.mac_address,
+                    identifier or name, coord.machine_label,
                 )
                 continue
             recipe = coord.recipes[name]
@@ -335,7 +335,7 @@ def async_register_services(hass: HomeAssistant) -> None:
                 _LOGGER.warning(
                     "execute_tea_recipe: %r is not a tea recipe (cup_type=%r) — "
                     "use execute_recipe instead. Skipped for %s.",
-                    name, recipe.get("cup_type"), coord.mac_address,
+                    name, recipe.get("cup_type"), coord.machine_label,
                 )
                 continue
             coord.select_recipe(name)
@@ -343,7 +343,7 @@ def async_register_services(hass: HomeAssistant) -> None:
                 await coord.async_execute_recipe()
             except HomeAssistantError as exc:
                 _LOGGER.warning(
-                    "execute_tea_recipe skipped for %s: %s", coord.mac_address, exc,
+                    "execute_tea_recipe skipped for %s: %s", coord.machine_label, exc,
                 )
 
     hass.services.async_register(
@@ -366,7 +366,7 @@ def async_register_services(hass: HomeAssistant) -> None:
             if not result.get("success"):
                 _LOGGER.warning(
                     "cloud_import_recipe failed for %s: %s",
-                    coord.mac_address, result.get("message", result.get("error")),
+                    coord.machine_label, result.get("message", result.get("error")),
                 )
                 continue
             if first is None:

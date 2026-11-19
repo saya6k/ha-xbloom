@@ -349,6 +349,8 @@ def _coordinator(*, online=True, data=None, **attrs):
     coordinator._armed_at = 0.0
     coordinator.grind_size = 15
     coordinator.async_refresh = AsyncMock()
+    coordinator.async_update_listeners = lambda: None
+    coordinator._armed_recipe_command = None
     client = attrs.get("_client")
     if client is not None and not hasattr(client, "auth_lock"):
         client.auth_lock = asyncio.Lock()

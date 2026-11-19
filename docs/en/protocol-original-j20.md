@@ -218,6 +218,24 @@ Notes:
   `"FFFF11"` is the stop sentinel.
 - `home_id` is a data-class field but null at all traced call sites.
 
+## Recipe execution (`RecipeDetailActivity`, J20 path)
+
+There is no recipe field in the `Desired` model: the cloud builds the run
+command. When the user starts a recipe the app
+
+1. reads a fresh shadow and applies `J20RecipeExecution.evaluate`: go when
+   `work_mode` is 5 (ready to brew), or 1 (awake) unless the firmware is
+   legacy (`J20Firmware.isLegacyFirmware`: either MCU outside 3.0.0–8.0.0);
+   on legacy firmware a recipe with `isSetGrinderSize == 2` (no grind) is
+   refused; `warning == 169` with a tank feed asks to confirm low water;
+2. posts `tGetRecipeMadeCmd.thtml` (client-api, RSA-encrypted form like
+   every `BaseTransfer`) with `theName`, `isSetGrinderSize`, `grinderSize`,
+   `grandWater` (ratio), `dose`, `pourDataJSONStr`, `xid: ""`,
+   `device_id`, `product_id: "53DDY4"` → `desired` (a **string**);
+3. shows its start dialog, then sends `POST /api/device/command` with that
+   string unchanged as `desired`, and follows `work_mode` (grinding →
+   brewing → complete) via `AppJ20AutoManager`.
+
 ## State / telemetry (the read path)
 
 `manager/AppWsManager.java` opens the WebSocket and parses each frame's

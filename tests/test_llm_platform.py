@@ -115,8 +115,8 @@ def test_catalog_builds_the_full_tool_set():
 
 
 def test_catalog_offers_only_what_the_machine_can_do():
-    """A model without recipes (the Original) gets no recipe/slot/tare tools,
-    and its own ranges in the grind/pour schemas."""
+    """The Original gets recipe tools but no slot/tare tools, and its own
+    ranges in the grind/pour schemas."""
     from custom_components.xb.llm.catalog import build_tools
     from custom_components.xb.models.j20.coordinator import J20Coordinator
 
@@ -130,6 +130,15 @@ def test_catalog_offers_only_what_the_machine_can_do():
         "xbloom__pour",
         "xbloom__cancel",
         "xbloom__calibrate_grinder",
+        "xbloom__list_recipes",
+        "xbloom__get_recipe",
+        "xbloom__create_recipe",
+        "xbloom__edit_recipe",
+        "xbloom__delete_recipe",
+        "xbloom__execute_recipe",
+        "xbloom__import_cloud_recipe",
+        "xbloom__export_recipe",
+        "xbloom__search_collective_recipes",
     }
     grind_schema = tools["xbloom__grind"].parameters
     assert grind_schema({"grind_size": 30})["grind_size"] == 30
@@ -137,9 +146,8 @@ def test_catalog_offers_only_what_the_machine_can_do():
         grind_schema({"grind_size": 31})
     assert "rpm" not in {str(key) for key in grind_schema.schema}
     assert "flow_rate" not in {str(key) for key in tools["xbloom__pour"].parameters.schema}
-    # No arm page on the machine and no recipes: the tool text says so.
+    # No arm page on the machine: the tool text says so.
     assert "nothing is sent" in tools["xbloom__grind"].description
-    assert "execute_recipe" not in tools["xbloom__grind"].description
     assert "GRIND SIZE REFERENCE" not in str(grind_schema.schema)
 
 
@@ -153,13 +161,16 @@ def test_prompt_only_describes_what_the_machine_can_do():
     )
     prompt = build_prompt(original)
     for absent in (
-        "xbloom__execute_recipe", "xbloom__list_recipes", "xbloom__tare_scale",
-        "xbloom__write_easy_slot", "Bluetooth", "RPM", "80=coarsest",
+        "xbloom__tare_scale", "xbloom__write_easy_slot", "Bluetooth", "RPM",
+        "80=coarsest", "bypass_volume",
     ):
         assert absent not in prompt, absent
     assert "1=finest to 30=coarsest" in prompt
     assert "30–500 ml at 85–95 °C" in prompt
-    for tool in ("get_status", "grind", "pour", "cancel", "calibrate_grinder"):
+    for tool in (
+        "get_status", "grind", "pour", "cancel", "calibrate_grinder",
+        "list_recipes", "execute_recipe",
+    ):
         assert f"xbloom__{tool}" in prompt
 
 

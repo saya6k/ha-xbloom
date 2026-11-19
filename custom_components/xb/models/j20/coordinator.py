@@ -22,9 +22,11 @@ from typing import Any, ClassVar, TypeVar
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
+from ...cloud.client import XBloomCloudClient
 from ...const import (
     CONF_EMAIL,
     CONF_J20_DEVICE_ID,
@@ -34,6 +36,8 @@ from ...const import (
     DOMAIN,
 )
 from ...machine import Capability, ManualLimits
+from ...recipes.schema import scale_pours_to_total
+from ...recipes.store import RecipeStoreMixin, is_tea_recipe
 from .client import (
     J20_PRODUCT_ID,
     J20ApiError,
@@ -46,6 +50,7 @@ from .values import (
     GRIND_SIZE_MAX,
     GRIND_SIZE_MIN,
     PATTERN_DEFAULT,
+    RECIPE_LEGACY_NO_GRIND,
     TEMPERATURE_DEFAULT,
     TEMPERATURE_MAX,
     TEMPERATURE_MIN,
@@ -55,6 +60,7 @@ from .values import (
     WORK_MODE_BREWING,
     WORK_MODE_GRINDING,
     build_bruw_curve,
+    recipe_start_blocked,
     warning_state,
     work_mode_state,
 )
@@ -69,12 +75,26 @@ _T = TypeVar("_T")
 ARM_TIMEOUT_S = 300
 
 
-class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
+# warning codes that mean the tank is short of water (values.WARNING_STATES).
+_WATER_WARNINGS = frozenset({169, 190})
+
+
+class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
     """Thing-shadow poller plus the confirmed desired-state commands."""
 
     capabilities = frozenset(
-        {Capability.GRIND, Capability.POUR, Capability.CANCEL, Capability.CALIBRATE_GRINDER}
+        {
+            Capability.GRIND,
+            Capability.POUR,
+            Capability.CANCEL,
+            Capability.CALIBRATE_GRINDER,
+            Capability.RECIPES,
+        }
     )
+    # The Original has no tea brewer.
+    brews_tea = False
+    # work_mode 5 ("ready") is ready to brew; finished is "complete".
+    ready_is_idle = True
     # Seekbar ranges from the app; the temperature seekbar's top end (96)
     # is its BP position, sent as the 95 °C constant (values.temperature_code).
     limits = ManualLimits(
@@ -101,6 +121,9 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         "button.pour": "button.j20_pour",
         "button.cancel": "button.j20_stop",
         "button.calibrate_grinder": "button.j20_calibrate",
+        "select.recipe": "select.j20_recipe",
+        "button.execute_recipe": "button.j20_execute_recipe",
+        "binary_sensor.problem": "binary_sensor.j20_problem",
         "sensor.warning": "sensor.j20_warning",
         "sensor.brew_progress": "sensor.j20_brew_progress",
         "sensor.pod": "sensor.j20_pod",
@@ -136,6 +159,15 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.pattern: str = PATTERN_DEFAULT
         self._armed: str | None = None
         self._armed_at: float = 0.0
+        # Recipe store (RecipeStoreMixin): the same xBloom account signs in
+        # to the recipe cloud, which also turns a recipe into a run command.
+        self.recipes: dict[str, dict] = {}
+        self.selected_recipe: str | None = None
+        self.cloud_client = XBloomCloudClient(async_get_clientsession(hass))
+        self._cloud_email: str = self._email
+        self._cloud_password: str = self._password
+        # The run command fetched by the arm, sent by the confirm.
+        self._armed_recipe_command: str | None = None
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -235,6 +267,8 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         """
         if self.armed_operation is not None:
             self._armed = None
+            self._armed_recipe_command = None
+            self.async_update_listeners()
             return
         # The polled shadow may be up to a poll interval old; decide on a
         # fresh one rather than stop an idle machine or miss a pour.
@@ -250,6 +284,147 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def async_calibrate_grinder(self) -> None:
         """Run the grinder auto-zero routine (``{auto_calibrate: 1}``)."""
         await self._send({"auto_calibrate": 1})
+
+    # ------------------------------------------------------------------
+    # Recipes (RecipeDetailActivity's J20 path)
+    # ------------------------------------------------------------------
+
+    @property
+    def water_shortage(self) -> bool:
+        """The shadow warns the tank is low or empty (169 / 190)."""
+        return (self.data or {}).get("warning") in _WATER_WARNINGS
+
+    def select_recipe(self, name: str | None) -> None:
+        """Set the recipe the execute button / panel brews.
+
+        Unlike the Studio, the recipe's grind size is not copied onto the
+        manual grind slider: the Original's grinder uses its own 1-30 scale
+        and the cloud converts the recipe's value when it builds the run
+        command.
+        """
+        self.selected_recipe = name
+        self.async_update_listeners()
+
+    def _recipe_for_brew(
+        self, overrides: dict | None, pour_overrides: list[dict] | None
+    ) -> dict:
+        """The selected recipe with this brew's overrides applied."""
+        if not self.selected_recipe or self.selected_recipe not in self.recipes:
+            raise HomeAssistantError("No recipe selected.")
+        recipe = dict(self.recipes[self.selected_recipe])
+        if is_tea_recipe({**recipe, **(overrides or {})}):
+            raise HomeAssistantError("The xBloom Original can't brew tea recipes.")
+        recipe["pours"] = [dict(p) for p in recipe.get("pours") or []]
+        overrides = dict(overrides or {})
+        overrides.pop("cup_type", None)
+        temperature = overrides.pop("temperature_c", None)
+        recipe.update(overrides)
+        if "dose_g" in overrides or "ratio" in overrides:
+            dose = float(recipe.get("dose_g") or 0)
+            ratio = recipe.get("ratio")
+            if dose > 0 and ratio:
+                recipe["pours"] = scale_pours_to_total(
+                    recipe["pours"], dose * float(ratio)
+                )
+        if temperature is not None:
+            for pour in recipe["pours"]:
+                pour["temperature_c"] = int(temperature)
+        for override in pour_overrides or []:
+            index = int(override.get("pour_index", -1))
+            if not 0 <= index < len(recipe["pours"]):
+                continue
+            pour = recipe["pours"][index]
+            if override.get("volume") is not None:
+                pour["volume_ml"] = int(override["volume"])
+            if override.get("flow_rate") is not None:
+                pour["flow_rate"] = float(override["flow_rate"])
+            if override.get("pattern") is not None:
+                pour["pattern"] = int(override["pattern"])
+        # The run command carries no bypass water (GetRecipeMadeCmdForm).
+        recipe["bypass_volume"] = 0
+        recipe["bypass_temperature"] = 0
+        return recipe
+
+    async def async_arm_recipe(
+        self,
+        *,
+        overrides: dict | None = None,
+        pour_overrides: list[dict] | None = None,
+        bypass_volume: float | None = None,
+        bypass_temperature: float | None = None,
+    ) -> None:
+        """Check the machine can take the selected recipe and fetch its run
+        command — the app's tap on Start, up to its "Let's go" dialog.
+
+        ``async_confirm_recipe`` then sends it. The Original's run command
+        has no bypass water, so ``bypass_*`` are ignored.
+        """
+        recipe = self._recipe_for_brew(overrides, pour_overrides)
+        # Decide on a fresh shadow, like the app's getJ20Info before a start.
+        await self.async_refresh()
+        if not self.online:
+            raise HomeAssistantError("XBloom Original is offline")
+        if self.water_shortage:
+            raise HomeAssistantError(
+                "xBloom water level is too low — refill the tank before brewing."
+            )
+        data = self.data or {}
+        mcus = data.get("mcu_versions") or {}
+        blocked = recipe_start_blocked(
+            data.get("work_mode"),
+            int(recipe.get("grind_size") or 0) <= 0,
+            mcus.get("PowerMCU"),
+            mcus.get("PannelMCU"),
+        )
+        if blocked == RECIPE_LEGACY_NO_GRIND:
+            raise HomeAssistantError(
+                "This machine's firmware can't run a recipe without grinding."
+            )
+        if blocked is not None:
+            raise HomeAssistantError(
+                "The xBloom Original isn't ready for a recipe — wake it and "
+                "wait until it shows ready, then try again."
+            )
+        if not await self.async_ensure_cloud_login():
+            raise HomeAssistantError("xBloom recipe cloud sign-in failed")
+        command = await self.cloud_client.async_recipe_machine_command(
+            recipe, self.device_id, J20_PRODUCT_ID
+        )
+        if not command:
+            raise HomeAssistantError(
+                "The xBloom cloud didn't return a run command for this recipe"
+            )
+        self._armed_recipe_command = command
+        self._arm("recipe")
+        self.async_update_listeners()
+
+    async def async_confirm_recipe(self) -> bool:
+        """Send the run command the arm fetched (the app's ``startJ20``).
+
+        Returns whether it was sent; the machine then reports grinding,
+        brewing and complete through the shadow.
+        """
+        command = self._armed_recipe_command
+        if command is None or not self._take_arm("recipe"):
+            return False
+        self._armed_recipe_command = None
+        try:
+            await self._send(command)
+        finally:
+            self.async_update_listeners()
+        return True
+
+    async def async_execute_recipe(
+        self,
+        *,
+        overrides: dict | None = None,
+        pour_overrides: list[dict] | None = None,
+        bypass_volume: float | None = None,
+        bypass_temperature: float | None = None,
+    ) -> None:
+        """Arm and confirm in one call (the execute_recipe service)."""
+        await self.async_arm_recipe(overrides=overrides, pour_overrides=pour_overrides)
+        await self.async_confirm_recipe()
 
     # ------------------------------------------------------------------
     # Cloud plumbing
@@ -321,10 +496,11 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Stop pouring (``{bruw_curve: "FFFF11"}``, the app's sentinel)."""
         await self._send({"bruw_curve": "FFFF11"})
 
-    async def _send(self, desired: dict[str, Any]) -> None:
+    async def _send(self, desired: dict[str, Any] | str) -> None:
         # Any command acted on the machine directly, so a pending arm from
         # an earlier conversation no longer reflects what the user wants.
         self._armed = None
+        self._armed_recipe_command = None
         # The app disables its start buttons while the shadow reports the
         # machine offline (refreshOnLineView). A desired state written now
         # would sit in the shadow and run whenever the machine reconnects.

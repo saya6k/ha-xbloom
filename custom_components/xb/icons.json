@@ -77,6 +77,9 @@
       },
       "j20_pour": {
         "default": "mdi:water"
+      },
+      "j20_execute_recipe": {
+        "default": "mdi:play-circle"
       }
     },
     "number": {
@@ -191,6 +194,9 @@
       },
       "j20_pattern": {
         "default": "mdi:shape-outline"
+      },
+      "j20_recipe": {
+        "default": "mdi:coffee-maker-outline"
       }
     },
     "switch": {
