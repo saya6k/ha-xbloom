@@ -444,6 +444,7 @@ class XBloomCloudClient:
         self._session = session
         self.member_id: int | None = None
         self.token: str | None = None
+        self.country_id: int | None = None
         # Cached for the lifetime of this client — the collective hub's
         # filter lookup tables (origin/varietal/process/roast/flavor/
         # machine/cupType name<->id maps) change rarely enough that
@@ -518,6 +519,11 @@ class XBloomCloudClient:
             return False
         self.member_id = int(member_id)
         self.token = str(token)
+        # MemberModel.country — the auto-mode calls send its tableId.
+        country = member.get("country")
+        self.country_id = (
+            country.get("tableId") if isinstance(country, dict) else member.get("countryId")
+        )
         return True
 
     async def get_pour_radius_init_center(
@@ -1023,7 +1029,12 @@ class XBloomCloudClient:
         return {"table_id": table_id, "share_url": share_url}
 
     async def async_recipe_machine_command(
-        self, local_recipe: dict, device_id: str, product_id: str
+        self,
+        local_recipe: dict,
+        device_id: str,
+        product_id: str,
+        *,
+        auto_mode: bool = False,
     ) -> str | None:
         """Have the cloud turn a recipe into an Original's run command.
 
@@ -1032,6 +1043,10 @@ class XBloomCloudClient:
         and pour list in, an opaque ``desired`` string out, which the app
         then sends unchanged as ``POST /api/device/command``'s ``desired``.
         ``None`` if not logged in or the call fails.
+
+        ``auto_mode`` builds the command that stores the recipe on the
+        machine's own start button instead (``tGetAutoModeRecipeMadeCmd``,
+        ``xid: "IF0002"`` — EasyModeJ20ViewModel).
         """
         if not self.logged_in:
             return None
@@ -1044,11 +1059,12 @@ class XBloomCloudClient:
             "grandWater": fields["grandWater"],
             "dose": fields["dose"],
             "pourDataJSONStr": fields["pourDataJSONStr"],
-            "xid": "",
+            "xid": "IF0002" if auto_mode else "",
             "device_id": device_id,
             "product_id": product_id,
         }
-        resp = await self._post_encrypted("tGetRecipeMadeCmd.thtml", payload)
+        endpoint = "tGetAutoModeRecipeMadeCmd.thtml" if auto_mode else "tGetRecipeMadeCmd.thtml"
+        resp = await self._post_encrypted(endpoint, payload)
         if not resp or resp.get("result") != "success":
             _LOGGER.warning(
                 "XBloom cloud recipe command rejected: %s",
@@ -1056,6 +1072,67 @@ class XBloomCloudClient:
             )
             return None
         return resp.get("desired") or None
+
+    # ── Original auto mode (one recipe on the machine's start button) ──
+    # EasyModeJ20ViewModel: tuAutoMode reads the machine's record,
+    # tuAutoModeSync stores a new recipe on it, tuAutoModeInit returns the
+    # factory recipe and tuAutoModeReset restores it. The record is keyed by
+    # the machine's account record (tableId + serial) and the member's country.
+
+    async def _auto_mode_call(
+        self, endpoint: str, serial: str, machine_table_id: int
+    ) -> dict | None:
+        if not self.logged_in:
+            return None
+        payload = {
+            **_auth_base(self.member_id, self.token),
+            "sn": serial,
+            "tableId": machine_table_id,
+            "countryId": self.country_id or 0,
+        }
+        resp = await self._post_encrypted(endpoint, payload)
+        if not resp or resp.get("result") != "success":
+            _LOGGER.warning(
+                "XBloom cloud %s rejected: %s",
+                endpoint,
+                (resp or {}).get("info", "no response"),
+            )
+            return None
+        return resp
+
+    async def async_auto_mode(self, serial: str, machine_table_id: int) -> dict | None:
+        """The machine's auto-mode record: ``autoModeDetailVo`` (``tableId``,
+        ``scale``, ``recipeSnapshotVo``) plus ``reset`` / ``sync`` flags."""
+        return await self._auto_mode_call("tuAutoMode.tuhtml", serial, machine_table_id)
+
+    async def async_auto_mode_default(
+        self, serial: str, machine_table_id: int
+    ) -> dict | None:
+        """The factory auto-mode record (``tuAutoModeInit``)."""
+        return await self._auto_mode_call("tuAutoModeInit.tuhtml", serial, machine_table_id)
+
+    async def async_auto_mode_reset(
+        self, serial: str, machine_table_id: int
+    ) -> dict | None:
+        """Put the account's record back to the factory recipe."""
+        return await self._auto_mode_call("tuAutoModeReset.tuhtml", serial, machine_table_id)
+
+    async def async_auto_mode_sync(
+        self, record_table_id: int, recipe_table_id: int, scale: int
+    ) -> bool:
+        """Record a newly stored recipe on the machine's auto-mode entry."""
+        if not self.logged_in:
+            return False
+        payload = {
+            **_auth_base(self.member_id, self.token),
+            "autoModeSyncVo": {
+                "tableId": record_table_id,
+                "recipeTableId": recipe_table_id,
+                "scale": scale,
+            },
+        }
+        resp = await self._post_encrypted("tuAutoModeSync.tuhtml", payload)
+        return bool(resp and resp.get("result") == "success")
 
     async def get_recipe(self, table_id: int) -> dict | None:
         """Fetch one recipe's current raw cloud-shape dict by ``tableId``.

@@ -60,6 +60,8 @@ from .const import (
     SERVICE_EXECUTE_RECIPE,
     SERVICE_EXECUTE_TEA_RECIPE,
     SERVICE_LIST_RECIPES,
+    SERVICE_RESET_AUTO_MODE,
+    SERVICE_WRITE_RECIPE_TO_AUTO_MODE,
     SERVICE_WRITE_RECIPE_TO_EASY_SLOT,
 )
 from .machine import Capability, machines
@@ -78,6 +80,8 @@ _SERVICES = (
     SERVICE_CLOUD_EXPORT_RECIPE,
     SERVICE_CLOUD_SEARCH_COLLECTIVE_RECIPES,
     SERVICE_WRITE_RECIPE_TO_EASY_SLOT,
+    SERVICE_WRITE_RECIPE_TO_AUTO_MODE,
+    SERVICE_RESET_AUTO_MODE,
     SERVICE_ADVANCED_SETTINGS,
 )
 
@@ -171,6 +175,12 @@ WRITE_RECIPE_TO_EASY_SLOT_SCHEMA = vol.Schema(
     },
     extra=vol.ALLOW_EXTRA,
 )
+
+WRITE_RECIPE_TO_AUTO_MODE_SCHEMA = vol.Schema(
+    {vol.Optional(ATTR_RECIPE): cv.string},
+    extra=vol.ALLOW_EXTRA,
+)
+RESET_AUTO_MODE_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
 
 ADVANCED_SETTINGS_SCHEMA = vol.Schema(
     {
@@ -405,6 +415,36 @@ def async_register_services(hass: HomeAssistant) -> None:
         SERVICE_WRITE_RECIPE_TO_EASY_SLOT,
         _handle_write_recipe_to_easy_slot,
         schema=WRITE_RECIPE_TO_EASY_SLOT_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+
+    async def _handle_write_recipe_to_auto_mode(call: ServiceCall) -> ServiceResponse:
+        coordinators = _coordinators_for_call(hass, call, Capability.AUTO_MODE)
+        if not coordinators:
+            raise HomeAssistantError("No xBloom machine with an auto mode matched the call.")
+        result = await coordinators[0].async_write_auto_mode(call.data.get(ATTR_RECIPE))
+        return {"uid": result.get("uid"), "name": result.get("name")}
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_WRITE_RECIPE_TO_AUTO_MODE,
+        _handle_write_recipe_to_auto_mode,
+        schema=WRITE_RECIPE_TO_AUTO_MODE_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+
+    async def _handle_reset_auto_mode(call: ServiceCall) -> ServiceResponse:
+        coordinators = _coordinators_for_call(hass, call, Capability.AUTO_MODE)
+        if not coordinators:
+            raise HomeAssistantError("No xBloom machine with an auto mode matched the call.")
+        result = await coordinators[0].async_reset_auto_mode()
+        return {"name": result.get("name")}
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_RESET_AUTO_MODE,
+        _handle_reset_auto_mode,
+        schema=RESET_AUTO_MODE_SCHEMA,
         supports_response=SupportsResponse.OPTIONAL,
     )
 

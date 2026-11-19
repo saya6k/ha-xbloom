@@ -697,6 +697,30 @@
           "description": "asc 또는 desc. 기본값은 desc."
         }
       }
+    },
+    "write_recipe_to_auto_mode": {
+      "name": "자동 모드에 레시피 쓰기",
+      "description": "xBloom Original 전용. 레시피를 기기 자체 시작 버튼(앱의 자동 모드)에 저장해 Home Assistant 없이 기기에서 실행할 수 있게 합니다. 필요하면 먼저 xBloom 계정에 저장하며, 추출하지는 않습니다.",
+      "fields": {
+        "config_entry_id": {
+          "name": "기기",
+          "description": "레시피를 쓸 xBloom Original."
+        },
+        "recipe": {
+          "name": "레시피",
+          "description": "로컬 uid, 클라우드 table id, 공유 URL/id, 또는 정확한 레시피 이름. 기본값은 현재 선택된 레시피입니다."
+        }
+      }
+    },
+    "reset_auto_mode": {
+      "name": "자동 모드 초기화",
+      "description": "xBloom Original 전용. 기기 시작 버튼에 공장 기본 레시피를 다시 넣습니다.",
+      "fields": {
+        "config_entry_id": {
+          "name": "기기",
+          "description": "초기화할 xBloom Original."
+        }
+      }
     }
   },
   "selector": {

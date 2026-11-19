@@ -100,6 +100,7 @@ _BY_CAPABILITY = {
     "pods": {"pod_library", "_async_lookup_pod"},
     "advanced_settings": {"async_set_advanced_settings"},
     "photo": {"async_read_photo", "photo_version", "detected_color"},
+    "auto_mode": {"auto_mode", "async_write_auto_mode", "async_reset_auto_mode"},
 }
 
 

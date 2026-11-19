@@ -129,14 +129,29 @@ either.
 
 ## What is not implemented
 
-- **Easy mode / auto mode.** The app can also store one recipe on the
-  machine's own start button (`tuAutoMode*.tuhtml`); not implemented yet.
 - **Firmware updates.** The app has no update path for the Original either:
   its firmware is updated by the machine and the cloud themselves. The
   power and panel MCU versions are shown as sensors.
 - **Local control.** The app never talks to the Original on the LAN; after
   the Wi-Fi setup every command goes through the cloud, so there is nothing
   local to discover or control.
+
+## Auto mode (the machine's start button)
+
+Like the app, one recipe can be stored on the Original's own start button so
+it brews without Home Assistant: the panel's Settings tab (**Auto mode**),
+or the `xb.write_recipe_to_auto_mode` / `xb.reset_auto_mode` services.
+Writing follows `EasyModeJ20ViewModel` (unverified on hardware):
+
+1. the machine's record is read (`tuAutoMode.tuhtml`, keyed by its serial,
+   its account machine id and the member's country);
+2. a recipe that isn't on the xBloom account yet is exported first;
+3. the cloud builds the auto-mode command (`tGetAutoModeRecipeMadeCmd.thtml`,
+   `xid: "IF0002"`), which goes to the machine like any command;
+4. the account's record is updated (`tuAutoModeSync.tuhtml`).
+
+Reset takes the factory recipe from `tuAutoModeInit.tuhtml`, sends its
+command and records it with `tuAutoModeReset.tuhtml`.
 
 ## Maintenance
 

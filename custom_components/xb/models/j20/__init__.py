@@ -24,7 +24,11 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    ConfigEntryNotReady,
+    HomeAssistantError,
+)
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from ...const import (
@@ -126,6 +130,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, J20_PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_j20_listener))
     hass.async_create_task(coordinator.async_seed_recipes())
+    # What the machine's start button holds (auto mode), for the panel.
+    hass.async_create_task(_async_read_auto_mode(coordinator))
     # Live shadow deltas over the app's WebSocket; cancelled on unload.
     entry.async_create_background_task(
         hass, coordinator.async_run_live_updates(), "xb_original_live_updates"
@@ -140,6 +146,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool
         hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
         _release_client(hass, entry)
     return unload_ok
+
+
+async def _async_read_auto_mode(coordinator: J20Coordinator) -> None:
+    try:
+        await coordinator.async_refresh_auto_mode()
+    except HomeAssistantError as exc:
+        _LOGGER.debug("Couldn't read the Original's auto mode: %s", exc)
 
 
 # Options written by the recipe store (CRUD, seeding): a rebuild is enough.

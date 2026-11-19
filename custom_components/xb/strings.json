@@ -697,6 +697,30 @@
           "description": "asc or desc. Defaults to desc."
         }
       }
+    },
+    "write_recipe_to_auto_mode": {
+      "name": "Write recipe to auto mode",
+      "description": "xBloom Original only. Store a recipe on the machine's own start button (the app's auto mode), so it runs from the machine without Home Assistant. Saved to the xBloom account first if needed; does not brew.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Machine",
+          "description": "The xBloom Original to write the recipe to."
+        },
+        "recipe": {
+          "name": "Recipe",
+          "description": "A local uid, a cloud table id, a share URL/id, or the exact recipe name. Defaults to the currently selected recipe."
+        }
+      }
+    },
+    "reset_auto_mode": {
+      "name": "Reset auto mode",
+      "description": "xBloom Original only. Put the factory recipe back on the machine's start button.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Machine",
+          "description": "The xBloom Original to reset."
+        }
+      }
     }
   },
   "selector": {

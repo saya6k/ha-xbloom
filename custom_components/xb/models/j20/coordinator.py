@@ -29,7 +29,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from ...cloud.client import XBloomCloudClient
+from ...cloud.client import XBloomCloudClient, cloud_recipe_to_local
 from ...const import (
     CONF_EMAIL,
     CONF_J20_DEVICE_ID,
@@ -39,7 +39,7 @@ from ...const import (
     DOMAIN,
 )
 from ...machine import Capability, ManualLimits
-from ...recipes.schema import scale_pours_to_total
+from ...recipes.schema import find_recipe, scale_pours_to_total
 from ...recipes.store import RecipeStoreMixin, is_tea_recipe
 from .client import (
     J20_PRODUCT_ID,
@@ -98,6 +98,7 @@ class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
             Capability.CANCEL,
             Capability.CALIBRATE_GRINDER,
             Capability.RECIPES,
+            Capability.AUTO_MODE,
         }
     )
     # The Original has no tea brewer.
@@ -184,6 +185,10 @@ class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
         self._armed_recipe_command: str | None = None
         # The last full shadow; WebSocket deltas are merged into it.
         self._raw_shadow: dict[str, Any] | None = None
+        # The recipe on the machine's start button (auto mode), as last read;
+        # None until read (or when the account has no record).
+        self.auto_mode: dict[str, Any] | None = None
+        self._machine_table_id: int | None = None
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -507,6 +512,130 @@ class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed("XBloom Original shadow request failed")
         self._raw_shadow = dict(data)
         return parse_shadow(data)
+
+    # ------------------------------------------------------------------
+    # Auto mode (EasyModeJ20Fragment / EasyModeJ20ViewModel)
+    # ------------------------------------------------------------------
+
+    async def _async_auto_mode_key(self) -> tuple[str, int]:
+        """The machine's serial and account record id, signed in."""
+        if not self._serial:
+            raise HomeAssistantError("The xBloom Original's serial number isn't known yet.")
+        if self._machine_table_id is None:
+            try:
+                devices = await self._async_call(self._client.async_list_devices)
+            except J20ApiError as exc:
+                raise HomeAssistantError(f"xBloom cloud unreachable: {exc}") from exc
+            for device in devices:
+                if str(device.get("deviceId")) == self.device_id and device.get("tableId"):
+                    self._machine_table_id = int(device["tableId"])
+                    break
+        if self._machine_table_id is None:
+            raise HomeAssistantError("This machine isn't on the xBloom account's machine list.")
+        if not await self.async_ensure_cloud_login():
+            raise HomeAssistantError("xBloom recipe cloud sign-in failed")
+        return self._serial, self._machine_table_id
+
+    def _auto_mode_from_record(self, record: dict[str, Any] | None) -> dict[str, Any] | None:
+        detail = (record or {}).get("autoModeDetailVo")
+        snapshot = detail.get("recipeSnapshotVo") if isinstance(detail, dict) else None
+        if not isinstance(snapshot, dict):
+            return None
+        table_id = snapshot.get("tableId")
+        local_name = next(
+            (
+                name
+                for name, recipe in (self.recipes or {}).items()
+                if table_id is not None and recipe.get("cloud_table_id") == table_id
+            ),
+            None,
+        )
+        return {
+            "name": snapshot.get("theName") or cloud_recipe_to_local(snapshot).get("name"),
+            "uid": self.recipes[local_name].get("uid") if local_name else None,
+            "cloud_table_id": table_id,
+            "scale": detail.get("scale"),
+            "record_table_id": detail.get("tableId"),
+        }
+
+    async def async_refresh_auto_mode(self) -> dict[str, Any] | None:
+        """Read the recipe stored on the machine's start button."""
+        serial, machine_table_id = await self._async_auto_mode_key()
+        record = await self.cloud_client.async_auto_mode(serial, machine_table_id)
+        if record is None:
+            raise HomeAssistantError("Couldn't read the xBloom Original's auto mode")
+        self.auto_mode = self._auto_mode_from_record(record)
+        self.async_update_listeners()
+        return self.auto_mode
+
+    async def _async_store_on_button(self, recipe: dict[str, Any]) -> None:
+        command = await self.cloud_client.async_recipe_machine_command(
+            recipe, self.device_id, J20_PRODUCT_ID, auto_mode=True
+        )
+        if not command:
+            raise HomeAssistantError(
+                "The xBloom cloud didn't return an auto-mode command for this recipe"
+            )
+        await self._send(command)
+
+    async def async_write_auto_mode(self, identifier: str | None = None) -> dict[str, Any]:
+        """Store a recipe on the machine's start button, like the app's auto
+        mode: the recipe must be on the xBloom account (it is exported first
+        if it isn't), the machine gets its auto-mode command, and the
+        account's record is updated (tuAutoModeSync)."""
+        resolved = (
+            find_recipe(self.recipes or {}, identifier)
+            if identifier
+            else (
+                (self.selected_recipe, self.recipes[self.selected_recipe])
+                if self.selected_recipe in (self.recipes or {})
+                else None
+            )
+        )
+        if resolved is None:
+            raise HomeAssistantError(f"No local recipe matches {identifier!r}.")
+        name, recipe = resolved
+        serial, machine_table_id = await self._async_auto_mode_key()
+        record = await self.cloud_client.async_auto_mode(serial, machine_table_id)
+        detail = (record or {}).get("autoModeDetailVo")
+        if not isinstance(detail, dict) or detail.get("tableId") is None:
+            raise HomeAssistantError("Couldn't read the xBloom Original's auto mode")
+        recipe_table_id = recipe.get("cloud_table_id")
+        if recipe_table_id is None:
+            exported = await self.async_export_recipe(recipe.get("uid") or name)
+            recipe_table_id = exported.get("id")
+            if recipe_table_id is None:
+                raise HomeAssistantError(
+                    exported.get("message") or "Couldn't save the recipe to the xBloom account"
+                )
+            recipe = self.recipes.get(name, recipe)
+        await self._async_store_on_button(recipe)
+        if not await self.cloud_client.async_auto_mode_sync(
+            int(detail["tableId"]), int(recipe_table_id), int(detail.get("scale") or 0)
+        ):
+            raise HomeAssistantError(
+                "The recipe was sent to the machine, but the xBloom account "
+                "couldn't record it"
+            )
+        await self.async_refresh_auto_mode()
+        return {"success": True, "uid": recipe.get("uid"), "name": name}
+
+    async def async_reset_auto_mode(self) -> dict[str, Any]:
+        """Put the factory recipe back on the start button (tuAutoModeInit →
+        its command to the machine → tuAutoModeReset), as the app does."""
+        serial, machine_table_id = await self._async_auto_mode_key()
+        default = await self.cloud_client.async_auto_mode_default(serial, machine_table_id)
+        snapshot = ((default or {}).get("autoModeDetailVo") or {}).get("recipeSnapshotVo")
+        if not isinstance(snapshot, dict):
+            raise HomeAssistantError("Couldn't read the factory auto-mode recipe")
+        await self._async_store_on_button(cloud_recipe_to_local(snapshot))
+        if await self.cloud_client.async_auto_mode_reset(serial, machine_table_id) is None:
+            raise HomeAssistantError(
+                "The factory recipe was sent to the machine, but the xBloom "
+                "account couldn't record it"
+            )
+        await self.async_refresh_auto_mode()
+        return {"success": True, "name": (self.auto_mode or {}).get("name")}
 
     # ------------------------------------------------------------------
     # Live updates (AppWsManager / WsManager)
