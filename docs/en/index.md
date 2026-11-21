@@ -71,7 +71,9 @@ This integration is in the HACS default store.
 2. Download it.
 3. Restart Home Assistant.
 4. Settings → Devices & Services → **Add integration** → search "xBloom".
-5. Enter the device's BLE MAC address (`xbloom scan` from a terminal, or check xBloom Studio).
+5. Pick the machine:
+   - **Studio**: usually found automatically by Bluetooth discovery; otherwise enter its Bluetooth MAC address.
+   - **Original** (experimental, status only): sign in with the xBloom app account that owns it (set the machine up in the official app first) — see [original.md](original.md).
 
 ## Manual installation
 

@@ -71,7 +71,9 @@ Studio에서는 추출, 분쇄, 저장된 레시피 실행, Assist(LLM) 노출�
 2. 다운로드.
 3. Home Assistant 재시작.
 4. 설정 → 기기 및 서비스 → **통합 추가** → "xBloom" 검색.
-5. 장치의 BLE MAC 주소 입력 (터미널에서 `xbloom scan` 실행 또는 xBloom Studio 확인).
+5. 기기 선택:
+   - **Studio**: 보통 블루투스 검색으로 자동으로 찾아집니다. 찾지 못하면 블루투스 MAC 주소를 입력하세요.
+   - **Original**(실험적, 상태만): 기기를 등록한 xBloom 앱 계정으로 로그인합니다(공식 앱에서 먼저 기기를 설정해 두세요) — [original.md](original.md) 참고.
 
 ## 수동 설치
 
