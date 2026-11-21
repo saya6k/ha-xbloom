@@ -37,7 +37,7 @@ Huge thanks to Frederic, the PyBloom contributors, and Bruno Azzinnari for the p
 
 ## How this differs from xBloom Studio (Alshekhi/xbloom-studio)
 
-[`Alshekhi/xbloom-studio`](https://github.com/Alshekhi/xbloom-studio) is another integration for the same machine over the same local Bluetooth protocol, and it is the one in the HACS default store. Since version 3 this integration installs as `custom_components/xb` (domain `xb`) and xbloom-studio as `custom_components/xbloom`, so both can be installed — but the machine accepts only one Bluetooth connection at a time, so **set a given machine up in only one of them**. Pick the one that fits:
+[`Alshekhi/xbloom-studio`](https://github.com/Alshekhi/xbloom-studio) is another integration for the same machine over the same local Bluetooth protocol, and it is also in the HACS default store. Since version 3 this integration installs as `custom_components/xb` (domain `xb`) and xbloom-studio as `custom_components/xbloom`, so both can be installed — but the machine accepts only one Bluetooth connection at a time, so **set a given machine up in only one of them**. Pick the one that fits:
 
 | | This integration (ha-xbloom) | xbloom-studio |
 |---|---|---|
@@ -59,16 +59,16 @@ Version 3 changed the integration's domain from `xbloom` to `xb` (the old one cl
 
 1. Note any recipes you made yourself — export them with `cloud_export_recipe`, or copy them from the recipe editor — because removing the old version deletes its configuration.
 2. HACS → xBloom Coffee Machine → ⋮ → **Remove** (deletes the configuration and the files).
-3. Download xBloom Coffee Machine again from the same custom repository and restart Home Assistant.
+3. Download xBloom Coffee Machine again from HACS and restart Home Assistant. If you had added this repository as a custom repository, you can remove it — the integration is now in the HACS default store.
 4. Settings → Devices & Services → **Add integration** → "xBloom", and set each machine up again.
 5. Update what referred to the old install: entity ids are new (they follow the new device name, e.g. `xBloom Studio F64F`), `xbloom.*` actions become `xb.*`, a `xbloom:` block in `configuration.yaml` becomes `xb:`, and a conversation agent needs the xBloom LLM API selected again.
 
 ## Installation (HACS)
 
-This integration is not in the HACS default store yet, so add it as a custom repository.
+This integration is in the HACS default store.
 
-1. In HACS → Integrations → ⋮ → **Custom repositories**, add this repo URL with category **Integration**.
-2. Install **xBloom Coffee Machine**.
+1. In HACS, search for **xBloom Coffee Machine**.
+2. Download it.
 3. Restart Home Assistant.
 4. Settings → Devices & Services → **Add integration** → search "xBloom".
 5. Enter the device's BLE MAC address (`xbloom scan` from a terminal, or check xBloom Studio).
