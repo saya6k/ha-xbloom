@@ -400,14 +400,16 @@ class ConnectionMixin:
                 return False
 
     def _log_connect_failure(self, msg: str, *args: Any) -> None:
-        """Log a failed connect loudly once, then quietly while it persists.
+        """Log a failed connect once at info, then at debug while it persists.
 
-        A machine that is off or out of range would otherwise emit an ERROR
-        on every supervisor tick for as long as it stays away.
+        A machine that is off or out of range is unavailable, not broken:
+        one info line when it goes away and "XBloom connected ✓" when it is
+        back (HA's log-when-unavailable rule), instead of a line on every
+        supervisor tick for as long as it stays away.
         """
         failures = self._note_connect_failure()
         if failures == 1:
-            _LOGGER.error(msg, *args)
+            _LOGGER.info(msg, *args)
         else:
             _LOGGER.debug(
                 "%s (consecutive failure %d; next supervisor retry in ≤%.0fs)",

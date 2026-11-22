@@ -224,3 +224,17 @@ def test_sleeping_does_not_count_as_activity():
 
     assert data["state"] == "sleeping"
     assert coordinator._last_activity_monotonic == before
+
+
+def test_first_connect_failure_logs_info_then_debug(caplog):
+    """An off or out-of-range machine is unavailable, not an error: one info
+    line when it goes away (log-when-unavailable), debug while it stays."""
+    import logging
+
+    coordinator = _Coordinator(_FakeClient())
+    with caplog.at_level(logging.DEBUG):
+        coordinator._log_connect_failure("XBloom connect returned False")
+        coordinator._log_connect_failure("XBloom connect returned False")
+
+    levels = [r.levelno for r in caplog.records if "XBloom connect" in r.getMessage()]
+    assert levels == [logging.INFO, logging.DEBUG]
