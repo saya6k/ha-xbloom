@@ -41,6 +41,11 @@ from .client import (
 )
 from .values import warning_state, work_mode_state
 
+try:  # HA 2026.12+: logs the first failure at info, not error on every poll
+    from homeassistant.helpers.update_coordinator import UpdateFailedUnreachable
+except ImportError:  # below 2026.12 (the floor is 2026.11)
+    UpdateFailedUnreachable = UpdateFailed
+
 _LOGGER = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
@@ -105,12 +110,16 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
     @property
     def device_info(self) -> DeviceInfo:
         mcu = (self.data or {}).get("mcu_versions") or {}
+        version = mcu.get("PannelMCU")
+        # Pass sw_version only when known: sw_version=None would clear the
+        # firmware version already in the device registry.
+        extra = {"sw_version": version} if version else {}
         return DeviceInfo(
             identifiers={(DOMAIN, f"j20_{self.device_id}")},
             name=self.machine_name,
             manufacturer="xBloom",
             model="xBloom Original (J20)",
-            sw_version=mcu.get("PannelMCU"),
+            **extra,
         )
 
     @property
@@ -204,7 +213,9 @@ class J20Coordinator(DataUpdateCoordinator[dict[str, Any]]):
                 lambda: self._client.async_get_shadow(self.device_id, self.product_id)
             )
         except J20ApiError as exc:
-            raise UpdateFailed(f"XBloom Original cloud unreachable: {exc}") from exc
+            raise UpdateFailedUnreachable(
+                f"XBloom Original cloud unreachable: {exc}"
+            ) from exc
         if data is None:
             raise UpdateFailed("XBloom Original shadow request failed")
         self._raw_shadow = dict(data)
