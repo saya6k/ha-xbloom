@@ -98,3 +98,34 @@ def test_offline_sensors_read_unknown_not_unavailable():
     assert J20WarningSensor(coordinator, entry).native_value is None
     assert J20ProblemBinarySensor(coordinator, entry).is_on is None
 
+
+def _listener_hass(options: dict):
+    from unittest.mock import AsyncMock
+
+    from custom_components.xb.const import DOMAIN
+
+    reload = AsyncMock()
+    hass = SimpleNamespace(
+        data={DOMAIN: {"e": {"options_snapshot": dict(options)}}},
+        config_entries=SimpleNamespace(async_reload=reload),
+    )
+    return hass, reload
+
+
+def test_store_region_change_does_not_reload_the_original():
+    """The panel's store region only picks web-store links; reloading would
+    sign in to the cloud again."""
+    import asyncio
+
+    from custom_components.xb.models.j20 import _async_update_j20_listener
+
+    hass, reload = _listener_hass({"telemetry_interval": 15})
+    entry = SimpleNamespace(
+        entry_id="e", options={"telemetry_interval": 15, "store_region": "kr"}
+    )
+    asyncio.run(_async_update_j20_listener(hass, entry))
+    reload.assert_not_awaited()
+
+    entry.options = {"telemetry_interval": 30, "store_region": "kr"}
+    asyncio.run(_async_update_j20_listener(hass, entry))
+    reload.assert_awaited_once_with("e")

@@ -26,6 +26,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from ...const import (
     CONF_EMAIL,
     CONF_PASSWORD,
+    CONF_STORE_REGION,
     CONF_TELEMETRY_INTERVAL,
     DATA_COORDINATOR,
     DEFAULT_J20_SCAN_INTERVAL,
@@ -97,7 +98,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool:
         raise
 
     entry.runtime_data = coordinator
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {DATA_COORDINATOR: coordinator}
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
+        DATA_COORDINATOR: coordinator,
+        "options_snapshot": dict(entry.options),
+    }
     await hass.config_entries.async_forward_entry_setups(entry, J20_PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_j20_listener))
     # Live shadow deltas over the app's WebSocket; cancelled on unload.
@@ -116,5 +120,18 @@ async def async_unload_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool
     return unload_ok
 
 
+# Options only the panel reads (which web store its links open): no reload,
+# which would sign in to the cloud again.
+_NO_RELOAD_OPTION_KEYS = frozenset({CONF_STORE_REGION})
+
+
 async def _async_update_j20_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if data is not None:
+        prev = data.get("options_snapshot") or {}
+        cur = dict(entry.options)
+        changed = {k for k in set(prev) | set(cur) if prev.get(k) != cur.get(k)}
+        data["options_snapshot"] = cur
+        if changed and changed <= _NO_RELOAD_OPTION_KEYS:
+            return
     await hass.config_entries.async_reload(entry.entry_id)
