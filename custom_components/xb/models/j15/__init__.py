@@ -167,7 +167,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # in the background so a slow/unreachable cloud API can't delay
     # integration setup. No-ops once the seed flags are set; there is no
     # periodic re-sync anymore (the local store is the source of truth).
-    hass.async_create_task(coordinator.async_seed_recipes())
+    # An entry task, so an unload waits for it: a seed still running from
+    # before a reload would otherwise race the new entry's seed (both see
+    # the flags unset) and store the same recipes twice as "name (2)".
+    entry.async_create_task(hass, coordinator.async_seed_recipes(), "xb_seed_recipes")
 
     return True
 
