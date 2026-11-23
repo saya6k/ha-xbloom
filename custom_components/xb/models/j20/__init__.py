@@ -131,9 +131,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool:
     await coordinator._async_refresh_recipe_service_schemas()
     await hass.config_entries.async_forward_entry_setups(entry, J20_PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_j20_listener))
-    hass.async_create_task(coordinator.async_seed_recipes())
+    # Entry tasks, so an unload waits for them instead of a stale
+    # coordinator writing recipes into the entry after it is gone.
+    entry.async_create_task(hass, coordinator.async_seed_recipes(), "xb_original_seed_recipes")
     # What the machine's start button holds (auto mode), for the panel.
-    hass.async_create_task(_async_read_auto_mode(coordinator))
+    entry.async_create_task(hass, _async_read_auto_mode(coordinator), "xb_original_auto_mode")
     # Live shadow deltas over the app's WebSocket; cancelled on unload.
     entry.async_create_background_task(
         hass, coordinator.async_run_live_updates(), "xb_original_live_updates"
