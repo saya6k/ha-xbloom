@@ -30,6 +30,7 @@ import json
 import logging
 from typing import Any
 
+from bleak.exc import BleakError
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
@@ -163,15 +164,23 @@ class _Link:
         self._reassembler = Reassembler()
 
     async def async_start(self) -> None:
-        await self._client.start_notify(NOTIFY_UUID, self._on_notify)
+        try:
+            await self._client.start_notify(NOTIFY_UUID, self._on_notify)
+        except BleakError as err:
+            raise ProvisionError("ble_failed") from err
 
     def _on_notify(self, _char: Any, data: bytearray) -> None:
         if (message := self._reassembler.feed(bytes(data))) is not None:
             self._messages.put_nowait(message)
 
     async def async_send(self, data: bytes) -> None:
-        for piece in split_message(data):
-            await self._client.write_gatt_char(COMMAND_UUID, piece, response=True)
+        try:
+            for piece in split_message(data):
+                await self._client.write_gatt_char(COMMAND_UUID, piece, response=True)
+        except BleakError as err:
+            # The link dropped mid-setup: fail the flow with ble_failed
+            # instead of an unknown error.
+            raise ProvisionError("ble_failed") from err
 
     async def async_send_json(self, value: dict[str, Any]) -> None:
         await self.async_send(json.dumps(value).encode())

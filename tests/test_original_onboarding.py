@@ -184,3 +184,20 @@ def test_an_unbound_machine_times_out():
     with pytest.raises(ProvisionError) as err:
         asyncio.run(async_provision(_FakeMachine(), _NeverBound(), _MAC, "home", "x"))
     assert err.value.reason == "bind_failed"
+
+
+@pytest.mark.parametrize("method", ["start_notify", "write_gatt_char"])
+def test_a_dropped_bluetooth_link_is_a_ble_failure(method):
+    """A BleakError mid-setup must end the flow as ble_failed, not crash it
+    with an unknown error."""
+    from bleak.exc import BleakError
+
+    machine = _FakeMachine()
+
+    async def _fail(*_args, **_kwargs):
+        raise BleakError("disconnected")
+
+    setattr(machine, method, _fail)
+    with pytest.raises(ProvisionError) as err:
+        asyncio.run(async_provision(machine, _FakeCloud(), _MAC, "home", "x"))
+    assert err.value.reason == "ble_failed"

@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import re
 from typing import Any
 
 import voluptuous as vol
 import yaml
+from bleak.exc import BleakError
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 from homeassistant import config_entries
 from homeassistant.components.bluetooth import (
@@ -530,7 +532,10 @@ class XBloomConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._onboard_input[CONF_WIFI_PASSWORD],
             )
         finally:
-            await ble_client.disconnect()
+            # The machine may already have dropped the link to join Wi-Fi;
+            # a failed disconnect must not hide the provisioning result.
+            with contextlib.suppress(BleakError):
+                await ble_client.disconnect()
         device_id = str(bound["device_id"])
         serial = str(bound.get("sn") or "")
         if not serial:
