@@ -301,7 +301,7 @@ class J20CloudClient:
         if code in _TOKEN_REJECTED_CODES:
             raise J20AuthError(f"token rejected (code {code})")
         if code not in (0, 200):
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "XBloom Original shadow failed: code=%s message=%s",
                 code,
                 payload.get("message"),
@@ -344,7 +344,9 @@ class J20CloudClient:
                 except ValueError:
                     payload = None
         except (aiohttp.ClientError, TimeoutError) as exc:
-            _LOGGER.warning("XBloom Original cloud call to %s failed: %s", url, exc)
+            # Debug only: polling retries every interval, and the coordinator
+            # already reports the outage once (UpdateFailedUnreachable).
+            _LOGGER.debug("XBloom Original cloud call to %s failed: %s", url, exc)
             return None
         if isinstance(payload, dict):
             return payload
@@ -353,5 +355,5 @@ class J20CloudClient:
             # report it as one, so the caller re-authenticates instead of
             # treating it as the cloud being unreachable.
             return {"code": 401}
-        _LOGGER.warning("XBloom Original cloud call to %s: HTTP %s, no JSON body", url, status)
+        _LOGGER.debug("XBloom Original cloud call to %s: HTTP %s, no JSON body", url, status)
         return None
