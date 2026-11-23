@@ -39,6 +39,7 @@ from ...const import (
     CONF_PASSWORD,
     CONF_RECIPES,
     CONF_RECIPES_SEEDED,
+    CONF_STORE_REGION,
     CONF_TELEMETRY_INTERVAL,
     DATA_COORDINATOR,
     DEFAULT_J20_SCAN_INTERVAL,
@@ -63,7 +64,7 @@ J20_PLATFORMS = [
 
 type J20ConfigEntry = ConfigEntry[J20Coordinator]
 
-# account (lower-cased email) -> (shared client, entry ids using it). Several
+# account (lower-cased email) -> shared client (its entry_ids use it). Several
 # Originals on one account share one session: a second login could
 # invalidate the first entry's token, and they'd keep logging each other out.
 _CLIENTS_KEY = f"{DOMAIN}_j20_clients"
@@ -75,23 +76,19 @@ def _account(entry: ConfigEntry) -> str:
 
 def _release_client(hass: HomeAssistant, entry: ConfigEntry) -> None:
     clients = hass.data.get(_CLIENTS_KEY, {})
-    shared = clients.get(_account(entry))
-    if shared is not None:
-        shared[1].discard(entry.entry_id)
-        if not shared[1]:
+    client = clients.get(_account(entry))
+    if client is not None:
+        client.entry_ids.discard(entry.entry_id)
+        if not client.entry_ids:
             clients.pop(_account(entry), None)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool:
     clients = hass.data.setdefault(_CLIENTS_KEY, {})
-    shared = clients.get(_account(entry))
-    if shared is None:
-        shared = clients[_account(entry)] = (
-            J20CloudClient(async_get_clientsession(hass)),
-            set(),
-        )
-    client, users = shared
-    users.add(entry.entry_id)
+    client = clients.get(_account(entry))
+    if client is None:
+        client = clients[_account(entry)] = J20CloudClient(async_get_clientsession(hass))
+    client.entry_ids.add(entry.entry_id)
     if not client.logged_in:
         try:
             logged_in = await client.async_login(
@@ -161,17 +158,22 @@ async def _async_read_auto_mode(coordinator: J20Coordinator) -> None:
 
 # Options written by the recipe store (CRUD, seeding): a rebuild is enough.
 _RECIPE_ONLY_OPTION_KEYS = {CONF_RECIPES, CONF_RECIPES_SEEDED, CONF_ACCOUNT_RECIPES_SEEDED}
+# Options that never need a reload: the recipe store's, and the panel's
+# store region (which web store its links open) — a reload would sign in
+# to the cloud again.
+_NO_RELOAD_OPTION_KEYS = frozenset(_RECIPE_ONLY_OPTION_KEYS | {CONF_STORE_REGION})
 
 
 async def _async_update_j20_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
-    if data and DATA_COORDINATOR in data:
+    if data is not None:
         prev = data.get("options_snapshot") or {}
         cur = dict(entry.options)
         changed = {k for k in set(prev) | set(cur) if prev.get(k) != cur.get(k)}
         data["options_snapshot"] = cur
-        if changed and changed <= _RECIPE_ONLY_OPTION_KEYS:
-            data[DATA_COORDINATOR]._rebuild_recipes()
-            data[DATA_COORDINATOR].async_update_listeners()
+        if changed and changed <= _NO_RELOAD_OPTION_KEYS:
+            if changed & _RECIPE_ONLY_OPTION_KEYS and DATA_COORDINATOR in data:
+                data[DATA_COORDINATOR]._rebuild_recipes()
+                data[DATA_COORDINATOR].async_update_listeners()
             return
     await hass.config_entries.async_reload(entry.entry_id)

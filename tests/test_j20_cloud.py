@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -586,3 +587,23 @@ def test_unreachable_cloud_is_an_unreachable_update_failure() -> None:
     )
     with pytest.raises(expected):
         asyncio.run(coordinator._async_update_data())
+
+
+def test_failed_cloud_calls_do_not_log_warnings(caplog) -> None:
+    """Polling repeats every interval; a cloud outage must not add a warning
+    per poll on top of the coordinator's single unreachable report."""
+    session = _FakeSession(
+        [
+            _NETWORK_DOWN,
+            _FakeResponse(ValueError("not json"), status=502),
+            {"code": 500, "message": "boom"},
+        ]
+    )
+    client = J20CloudClient(session)  # type: ignore[arg-type]
+    client.project_token = "p"
+    with caplog.at_level(logging.DEBUG):
+        for _ in range(2):
+            with pytest.raises(J20ApiError):
+                asyncio.run(client.async_get_shadow("dev-1", J20_PRODUCT_ID))
+        assert asyncio.run(client.async_get_shadow("dev-1", J20_PRODUCT_ID)) is None
+    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]

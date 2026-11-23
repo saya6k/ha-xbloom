@@ -8,6 +8,7 @@ the capability it needs, so a model without it is never called.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import voluptuous as vol
 import yaml
@@ -17,7 +18,7 @@ from homeassistant.core import (
     ServiceResponse,
     SupportsResponse,
 )
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 
 from .const import (
@@ -266,6 +267,22 @@ def _coordinators_for_call(
     return [coordinator] if coordinator else []
 
 
+def _resolve_recipe_name(coord: Any, identifier: str | None) -> str:
+    """The stored recipe ``identifier`` names, or the selected one."""
+    if identifier:
+        resolved = find_recipe(coord.recipes or {}, identifier)
+        name = resolved[0] if resolved else None
+    else:
+        name = coord.selected_recipe
+    if not name or name not in (coord.recipes or {}):
+        raise ServiceValidationError(
+            f"No recipe matches {identifier!r} on {coord.machine_label}."
+            if identifier
+            else f"No recipe is selected on {coord.machine_label}."
+        )
+    return name
+
+
 def async_register_services(hass: HomeAssistant) -> None:
     """Register integration services once (idempotent)."""
     if hass.services.has_service(DOMAIN, SERVICE_EXECUTE_RECIPE):
@@ -275,44 +292,29 @@ def async_register_services(hass: HomeAssistant) -> None:
         coordinators = _coordinators_for_call(hass, call)
         if not coordinators:
             raise HomeAssistantError("No xBloom machine matched the service call.")
-        for coord in coordinators:
-            identifier = call.data.get(ATTR_RECIPE)
-            if identifier:
-                resolved = find_recipe(coord.recipes or {}, identifier)
-                name = resolved[0] if resolved else None
-            else:
-                name = coord.selected_recipe
-            if not name or name not in (coord.recipes or {}):
-                _LOGGER.warning(
-                    "execute_recipe: recipe %r not found for %s",
-                    identifier or name, coord.machine_label,
-                )
-                continue
-            # select_recipe syncs the grind/RPM sliders to the recipe;
-            # explicit overrides then take precedence for this brew.
-            coord.select_recipe(name)
-            if ATTR_GRIND_SIZE in call.data:
-                coord.grind_size = int(call.data[ATTR_GRIND_SIZE])
-            if ATTR_RPM in call.data and Capability.GRIND_SPEED in coord.capabilities:
-                coord.rpm = int(call.data[ATTR_RPM])
-            coord.async_update_listeners()
-            overrides = {
-                key: call.data[key]
-                for key in (ATTR_DOSE_G, ATTR_RATIO, ATTR_CUP_TYPE)
-                if key in call.data
-            }
-            try:
-                await coord.async_execute_recipe(
-                    overrides=overrides or None,
-                    bypass_volume=call.data.get(ATTR_BYPASS_VOLUME),
-                    bypass_temperature=call.data.get(ATTR_BYPASS_TEMPERATURE),
-                )
-            except HomeAssistantError as exc:
-                # e.g. low water — don't let one machine's pre-brew check
-                # abort the recipe for the rest of the targeted machines.
-                _LOGGER.warning(
-                    "execute_recipe skipped for %s: %s", coord.machine_label, exc,
-                )
+        # One machine at most (_coordinators_for_call). A refused brew (low
+        # water, unsupported firmware, unknown recipe) fails the call, so an
+        # automation can tell that nothing was brewed.
+        coord = coordinators[0]
+        name = _resolve_recipe_name(coord, call.data.get(ATTR_RECIPE))
+        # select_recipe syncs the grind/RPM sliders to the recipe;
+        # explicit overrides then take precedence for this brew.
+        coord.select_recipe(name)
+        if ATTR_GRIND_SIZE in call.data:
+            coord.grind_size = int(call.data[ATTR_GRIND_SIZE])
+        if ATTR_RPM in call.data and Capability.GRIND_SPEED in coord.capabilities:
+            coord.rpm = int(call.data[ATTR_RPM])
+        coord.async_update_listeners()
+        overrides = {
+            key: call.data[key]
+            for key in (ATTR_DOSE_G, ATTR_RATIO, ATTR_CUP_TYPE)
+            if key in call.data
+        }
+        await coord.async_execute_recipe(
+            overrides=overrides or None,
+            bypass_volume=call.data.get(ATTR_BYPASS_VOLUME),
+            bypass_temperature=call.data.get(ATTR_BYPASS_TEMPERATURE),
+        )
 
     hass.services.async_register(
         DOMAIN,
@@ -327,34 +329,16 @@ def async_register_services(hass: HomeAssistant) -> None:
         coordinators = _coordinators_for_call(hass, call)
         if not coordinators:
             raise HomeAssistantError("No xBloom machine matched the service call.")
-        for coord in coordinators:
-            identifier = call.data.get(ATTR_RECIPE)
-            if identifier:
-                resolved = find_recipe(coord.recipes or {}, identifier)
-                name = resolved[0] if resolved else None
-            else:
-                name = coord.selected_recipe
-            if not name or name not in (coord.recipes or {}):
-                _LOGGER.warning(
-                    "execute_tea_recipe: recipe %r not found for %s",
-                    identifier or name, coord.machine_label,
-                )
-                continue
-            recipe = coord.recipes[name]
-            if str(recipe.get("cup_type", "")).strip().lower() != "tea":
-                _LOGGER.warning(
-                    "execute_tea_recipe: %r is not a tea recipe (cup_type=%r) — "
-                    "use execute_recipe instead. Skipped for %s.",
-                    name, recipe.get("cup_type"), coord.machine_label,
-                )
-                continue
-            coord.select_recipe(name)
-            try:
-                await coord.async_execute_recipe()
-            except HomeAssistantError as exc:
-                _LOGGER.warning(
-                    "execute_tea_recipe skipped for %s: %s", coord.machine_label, exc,
-                )
+        coord = coordinators[0]
+        name = _resolve_recipe_name(coord, call.data.get(ATTR_RECIPE))
+        recipe = coord.recipes[name]
+        if str(recipe.get("cup_type", "")).strip().lower() != "tea":
+            raise ServiceValidationError(
+                f"{name!r} is not a tea recipe (cup_type={recipe.get('cup_type')!r}) "
+                "— use execute_recipe instead."
+            )
+        coord.select_recipe(name)
+        await coord.async_execute_recipe()
 
     hass.services.async_register(
         DOMAIN,

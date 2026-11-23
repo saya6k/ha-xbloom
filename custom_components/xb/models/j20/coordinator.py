@@ -657,6 +657,10 @@ class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
         Messages carry ``{device_id, state: {reported: {...}}}`` with only
         the fields that changed; ones for another machine on the account
         and ``type`` messages are ignored, as in the app.
+
+        The app applies a message without ``device_id`` to its one current
+        machine; here that is only unambiguous while this is the account's
+        only Original, so otherwise such a message is ignored.
         """
         try:
             message = json.loads(text)
@@ -664,7 +668,11 @@ class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
             return False
         if not isinstance(message, dict) or "type" in message:
             return False
-        if message.get("device_id") not in (None, self.device_id):
+        device_id = message.get("device_id")
+        if device_id is None:
+            if len(self._client.entry_ids) > 1:
+                return False
+        elif device_id != self.device_id:
             return False
         reported = (message.get("state") or {}).get("reported")
         if not isinstance(reported, dict) or self._raw_shadow is None:

@@ -63,6 +63,21 @@ def test_other_messages_are_ignored(message):
     assert updates == []
 
 
+def test_a_delta_without_device_id_applies_only_to_a_sole_machine():
+    """The app applies an id-less delta to its one current machine; with
+    several Originals on the account it can't tell which one it is for."""
+    message = json.dumps({"state": {"reported": {"work_mode": 6}}})
+    coordinator, updates = _live_coordinator()
+    coordinator._client = SimpleNamespace(entry_ids={"a"})
+    assert coordinator.handle_live_message(message) is True
+    assert updates[-1]["work_mode"] == 6
+
+    coordinator, updates = _live_coordinator()
+    coordinator._client = SimpleNamespace(entry_ids={"a", "b"})
+    assert coordinator.handle_live_message(message) is False
+    assert updates == []
+
+
 def test_nothing_is_merged_before_the_first_shadow():
     coordinator, _updates = _live_coordinator()
     coordinator._raw_shadow = None
@@ -101,3 +116,51 @@ def test_calibration_waits_for_a_woken_machine():
     coordinator.data["work_mode"] = 5
     asyncio.run(coordinator.async_calibrate_grinder())
     client.async_send_desired.assert_awaited_once_with("DEV", {"auto_calibrate": 1})
+
+
+def _listener_hass(options: dict):
+    from unittest.mock import AsyncMock
+
+    from custom_components.xb.const import DOMAIN
+
+    reload = AsyncMock()
+    hass = SimpleNamespace(
+        data={DOMAIN: {"e": {"options_snapshot": dict(options)}}},
+        config_entries=SimpleNamespace(async_reload=reload),
+    )
+    return hass, reload
+
+
+def test_store_region_change_does_not_reload_the_original():
+    """The panel's store region only picks web-store links; reloading would
+    sign in to the cloud again."""
+    import asyncio
+
+    from custom_components.xb.models.j20 import _async_update_j20_listener
+
+    hass, reload = _listener_hass({"telemetry_interval": 15})
+    entry = SimpleNamespace(
+        entry_id="e", options={"telemetry_interval": 15, "store_region": "kr"}
+    )
+    asyncio.run(_async_update_j20_listener(hass, entry))
+    reload.assert_not_awaited()
+
+    entry.options = {"telemetry_interval": 30, "store_region": "kr"}
+    asyncio.run(_async_update_j20_listener(hass, entry))
+    reload.assert_awaited_once_with("e")
+
+
+def test_recipe_store_change_rebuilds_without_reloading_the_original():
+    import asyncio
+    from unittest.mock import MagicMock
+
+    from custom_components.xb.const import DATA_COORDINATOR, DOMAIN
+    from custom_components.xb.models.j20 import _async_update_j20_listener
+
+    hass, reload = _listener_hass({"store_region": "kr"})
+    coordinator = MagicMock()
+    hass.data[DOMAIN]["e"][DATA_COORDINATOR] = coordinator
+    entry = SimpleNamespace(entry_id="e", options={"store_region": "kr", "recipes": {"A": {}}})
+    asyncio.run(_async_update_j20_listener(hass, entry))
+    reload.assert_not_awaited()
+    coordinator._rebuild_recipes.assert_called_once()
