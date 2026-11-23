@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -546,3 +547,63 @@ def test_original_is_named_by_its_serial_suffix() -> None:
     unnamed = _coordinator(_serial="", entry_title="xBloom Original — x")
     assert unnamed.machine_name == "xBloom Original — x"
     assert unnamed.machine_serial is None
+
+
+def _sw_version(info):
+    """sw_version of a DeviceInfo: a dataclass since HA 2026.11, a TypedDict
+    before. Returns ``None`` only when it was explicitly set to ``None``."""
+    if isinstance(info, dict):
+        return info.get("sw_version", "unset")
+    from homeassistant.helpers.typing import UNDEFINED
+
+    return "unset" if info.sw_version is UNDEFINED else info.sw_version
+
+
+def test_unknown_firmware_leaves_sw_version_unset() -> None:
+    """A shadow without mcu_versions must not clear the registry's firmware
+    version (sw_version=None would)."""
+    pytest.importorskip("homeassistant.core")
+    unknown = _coordinator(device_id="d", _serial="", entry_title="x")
+    assert _sw_version(unknown.device_info) == "unset"
+    known = _coordinator(
+        device_id="d", _serial="", entry_title="x",
+        data={"mcu_versions": {"PannelMCU": "1.2"}},
+    )
+    assert _sw_version(known.device_info) == "1.2"
+
+
+def test_unreachable_cloud_is_an_unreachable_update_failure() -> None:
+    """An unreachable cloud raises UpdateFailedUnreachable (HA 2026.12+; plain
+    UpdateFailed below it), so only the first failure is logged, at info."""
+    pytest.importorskip("homeassistant.core")
+    from homeassistant.helpers import update_coordinator
+
+    expected = getattr(
+        update_coordinator, "UpdateFailedUnreachable", update_coordinator.UpdateFailed
+    )
+    coordinator = _coordinator(
+        device_id="d", product_id="p",
+        _async_call=AsyncMock(side_effect=J20ApiError("down")),
+    )
+    with pytest.raises(expected):
+        asyncio.run(coordinator._async_update_data())
+
+
+def test_failed_cloud_calls_do_not_log_warnings(caplog) -> None:
+    """Polling repeats every interval; a cloud outage must not add a warning
+    per poll on top of the coordinator's single unreachable report."""
+    session = _FakeSession(
+        [
+            _NETWORK_DOWN,
+            _FakeResponse(ValueError("not json"), status=502),
+            {"code": 500, "message": "boom"},
+        ]
+    )
+    client = J20CloudClient(session)  # type: ignore[arg-type]
+    client.project_token = "p"
+    with caplog.at_level(logging.DEBUG):
+        for _ in range(2):
+            with pytest.raises(J20ApiError):
+                asyncio.run(client.async_get_shadow("dev-1", J20_PRODUCT_ID))
+        assert asyncio.run(client.async_get_shadow("dev-1", J20_PRODUCT_ID)) is None
+    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]

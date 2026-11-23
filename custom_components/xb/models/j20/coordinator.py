@@ -1,10 +1,9 @@
 """Coordinator for XBloom Original (J20).
 
-Polling the thing shadow is the read path. The app additionally opens a
-WebSocket for live deltas (``AppWsManager``); v1 deliberately polls only —
-the WS subscribe/auth handshake is not documented and polling is enough
-for HA's state model. The command path is the app's ``desired`` shadow
-write.
+Polling the thing shadow is the read path, with the app's WebSocket
+(``AppWsManager``) merging live deltas in between (``async_run_live_updates``;
+polling stays the fallback). The command path is the app's ``desired``
+shadow write.
 
 Implements ``machine.ManualControlMachine`` so the shared LLM tools and
 panel can drive it. The Original has no on-machine "armed" page, so the
@@ -69,6 +68,11 @@ from .values import (
     warning_state,
     work_mode_state,
 )
+
+try:  # HA 2026.12+: logs the first failure at info, not error on every poll
+    from homeassistant.helpers.update_coordinator import UpdateFailedUnreachable
+except ImportError:  # below 2026.12 (the floor is 2026.11)
+    UpdateFailedUnreachable = UpdateFailed
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -193,12 +197,16 @@ class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
     @property
     def device_info(self) -> DeviceInfo:
         mcu = (self.data or {}).get("mcu_versions") or {}
+        version = mcu.get("PannelMCU")
+        # Pass sw_version only when known: sw_version=None would clear the
+        # firmware version already in the device registry.
+        extra = {"sw_version": version} if version else {}
         return DeviceInfo(
             identifiers={(DOMAIN, f"j20_{self.device_id}")},
             name=self.machine_name,
             manufacturer="xBloom",
             model="xBloom Original (J20)",
-            sw_version=mcu.get("PannelMCU"),
+            **extra,
         )
 
     @property
@@ -507,7 +515,9 @@ class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
                 lambda: self._client.async_get_shadow(self.device_id, self.product_id)
             )
         except J20ApiError as exc:
-            raise UpdateFailed(f"XBloom Original cloud unreachable: {exc}") from exc
+            raise UpdateFailedUnreachable(
+                f"XBloom Original cloud unreachable: {exc}"
+            ) from exc
         if data is None:
             raise UpdateFailed("XBloom Original shadow request failed")
         self._raw_shadow = dict(data)
@@ -647,6 +657,10 @@ class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
         Messages carry ``{device_id, state: {reported: {...}}}`` with only
         the fields that changed; ones for another machine on the account
         and ``type`` messages are ignored, as in the app.
+
+        The app applies a message without ``device_id`` to its one current
+        machine; here that is only unambiguous while this is the account's
+        only Original, so otherwise such a message is ignored.
         """
         try:
             message = json.loads(text)
@@ -654,7 +668,11 @@ class J20Coordinator(RecipeStoreMixin, DataUpdateCoordinator[dict[str, Any]]):
             return False
         if not isinstance(message, dict) or "type" in message:
             return False
-        if message.get("device_id") not in (None, self.device_id):
+        device_id = message.get("device_id")
+        if device_id is None:
+            if len(self._client.entry_ids) > 1:
+                return False
+        elif device_id != self.device_id:
             return False
         reported = (message.get("state") or {}).get("reported")
         if not isinstance(reported, dict) or self._raw_shadow is None:

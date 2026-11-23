@@ -37,7 +37,7 @@ Studio에서는 추출, 분쇄, 저장된 레시피 실행, Assist(LLM) 노출�
 
 ## xBloom Studio(Alshekhi/xbloom-studio)와의 차이
 
-[`Alshekhi/xbloom-studio`](https://github.com/Alshekhi/xbloom-studio)는 같은 기기를 같은 로컬 블루투스 프로토콜로 제어하는 또 다른 통합이며, HACS 기본 스토어에 등록된 쪽입니다. 버전 3부터 이 통합은 `custom_components/xb`(도메인 `xb`)에, xbloom-studio는 `custom_components/xbloom`에 설치되므로 둘 다 설치할 수는 있습니다. 하지만 기기는 블루투스 연결을 한 번에 하나만 받으므로 **한 기기는 둘 중 하나에서만 설정하세요**. 용도에 맞는 쪽을 고르세요:
+[`Alshekhi/xbloom-studio`](https://github.com/Alshekhi/xbloom-studio)는 같은 기기를 같은 로컬 블루투스 프로토콜로 제어하는 또 다른 통합이며, 이쪽도 HACS 기본 스토어에 등록돼 있습니다. 버전 3부터 이 통합은 `custom_components/xb`(도메인 `xb`)에, xbloom-studio는 `custom_components/xbloom`에 설치되므로 둘 다 설치할 수는 있습니다. 하지만 기기는 블루투스 연결을 한 번에 하나만 받으므로 **한 기기는 둘 중 하나에서만 설정하세요**. 용도에 맞는 쪽을 고르세요:
 
 | | 이 통합 (ha-xbloom) | xbloom-studio |
 |---|---|---|
@@ -59,19 +59,21 @@ Studio에서는 추출, 분쇄, 저장된 레시피 실행, Assist(LLM) 노출�
 
 1. 직접 만든 레시피가 있다면 먼저 백업하세요(`cloud_export_recipe`로 내보내거나 레시피 편집기에서 옮겨 적기). 이전 버전을 제거하면 설정도 함께 삭제됩니다.
 2. HACS → xBloom Coffee Machine → ⋮ → **제거**(설정과 파일을 함께 삭제).
-3. 같은 사용자 지정 저장소에서 xBloom Coffee Machine을 다시 다운로드하고 Home Assistant를 재시작합니다.
+3. HACS에서 xBloom Coffee Machine을 다시 다운로드하고 Home Assistant를 재시작합니다. 이 저장소를 사용자 지정 저장소로 추가했었다면 이제 기본 스토어에 있으므로 지워도 됩니다.
 4. 설정 → 기기 및 서비스 → **통합 구성요소 추가** → "xBloom"에서 기기를 다시 설정합니다.
 5. 이전 설치를 가리키던 것을 고칩니다: 엔티티 ID가 새로 생기고(새 기기 이름 `xBloom Studio F64F` 등을 따름), `xbloom.*` 액션은 `xb.*`로, `configuration.yaml`의 `xbloom:` 블록은 `xb:`로 바꾸고, 대화 에이전트에서 xBloom LLM API를 다시 선택하세요.
 
 ## 설치 (HACS)
 
-이 통합은 아직 HACS 기본 스토어에 없으므로 사용자 지정 저장소로 추가하세요.
+이 통합은 HACS 기본 스토어에 등록돼 있습니다.
 
-1. HACS → Integrations → ⋮ → **Custom repositories**에서 이 repo URL을 카테고리 **Integration**으로 추가.
-2. **xBloom Coffee Machine** 설치.
+1. HACS에서 **xBloom Coffee Machine** 검색.
+2. 다운로드.
 3. Home Assistant 재시작.
 4. 설정 → 기기 및 서비스 → **통합 추가** → "xBloom" 검색.
-5. 장치의 BLE MAC 주소 입력 (터미널에서 `xbloom scan` 실행 또는 xBloom Studio 확인).
+5. 기기 선택:
+   - **Studio**: 보통 블루투스 검색으로 자동으로 찾아집니다. 찾지 못하면 블루투스 MAC 주소를 입력하세요.
+   - **Original**(실험적, 상태만): 기기를 등록한 xBloom 앱 계정으로 로그인합니다(공식 앱에서 먼저 기기를 설정해 두세요) — [original.md](original.md) 참고.
 
 ## 수동 설치
 

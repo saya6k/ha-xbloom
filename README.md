@@ -4,7 +4,7 @@
 
 [![Built with Claude Code](https://img.shields.io/badge/Built%20with%20Claude%20Code-D97757?style=for-the-badge&logo=claude&logoColor=white)](https://claude.ai/code)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-41BDF5?style=for-the-badge&logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5?style=for-the-badge&logo=homeassistantcommunitystore&logoColor=white)](https://hacs.xyz/)
+[![HACS](https://img.shields.io/badge/HACS-Default-41BDF5?style=for-the-badge&logo=homeassistantcommunitystore&logoColor=white)](https://hacs.xyz/)
 [![Bluetooth](https://img.shields.io/badge/Bluetooth-0082FC?style=for-the-badge&logo=bluetooth&logoColor=white)](https://www.bluetooth.com/)
 [![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Shell](https://img.shields.io/badge/Shell-4EAA25?style=for-the-badge&logo=gnubash&logoColor=white)](https://www.gnu.org/software/bash/)
@@ -65,7 +65,7 @@ It drives the same entities and services as everything else, so nothing it does 
 
 ## How this differs from xBloom Studio (Alshekhi/xbloom-studio)
 
-[`Alshekhi/xbloom-studio`](https://github.com/Alshekhi/xbloom-studio) is another integration for the same machine over the same local Bluetooth protocol, and it is the one in the HACS default store. Since version 3 this integration installs as `custom_components/xb` (domain `xb`) and xbloom-studio as `custom_components/xbloom`, so both can be installed — but the machine accepts only one Bluetooth connection at a time, so **set a given machine up in only one of them**. Pick the one that fits:
+[`Alshekhi/xbloom-studio`](https://github.com/Alshekhi/xbloom-studio) is another integration for the same machine over the same local Bluetooth protocol, and it is also in the HACS default store. Since version 3 this integration installs as `custom_components/xb` (domain `xb`) and xbloom-studio as `custom_components/xbloom`, so both can be installed — but the machine accepts only one Bluetooth connection at a time, so **set a given machine up in only one of them**. Pick the one that fits:
 
 | | This integration (ha-xbloom) | xbloom-studio |
 |---|---|---|
@@ -87,18 +87,18 @@ Version 3 changed the integration's domain from `xbloom` to `xb` (the old one cl
 
 1. Note any recipes you made yourself — export them with `cloud_export_recipe`, or copy them from the recipe editor — because removing the old version deletes its configuration.
 2. HACS → xBloom Coffee Machine → ⋮ → **Remove** (deletes the configuration and the files).
-3. Download xBloom Coffee Machine again from the same custom repository and restart Home Assistant.
+3. Download xBloom Coffee Machine again from HACS and restart Home Assistant. If you had added this repository as a custom repository, you can remove it — the integration is now in the HACS default store.
 4. Settings → Devices & Services → **Add integration** → "xBloom", and set each machine up again.
 5. Update what referred to the old install: entity ids are new (they follow the new device name, e.g. `xBloom Studio F64F`), `xbloom.*` actions become `xb.*`, a `xbloom:` block in `configuration.yaml` becomes `xb:`, and a conversation agent needs the xBloom LLM API selected again.
 
 ## Installation (HACS)
 
-This integration is not in the HACS default store yet, so add it as a custom repository.
+This integration is in the HACS default store.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=saya6k&repository=ha-xbloom&category=integration)
 
-1. In HACS → Integrations → ⋮ → **Custom repositories**, add this repo URL with category **Integration**.
-2. Install **xBloom Coffee Machine**.
+1. In HACS, search for **xBloom Coffee Machine** (or use the button above to open it directly).
+2. Download it.
 3. Restart Home Assistant.
 4. Settings → Devices & Services → **Add integration** → search "xBloom".
 5. Pick the machine:

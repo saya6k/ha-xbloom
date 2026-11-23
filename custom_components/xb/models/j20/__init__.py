@@ -2,20 +2,22 @@
 
 This package is wired into the existing ``xbloom`` integration as a second
 config-entry type (``device_type == "original"``) so HACS keeps shipping
-one domain. Nothing here imports ``j15`` or touches the BLE stack: Studio
-and Original are separate coordinators and separate entity sets. The
+one domain. Nothing here imports ``j15`` or its BLE stack: Studio and
+Original are separate coordinators and separate entity sets. The
 coordinator registers in ``hass.data[DOMAIN]`` like every model, so the
-shared LLM tools and panel reach it — limited to its ``capabilities``
-(manual grind/pour, stop, calibrate; no recipes, so no services).
+shared services, LLM tools and panel reach it — limited to its
+``capabilities`` (manual grind/pour, stop, calibrate, saved recipes, auto
+mode).
 
 The Original has no local control path. The integration is a client of
 xBloom's cloud, exactly like the official app:
 
-* read: ``POST /api/device/thing_shadow/`` (polled)
+* read: ``POST /api/device/thing_shadow/`` (polled), plus the app's
+  WebSocket for live deltas between polls
 * write: ``POST /api/device/command`` with a ``desired`` shadow document
 
-The app's WebSocket is intentionally not used in v1 — polling covers the
-state HA needs, and the subscribe/auth handshake is undocumented.
+Bluetooth is used only once, to hand a new machine its Wi-Fi settings
+(``provision.py``).
 """
 from __future__ import annotations
 
@@ -37,6 +39,7 @@ from ...const import (
     CONF_PASSWORD,
     CONF_RECIPES,
     CONF_RECIPES_SEEDED,
+    CONF_STORE_REGION,
     CONF_TELEMETRY_INTERVAL,
     DATA_COORDINATOR,
     DEFAULT_J20_SCAN_INTERVAL,
@@ -61,7 +64,7 @@ J20_PLATFORMS = [
 
 type J20ConfigEntry = ConfigEntry[J20Coordinator]
 
-# account (lower-cased email) -> (shared client, entry ids using it). Several
+# account (lower-cased email) -> shared client (its entry_ids use it). Several
 # Originals on one account share one session: a second login could
 # invalidate the first entry's token, and they'd keep logging each other out.
 _CLIENTS_KEY = f"{DOMAIN}_j20_clients"
@@ -73,23 +76,19 @@ def _account(entry: ConfigEntry) -> str:
 
 def _release_client(hass: HomeAssistant, entry: ConfigEntry) -> None:
     clients = hass.data.get(_CLIENTS_KEY, {})
-    shared = clients.get(_account(entry))
-    if shared is not None:
-        shared[1].discard(entry.entry_id)
-        if not shared[1]:
+    client = clients.get(_account(entry))
+    if client is not None:
+        client.entry_ids.discard(entry.entry_id)
+        if not client.entry_ids:
             clients.pop(_account(entry), None)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool:
     clients = hass.data.setdefault(_CLIENTS_KEY, {})
-    shared = clients.get(_account(entry))
-    if shared is None:
-        shared = clients[_account(entry)] = (
-            J20CloudClient(async_get_clientsession(hass)),
-            set(),
-        )
-    client, users = shared
-    users.add(entry.entry_id)
+    client = clients.get(_account(entry))
+    if client is None:
+        client = clients[_account(entry)] = J20CloudClient(async_get_clientsession(hass))
+    client.entry_ids.add(entry.entry_id)
     if not client.logged_in:
         try:
             logged_in = await client.async_login(
@@ -129,9 +128,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool:
     await coordinator._async_refresh_recipe_service_schemas()
     await hass.config_entries.async_forward_entry_setups(entry, J20_PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_j20_listener))
-    hass.async_create_task(coordinator.async_seed_recipes())
+    # Entry tasks, so an unload waits for them instead of a stale
+    # coordinator writing recipes into the entry after it is gone.
+    entry.async_create_task(hass, coordinator.async_seed_recipes(), "xb_original_seed_recipes")
     # What the machine's start button holds (auto mode), for the panel.
-    hass.async_create_task(_async_read_auto_mode(coordinator))
+    entry.async_create_task(hass, _async_read_auto_mode(coordinator), "xb_original_auto_mode")
     # Live shadow deltas over the app's WebSocket; cancelled on unload.
     entry.async_create_background_task(
         hass, coordinator.async_run_live_updates(), "xb_original_live_updates"
@@ -157,17 +158,22 @@ async def _async_read_auto_mode(coordinator: J20Coordinator) -> None:
 
 # Options written by the recipe store (CRUD, seeding): a rebuild is enough.
 _RECIPE_ONLY_OPTION_KEYS = {CONF_RECIPES, CONF_RECIPES_SEEDED, CONF_ACCOUNT_RECIPES_SEEDED}
+# Options that never need a reload: the recipe store's, and the panel's
+# store region (which web store its links open) — a reload would sign in
+# to the cloud again.
+_NO_RELOAD_OPTION_KEYS = frozenset(_RECIPE_ONLY_OPTION_KEYS | {CONF_STORE_REGION})
 
 
 async def _async_update_j20_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
-    if data and DATA_COORDINATOR in data:
+    if data is not None:
         prev = data.get("options_snapshot") or {}
         cur = dict(entry.options)
         changed = {k for k in set(prev) | set(cur) if prev.get(k) != cur.get(k)}
         data["options_snapshot"] = cur
-        if changed and changed <= _RECIPE_ONLY_OPTION_KEYS:
-            data[DATA_COORDINATOR]._rebuild_recipes()
-            data[DATA_COORDINATOR].async_update_listeners()
+        if changed and changed <= _NO_RELOAD_OPTION_KEYS:
+            if changed & _RECIPE_ONLY_OPTION_KEYS and DATA_COORDINATOR in data:
+                data[DATA_COORDINATOR]._rebuild_recipes()
+                data[DATA_COORDINATOR].async_update_listeners()
             return
     await hass.config_entries.async_reload(entry.entry_id)
