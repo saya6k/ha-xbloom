@@ -59,6 +59,21 @@ def test_other_messages_are_ignored(message):
     assert updates == []
 
 
+def test_a_delta_without_device_id_applies_only_to_a_sole_machine():
+    """The app applies an id-less delta to its one current machine; with
+    several Originals on the account it can't tell which one it is for."""
+    message = json.dumps({"state": {"reported": {"work_mode": 6}}})
+    coordinator, updates = _live_coordinator()
+    coordinator._client = SimpleNamespace(entry_ids={"a"})
+    assert coordinator.handle_live_message(message) is True
+    assert updates[-1]["work_mode"] == 6
+
+    coordinator, updates = _live_coordinator()
+    coordinator._client = SimpleNamespace(entry_ids={"a", "b"})
+    assert coordinator.handle_live_message(message) is False
+    assert updates == []
+
+
 def test_nothing_is_merged_before_the_first_shadow():
     coordinator, _updates = _live_coordinator()
     coordinator._raw_shadow = None

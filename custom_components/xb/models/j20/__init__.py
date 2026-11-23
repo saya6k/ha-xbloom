@@ -44,7 +44,7 @@ J20_PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
 type J20ConfigEntry = ConfigEntry[J20Coordinator]
 
-# account (lower-cased email) -> (shared client, entry ids using it). Several
+# account (lower-cased email) -> shared client (its entry_ids use it). Several
 # Originals on one account share one session: a second login could
 # invalidate the first entry's token, and they'd keep logging each other out.
 _CLIENTS_KEY = f"{DOMAIN}_j20_clients"
@@ -56,23 +56,19 @@ def _account(entry: ConfigEntry) -> str:
 
 def _release_client(hass: HomeAssistant, entry: ConfigEntry) -> None:
     clients = hass.data.get(_CLIENTS_KEY, {})
-    shared = clients.get(_account(entry))
-    if shared is not None:
-        shared[1].discard(entry.entry_id)
-        if not shared[1]:
+    client = clients.get(_account(entry))
+    if client is not None:
+        client.entry_ids.discard(entry.entry_id)
+        if not client.entry_ids:
             clients.pop(_account(entry), None)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: J20ConfigEntry) -> bool:
     clients = hass.data.setdefault(_CLIENTS_KEY, {})
-    shared = clients.get(_account(entry))
-    if shared is None:
-        shared = clients[_account(entry)] = (
-            J20CloudClient(async_get_clientsession(hass)),
-            set(),
-        )
-    client, users = shared
-    users.add(entry.entry_id)
+    client = clients.get(_account(entry))
+    if client is None:
+        client = clients[_account(entry)] = J20CloudClient(async_get_clientsession(hass))
+    client.entry_ids.add(entry.entry_id)
     if not client.logged_in:
         try:
             logged_in = await client.async_login(

@@ -175,6 +175,8 @@ class J20CloudClient:
         # serializes their re-authentication so a rejected token is renewed
         # once, not once per machine (each login may invalidate the last).
         self.auth_lock = asyncio.Lock()
+        # Config entries (machines) sharing this client.
+        self.entry_ids: set[str] = set()
         self.member_id: int | None = None
         self.token: str | None = None
         self.project_token: str | None = None
