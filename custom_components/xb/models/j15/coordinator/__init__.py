@@ -102,7 +102,8 @@ class XBloomCoordinator(
     """Coordinate data updates from XBloom via BLE."""
 
     # machine.Machine — the Studio supports every shared feature.
-    capabilities = frozenset(Capability)
+    # Everything but the Original's start-button recipe (auto mode).
+    capabilities = frozenset(Capability) - {Capability.AUTO_MODE}
     # Its grind/pour/recipe buttons arm on the first press (panel hint).
     arming_buttons = True
     # Mirrors the number entities and the LLM tools' historical bounds; the

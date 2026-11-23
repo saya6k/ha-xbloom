@@ -156,6 +156,10 @@ def _machine_payload(hass: HomeAssistant, entry_id: str, machine: Any) -> dict:
         # The panel's descaling how-to for a model without a scale (the
         # Studio's comes with its scale-calibration guide).
         "descale_guide": getattr(machine, "descale_guide", None),
+        # The recipe on the machine's start button (the Original's auto mode).
+        "auto_mode": getattr(machine, "auto_mode", None)
+        if Capability.AUTO_MODE in caps
+        else None,
         "entities": entities,
         "recipes": [],
         "selected_recipe": None,

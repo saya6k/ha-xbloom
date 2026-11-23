@@ -6,12 +6,11 @@
 > (`xbloom_coffee_release.apk`, 패키지 `com.chisalsoft.andite`)을 `jadx`로
 > 정적 디컴파일한 결과(zip/dex/소스 덤프로만 확인 — 배포·재배포된 적 없음)를
 > 바탕으로 작성되었습니다. **[`protocol.md`](./protocol.md)(Studio BLE)와 달리,
-> 여기 내용은 실기로 검증된 것이 하나도 없습니다.** 릴리스에는
-> `custom_components/xb/models/j20/`의 **상태 보고 전용** J20 경로(config entry
-> 유형 `original`: 계정 로그인, thing shadow 폴링, WebSocket 실시간 업데이트)만
-> 들어 있습니다. 아래의 쓰기 경로(명령, 레시피, 자동 모드, Wi-Fi 온보딩)는
-> [`original`](https://github.com/saya6k/ha-xbloom/tree/original) 브랜치에
-> 구현되어 있으며, 실기에서 확인되기 전까지 릴리스에서 제외됩니다. 이 문서는 그 구현의 근거가 되는 디컴파일 기반
+> 여기 내용은 실기로 검증된 것이 하나도 없습니다.** 이제 이 통합에는
+> `custom_components/xb/j20/`의 클라우드 전용 J20 경로(config entry 유형
+> `original`: 계정 로그인, thing shadow 폴링, 분쇄/중지/캘리브레이션)가
+> 포함되어 있지만, 이 저장소에는 여전히 Original 실기와 실제 계정이 없어
+> 그 코드도 미검증입니다. 이 문서는 그 구현의 근거가 되는 디컴파일 기반
 > 지도이며, 모든 주장은 특정 클래스/메서드로 추적 가능하고 교차 확인되지
 > 않은 내용은 unconfirmed로 표시했습니다.
 
@@ -113,7 +112,7 @@ SharedPreferences 값으로 덮어쓰고(`setActivate_url(SP.ACTIVATION_URL)` /
 커스텀 activation URL은 잘해야 일회성 activation 호출만 가로챌 뿐, 기기의
 제어 경로를 바꾸지 못합니다.
 
-### 전송 프로토콜(MXChip `locklib`), `original` 브랜치의 `models/j20/provision.py`에 구현
+### 전송 프로토콜(MXChip `locklib`), `models/j20/provision.py`에 구현
 
 블루투스 검색에서 Wi-Fi 설정을 기다리는 Original을 찾으면 Home Assistant가 이
 온보딩을 직접 진행합니다(통합 구성요소 추가가 필요 없음). **실제 하드웨어에서

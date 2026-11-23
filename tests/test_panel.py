@@ -104,7 +104,7 @@ def test_machine_payload_maps_entities_and_full_recipes():
 
 
 def test_machine_payload_for_a_model_without_recipes():
-    """The status-only Original: capability-gated fields stay empty and its
+    """An Original-like machine: capability-gated fields stay empty and its
     own entity keys are aliased onto the panel's generic ones."""
     from custom_components.xb.models.j20.coordinator import J20Coordinator
 
@@ -112,21 +112,23 @@ def test_machine_payload_for_a_model_without_recipes():
     hass = MagicMock()
     hass.config.country = "US"
     hass.config_entries.async_get_entry.return_value = entry
+    from custom_components.xb.machine import Capability
+
     machine = SimpleNamespace(
-        capabilities=J20Coordinator.capabilities,
+        capabilities=J20Coordinator.capabilities - {Capability.RECIPES},
         panel_entity_aliases=J20Coordinator.panel_entity_aliases,
         machine_label="SN1",
     )
     entries = [
-        SimpleNamespace(domain="sensor", translation_key="j20_state",
-                        entity_id="sensor.original_state", disabled_by=None),
+        SimpleNamespace(domain="number", translation_key="j20_volume",
+                        entity_id="number.original_volume", disabled_by=None),
     ]
     with patch.object(panel.er, "async_get"), patch.object(
         panel.er, "async_entries_for_config_entry", return_value=entries
     ):
         payload = panel._machine_payload(hass, "o1", machine)
 
-    assert payload["entities"]["sensor.state"] == "sensor.original_state"
+    assert payload["entities"]["number.volume"] == "number.original_volume"
     assert payload["capabilities"] == sorted(machine.capabilities)
     assert payload["recipes"] == [] and payload["easy_slots"] == {}
     assert payload["photo_url"] is None and payload["arm_buttons"] is False

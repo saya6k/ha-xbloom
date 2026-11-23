@@ -4,6 +4,9 @@
   "bluetooth": [
     {
       "service_uuid": "0000e0ff-3c17-d293-8e48-14fe2e4da212"
+    },
+    {
+      "service_uuid": "00000922-0000-1000-8000-00805f9b34fb"
     }
   ],
   "categories": [

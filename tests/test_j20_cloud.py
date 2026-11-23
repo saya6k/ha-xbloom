@@ -1,14 +1,14 @@
 """Pure-logic tests for the XBloom Original (J20) cloud client.
 
-No network and no HA instance: the signed-header vector and the shadow
-mapping are the pieces that can go wrong silently.
+No network and no HA instance: the signed-header vector, the shadow mapping,
+and the command envelope are the pieces that can go wrong silently.
 """
 from __future__ import annotations
 
 import asyncio
 import hashlib
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import pytest
@@ -21,11 +21,14 @@ from custom_components.xb.models.j20.client import (
     J20ApiError,
     J20AuthError,
     J20CloudClient,
+    command_payload,
     is_original_device,
     parse_shadow,
     signed_headers,
 )
 from custom_components.xb.models.j20.values import (
+    GRIND_SIZE_DEFAULT,
+    build_bruw_curve,
     warning_active,
     warning_state,
     work_mode_state,
@@ -43,6 +46,20 @@ def test_signed_headers_match_app_interceptor() -> None:
     assert headers["appid"] == J20_APP_ID
     assert headers["platform"] == "android"
     assert headers["Authorization"] == "token project-token"
+
+
+def test_command_payload_wraps_shadow_twice() -> None:
+    body = command_payload("dev-1", {"grinding_start": 1, "setting_grind_size": 42})
+    assert body == {
+        "device_id": "dev-1",
+        "product_id": J20_PRODUCT_ID,
+        "desired": {
+            "state": {
+                "desired": {"grinding_start": 1, "setting_grind_size": 42}
+            }
+        },
+    }
+    assert "home_id" not in body
 
 
 def test_is_original_device() -> None:
@@ -269,6 +286,22 @@ def test_token_rejection_raises_auth_error() -> None:
         asyncio.run(client.async_get_shadow("dev-1", J20_PRODUCT_ID))
 
 
+def test_bruw_curve_matches_app_builder() -> None:
+    # 225 ml = 0xE1 -> "00E1"; 93 C = 0x5D; center pattern "00".
+    assert build_bruw_curve(225, 93, "center") == "FFFF100500E15D1E00"
+    # 30 ml = 0x1E -> "001E"; 85 C is the RT constant 0x55; spiral "02".
+    assert build_bruw_curve(30, 85, "spiral") == "FFFF1005001E551E02"
+    # 500 ml = 0x1F4 -> "01F4"; 96 C is the BP constant 95 = 0x5F.
+    assert build_bruw_curve(500, 96, "circular") == "FFFF100501F45F1E01"
+    # Out-of-range inputs clamp to the app's seekbar limits.
+    assert build_bruw_curve(1, 20, "center") == "FFFF1005001E551E00"
+    assert build_bruw_curve(1000, 200, "center") == "FFFF100501F45F1E00"
+
+
+def test_grind_default_is_app_value() -> None:
+    assert GRIND_SIZE_DEFAULT == 15
+
+
 def test_work_mode_and_warning_tables() -> None:
     assert work_mode_state(0) == "idle"
     assert work_mode_state(5) == "ready"
@@ -312,7 +345,12 @@ def _coordinator(*, online=True, data=None, **attrs):
 
     coordinator = object.__new__(J20Coordinator)
     coordinator.data = {"online": online, **(data or {})}
+    coordinator._armed = None
+    coordinator._armed_at = 0.0
+    coordinator.grind_size = 15
     coordinator.async_refresh = AsyncMock()
+    coordinator.async_update_listeners = lambda: None
+    coordinator._armed_recipe_command = None
     client = attrs.get("_client")
     if client is not None and not hasattr(client, "auth_lock"):
         client.auth_lock = asyncio.Lock()
@@ -346,17 +384,77 @@ def test_machines_sharing_an_account_renew_its_token_once() -> None:
     client.async_login.assert_awaited_once()
 
 
-def test_original_is_status_only() -> None:
-    """Until an owner confirms the controls on a real machine, nothing here
-    may write to it: no capabilities, and no command path in the client or
-    the coordinator."""
-    from custom_components.xb.models.j20.coordinator import J20Coordinator
+def test_an_arm_lapses_instead_of_firing_later():
+    from custom_components.xb.models.j20 import coordinator as module
 
-    assert J20Coordinator.capabilities == frozenset()
-    for name in ("async_send_desired", "async_iot_data", "async_add_machine"):
-        assert not hasattr(J20CloudClient, name)
-    for name in ("async_grind", "async_pour", "async_stop", "_send", "async_cancel"):
-        assert not hasattr(J20Coordinator, name)
+    coordinator = _coordinator(async_grind=AsyncMock())
+    with patch.object(module.time, "monotonic", return_value=1000.0):
+        assert asyncio.run(coordinator.async_arm_grind()) is True
+    later = 1000.0 + module.ARM_TIMEOUT_S + 1
+    with patch.object(module.time, "monotonic", return_value=later):
+        assert coordinator.armed_operation is None
+        assert asyncio.run(coordinator.async_confirm_grind()) is False
+    coordinator.async_grind.assert_not_awaited()
+
+
+def test_a_direct_command_clears_a_pending_arm():
+    """A button press (or any other command) supersedes an LLM arm."""
+    client = SimpleNamespace(async_send_desired=AsyncMock())
+    coordinator = _coordinator(
+        _client=client, device_id="d", async_request_refresh=AsyncMock()
+    )
+    asyncio.run(coordinator.async_arm_pour())
+    asyncio.run(coordinator.async_grind())
+    assert coordinator.armed_operation is None
+
+
+def test_arm_only_records_then_confirm_sends():
+    """No machine-side arm page: arming sends nothing, confirming starts."""
+    coordinator = _coordinator(async_grind=AsyncMock())
+    assert asyncio.run(coordinator.async_arm_grind()) is True
+    coordinator.async_grind.assert_not_awaited()
+    assert coordinator._armed == "grind"
+    assert asyncio.run(coordinator.async_confirm_grind()) is True
+    coordinator.async_grind.assert_awaited_once()
+    assert coordinator._armed is None
+
+
+def test_confirm_without_arm_sends_nothing():
+    coordinator = _coordinator(async_pour=AsyncMock())
+    assert asyncio.run(coordinator.async_confirm_pour()) is False
+    coordinator.async_pour.assert_not_awaited()
+
+
+def test_offline_machine_cannot_be_armed():
+    coordinator = _coordinator(online=False)
+    assert asyncio.run(coordinator.async_arm_pour()) is False
+    assert coordinator._armed is None
+
+
+def test_cancel_drops_an_arm_without_sending():
+    coordinator = _coordinator(data={"work_mode": 6}, async_stop=AsyncMock())
+    asyncio.run(coordinator.async_arm_pour())
+    asyncio.run(coordinator.async_cancel())
+    assert coordinator._armed is None
+    coordinator.async_stop.assert_not_awaited()
+
+
+def test_cancel_stops_a_running_pour_but_not_a_grind():
+    from homeassistant.exceptions import HomeAssistantError
+
+    brewing = _coordinator(data={"work_mode": 6}, async_stop=AsyncMock())
+    asyncio.run(brewing.async_cancel())
+    brewing.async_refresh.assert_awaited_once()  # decides on a fresh shadow
+    brewing.async_stop.assert_awaited_once()
+
+    idle = _coordinator(data={"work_mode": 5}, async_stop=AsyncMock())
+    asyncio.run(idle.async_cancel())
+    idle.async_stop.assert_not_awaited()
+
+    grinding = _coordinator(data={"work_mode": 4}, async_stop=AsyncMock())
+    with pytest.raises(HomeAssistantError):
+        asyncio.run(grinding.async_cancel())
+    grinding.async_stop.assert_not_awaited()
 
 
 def test_reauth_prefers_the_refresh_token() -> None:
@@ -394,6 +492,35 @@ def test_call_retries_once_then_reports_auth_failure() -> None:
     with pytest.raises(ConfigEntryAuthFailed):
         asyncio.run(coordinator._async_call(func))
     assert func.await_count == 2
+
+
+def test_offline_machine_gets_no_command() -> None:
+    from homeassistant.exceptions import HomeAssistantError
+
+    client = SimpleNamespace(async_send_desired=AsyncMock())
+    coordinator = _coordinator(_client=client, online=False, device_id="dev-1")
+    asyncio.run(coordinator.async_arm_pour())  # no-op: offline
+    with pytest.raises(HomeAssistantError):
+        asyncio.run(coordinator._send({"grinding_start": 1}))
+    client.async_send_desired.assert_not_awaited()
+
+
+def test_command_auth_failure_starts_reauth() -> None:
+    from homeassistant.exceptions import HomeAssistantError
+
+    client = SimpleNamespace(
+        async_send_desired=AsyncMock(side_effect=J20AuthError("rejected")),
+        async_refresh_token=AsyncMock(return_value=False),
+        async_login=AsyncMock(return_value=False),
+    )
+    entry = MagicMock()
+    coordinator = _coordinator(
+        _client=client, device_id="dev-1",
+        _email="e", _password="p", config_entry=entry, hass=object(),
+    )
+    with pytest.raises(HomeAssistantError):
+        asyncio.run(coordinator._send({"grinding_start": 1}))
+    entry.async_start_reauth.assert_called_once()
 
 
 def test_reauth_account_must_own_the_machine() -> None:

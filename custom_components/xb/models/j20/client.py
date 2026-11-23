@@ -21,9 +21,8 @@ Two auth schemes are involved:
   ``signed_headers``. The values were read from the 2.2.5 APK's
   ``cn.com.library.net.RetrofitManager`` / ``ServiceConfig``.
 
-It only reads (login, machine list, thing shadow); it never writes a
-command to the machine. Everything here is derived from decompiling app
-2.2.5 and has **not** been verified against a real Original. Token
+Everything here is derived from decompiling app 2.2.5 and has **not** been
+verified against a real Original (the maintainer has none). Token
 rejections raise ``J20AuthError``; network failures and other API errors
 raise ``J20ApiError`` (the shadow read logs non-auth API errors and returns
 ``None``), so callers can tell "bad password" from "cloud unreachable".
@@ -121,6 +120,23 @@ def is_original_device(device: dict[str, Any]) -> bool:
     except (TypeError, ValueError):
         device_type = 0
     return device_type == 2 or device.get("productId") == J20_PRODUCT_ID
+
+
+def command_payload(device_id: str, desired: dict[str, Any]) -> dict[str, Any]:
+    """Build the ``POST /api/device/command`` body.
+
+    The app's ``DeviceCommandReq`` wraps a shadow document one level deeper
+    than its name suggests: ``{"state": {"desired": {...}}}``. ``home_id``
+    is null at every traced call site and Gson drops nulls, so it is omitted
+    rather than sent as JSON null. Every command call site in the app sends
+    the constant ``DeviceType.getJ20ProductId()``, not the device's own
+    ``productId`` (which only the shadow read uses).
+    """
+    return {
+        "device_id": device_id,
+        "product_id": J20_PRODUCT_ID,
+        "desired": {"state": {"desired": desired}},
+    }
 
 
 def _normalize_code(value: Any) -> int | None:
@@ -309,6 +325,90 @@ class J20CloudClient:
             return None
         data = payload.get("data")
         return data if isinstance(data, dict) else None
+
+    async def async_send_desired(
+        self, device_id: str, desired: dict[str, Any] | str
+    ) -> None:
+        """Push a desired-state document (``POST /api/device/command``).
+
+        A dict is wrapped as the app's ``Desired`` object; a string is a
+        recipe command from ``tGetRecipeMadeCmd`` and goes out unchanged as
+        ``desired``, as the app sends it.
+        """
+        if not desired:
+            raise ValueError("desired state must not be empty")
+        if not self.project_token:
+            raise J20AuthError("not logged in")
+        body = (
+            {"device_id": device_id, "product_id": J20_PRODUCT_ID, "desired": desired}
+            if isinstance(desired, str)
+            else command_payload(device_id, desired)
+        )
+        payload = await self._signed_post("/api/device/command", body)
+        if payload is None:
+            raise J20ApiError("network error")
+        code = _normalize_code(payload.get("code"))
+        if code in _TOKEN_REJECTED_CODES:
+            raise J20AuthError(f"token rejected (code {code})")
+        if code not in (0, 200):
+            raise J20ApiError(
+                f"code {code}: {payload.get('message') or 'unknown error'}"
+            )
+
+    async def async_iot_data(
+        self, path: str, body: dict[str, Any] | None = None, *, method: str = "POST"
+    ) -> dict[str, Any]:
+        """A signed ``api-iot`` call's ``data`` object (onboarding endpoints).
+
+        Raises ``J20ApiError`` on a network error or a non-zero ``code``.
+        """
+        if not self.project_token:
+            raise J20AuthError("not logged in")
+        if method == "GET":
+            payload = await self._request(
+                "GET",
+                f"{J20_API_BASE}{path}",
+                params=body,
+                headers=signed_headers(self.project_token),
+            )
+        else:
+            payload = await self._signed_post(path, body or {})
+        if payload is None:
+            raise J20ApiError(f"{path}: network error")
+        code = _normalize_code(payload.get("code"))
+        if code not in (0, 200):
+            raise J20ApiError(f"{path}: code {code}: {payload.get('message')}")
+        data = payload.get("data")
+        return data if isinstance(data, dict) else {}
+
+    async def async_add_machine(self, bound: dict[str, Any], serial: str) -> bool:
+        """List a newly bound Original on the xBloom account, as the app's
+        ``MachineAddTransfer`` (``tuBindMachine.tuhtml``) does after binding,
+        so the official app shows it too. False when the call failed.
+        """
+        if not (self.token and self.project_token and self.member_id is not None):
+            return False
+        body = {
+            "interfaceVersion": _AUTH_INTERFACE_VERSION,
+            "skey": _AUTH_SKEY,
+            "phoneType": "Android",
+            "memberId": self.member_id,
+            "clientType": 2,
+            "languageType": _LANGUAGE_TYPE,
+            "token": self.token,
+            "accessToken": self.project_token,
+            "deviceId": bound.get("device_id"),
+            "productId": bound.get("product_id") or J20_PRODUCT_ID,
+            "macAddress": bound.get("mac") or "",
+            "theType": 2,  # DeviceType.DeviceJ20
+            "theName": "xBloom Original",
+            "serialNumber": serial,
+        }
+        url = f"{CLIENT_API_BASE}/tuBindMachine.tuhtml"
+        payload = await self._request("POST", url, body=_rsa_encrypt(body))
+        if not payload or payload.get("result") != "success":
+            payload = await self._request("POST", url, body=body)
+        return bool(payload and payload.get("result") == "success")
 
     async def _signed_post(
         self, path: str, body: dict[str, Any]

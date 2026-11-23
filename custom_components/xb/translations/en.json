@@ -21,7 +21,7 @@
         "description": "Choose which xBloom machine to add.",
         "menu_options": {
           "studio": "Studio (Bluetooth)",
-          "original": "Original (Wi-Fi / cloud, status only)"
+          "original": "Original (Wi-Fi / cloud)"
         }
       },
       "account": {
@@ -46,7 +46,7 @@
       },
       "original": {
         "title": "xBloom Original (cloud)",
-        "description": "Sign in with the same xBloom app account that owns the Original. Home Assistant reads the machine's status from xBloom's cloud, like the official app — it has no local API. Controls aren't available yet: they come once an Original owner has confirmed them on a real machine.",
+        "description": "Sign in with the same xBloom app account that owns the Original. The machine is controlled through xBloom's cloud, exactly like the official app — it has no local API.",
         "data": {
           "email": "Email",
           "password": "Password"
@@ -66,6 +66,16 @@
           "email": "Email",
           "password": "Password"
         }
+      },
+      "original_onboard": {
+        "title": "Set up xBloom Original",
+        "description": "An xBloom Original is waiting for its Wi-Fi setup. Home Assistant sets it up the way the xBloom app does: it sends the Wi-Fi network below to the machine over Bluetooth and links the machine to your xBloom account.\n\nKeep the machine powered on and near this Home Assistant's Bluetooth adapter. The machine supports 2.4 GHz Wi-Fi only.\n\nThis setup path has not been tested on a real Original yet.",
+        "data": {
+          "email": "xBloom account email",
+          "password": "xBloom account password",
+          "wifi_ssid": "Wi-Fi network name",
+          "wifi_password": "Wi-Fi password"
+        }
       }
     },
     "error": {
@@ -84,7 +94,19 @@
       "no_devices_found": "No xBloom devices found nearby. Make sure the machine is powered on.",
       "unknown_device": "The selected machine is no longer available on this account.",
       "reauth_successful": "Reauthentication successful.",
-      "reauth_failed": "Reauthentication failed."
+      "reauth_failed": "Reauthentication failed.",
+      "not_supported": "This Bluetooth device isn't an xBloom machine.",
+      "original_ble_failed": "Couldn't connect to the machine over Bluetooth. Keep it powered on and closer to Home Assistant's Bluetooth adapter, then try again.",
+      "original_cloud_failed": "The xBloom cloud didn't accept the setup request. Check the internet connection and try again.",
+      "original_no_reply": "The machine stopped answering over Bluetooth. Power it off and on, then try again.",
+      "original_handshake_failed": "The machine and the xBloom cloud couldn't verify each other. Power the machine off and on, then try again.",
+      "original_wifi_not_found": "The machine couldn't find that Wi-Fi network. Check the name; only 2.4 GHz networks work.",
+      "original_wifi_weak": "The Wi-Fi signal at the machine is too weak.",
+      "original_wifi_failed": "The machine couldn't join the Wi-Fi network. Check the password.",
+      "original_bind_failed": "The machine joined Wi-Fi but didn't link to your xBloom account in time. Check the xBloom app, then add the machine with Add integration → Original."
+    },
+    "progress": {
+      "original_provision": "Sending the Wi-Fi settings to the machine and waiting for it to join the network and link to your account. This can take up to a minute."
     }
   },
   "options": {
@@ -227,6 +249,21 @@
       },
       "write_slot_c": {
         "name": "Write to Easy Slot C"
+      },
+      "j20_grind": {
+        "name": "Grind"
+      },
+      "j20_stop": {
+        "name": "Stop pour"
+      },
+      "j20_calibrate": {
+        "name": "Calibrate grinder"
+      },
+      "j20_pour": {
+        "name": "Pour"
+      },
+      "j20_execute_recipe": {
+        "name": "Execute Recipe"
       }
     },
     "number": {
@@ -241,6 +278,15 @@
       },
       "volume": {
         "name": "Volume"
+      },
+      "j20_grind_size": {
+        "name": "Grind size"
+      },
+      "j20_volume": {
+        "name": "Volume"
+      },
+      "j20_temperature": {
+        "name": "Temperature"
       }
     },
     "sensor": {
@@ -349,7 +395,8 @@
           "grinding": "Grinding",
           "brewing": "Brewing",
           "complete": "Complete",
-          "sleeping": "Sleeping"
+          "sleeping": "Sleeping",
+          "armed_recipe": "Armed (Recipe)"
         }
       }
     },
@@ -373,6 +420,20 @@
         "state": {
           "pro": "Pro",
           "easy": "Easy"
+        }
+      },
+      "j20_pattern": {
+        "name": "Pour pattern",
+        "state": {
+          "center": "Center",
+          "circular": "Circular",
+          "spiral": "Spiral"
+        }
+      },
+      "j20_recipe": {
+        "name": "Recipe",
+        "state": {
+          "no_recipes_configured": "No recipes configured"
         }
       }
     },
@@ -678,6 +739,30 @@
         "sort_direction": {
           "name": "Sort direction",
           "description": "asc or desc. Defaults to desc."
+        }
+      }
+    },
+    "write_recipe_to_auto_mode": {
+      "name": "Write recipe to auto mode",
+      "description": "xBloom Original only. Store a recipe on the machine's own start button (the app's auto mode), so it runs from the machine without Home Assistant. Saved to the xBloom account first if needed; does not brew.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Machine",
+          "description": "The xBloom Original to write the recipe to."
+        },
+        "recipe": {
+          "name": "Recipe",
+          "description": "A local uid, a cloud table id, a share URL/id, or the exact recipe name. Defaults to the currently selected recipe."
+        }
+      }
+    },
+    "reset_auto_mode": {
+      "name": "Reset auto mode",
+      "description": "xBloom Original only. Put the factory recipe back on the machine's start button.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Machine",
+          "description": "The xBloom Original to reset."
         }
       }
     }

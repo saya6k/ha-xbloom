@@ -114,14 +114,40 @@ def test_catalog_builds_the_full_tool_set():
 
 
 def test_catalog_offers_only_what_the_machine_can_do():
-    """The Original is status only: it gets the status tool and nothing that
-    could send it a command."""
+    """The Original gets recipe tools but no slot/tare tools, and its own
+    ranges in the grind/pour schemas."""
     from custom_components.xb.llm.catalog import build_tools
     from custom_components.xb.models.j20.coordinator import J20Coordinator
 
-    original = SimpleNamespace(capabilities=J20Coordinator.capabilities)
-    tools = {tool.name for tool in build_tools(original, SimpleNamespace())}
-    assert tools == {"xbloom__get_status"}
+    original = SimpleNamespace(
+        capabilities=J20Coordinator.capabilities, limits=J20Coordinator.limits
+    )
+    tools = {tool.name: tool for tool in build_tools(original, SimpleNamespace())}
+    assert set(tools) == {
+        "xbloom__get_status",
+        "xbloom__grind",
+        "xbloom__pour",
+        "xbloom__cancel",
+        "xbloom__calibrate_grinder",
+        "xbloom__list_recipes",
+        "xbloom__get_recipe",
+        "xbloom__create_recipe",
+        "xbloom__edit_recipe",
+        "xbloom__delete_recipe",
+        "xbloom__execute_recipe",
+        "xbloom__import_cloud_recipe",
+        "xbloom__export_recipe",
+        "xbloom__search_collective_recipes",
+    }
+    grind_schema = tools["xbloom__grind"].parameters
+    assert grind_schema({"grind_size": 30})["grind_size"] == 30
+    with pytest.raises(Exception):  # noqa: B017 — voluptuous Invalid
+        grind_schema({"grind_size": 31})
+    assert "rpm" not in {str(key) for key in grind_schema.schema}
+    assert "flow_rate" not in {str(key) for key in tools["xbloom__pour"].parameters.schema}
+    # No arm page on the machine: the tool text says so.
+    assert "nothing is sent" in tools["xbloom__grind"].description
+    assert "GRIND SIZE REFERENCE" not in str(grind_schema.schema)
 
 
 def test_prompt_only_describes_what_the_machine_can_do():
@@ -132,20 +158,41 @@ def test_prompt_only_describes_what_the_machine_can_do():
     for tool in REGISTERED_TOOLS:
         assert tool in studio, tool
     assert "GRIND SIZE REFERENCE" in studio and "beans or tea leaves" in studio
+    # Shared sentences, only the Original's missing features differ.
     assert "It has no" not in studio
-    prompt = build_prompt(SimpleNamespace(capabilities=J20Coordinator.capabilities))
-    assert "can't be controlled from here" in prompt
-    assert "xbloom__get_status" in prompt
-    for tool in REGISTERED_TOOLS:
-        if tool != "xbloom__get_status":
-            assert tool not in prompt, tool
+    original = SimpleNamespace(
+        capabilities=J20Coordinator.capabilities, limits=J20Coordinator.limits
+    )
+    original.brews_tea = J20Coordinator.brews_tea
+    original.recipe_overrides = J20Coordinator.recipe_overrides
+    prompt = build_prompt(original)
+    assert "It has no tea brewer, Easy Mode slots or scale here" in prompt
+    assert "grind_size and/or rpm" not in prompt and "tea leaves" not in prompt
+    for absent in (
+        "xbloom__tare_scale", "xbloom__write_easy_slot", "Bluetooth", "RPM",
+        "80=coarsest", "bypass_volume",
+    ):
+        assert absent not in prompt, absent
+    assert "1=finest to 30=coarsest" in prompt
+    assert "30–500 ml at 85–95 °C" in prompt
+    for tool in (
+        "get_status", "grind", "pour", "cancel", "calibrate_grinder",
+        "list_recipes", "execute_recipe",
+    ):
+        assert f"xbloom__{tool}" in prompt
 
 
 def test_arm_reply_matches_where_the_arm_lives():
     from custom_components.xb.llm.pour import XBloomPourTool
+    from custom_components.xb.models.j20.coordinator import J20Coordinator
 
     studio = XBloomPourTool(FakeStudio(), None)
     assert "showing its pour page" in studio._armed_text("pour")
+    original = XBloomPourTool(
+        SimpleNamespace(capabilities=J20Coordinator.capabilities, limits=J20Coordinator.limits),
+        None,
+    )
+    assert original._armed_text("pour") == "Nothing has been sent to the machine yet. "
 
 
 def test_catalog_builds_fresh_instances_per_call():

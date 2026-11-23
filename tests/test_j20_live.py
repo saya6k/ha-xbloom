@@ -1,4 +1,4 @@
-"""Original (J20) live updates and offline readings.
+"""Original (J20) live updates, offline readings and the calibrate gate.
 
 The WebSocket (AppWsManager / WsManager, app 2.2.5) pushes
 ``{device_id, state: {reported: {...changed fields}}}`` for every machine on
@@ -7,12 +7,16 @@ Unverified on hardware.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
 pytest.importorskip("homeassistant.core")
+
+from homeassistant.exceptions import HomeAssistantError
 
 from tests.test_j20_cloud import _coordinator
 
@@ -83,3 +87,17 @@ def test_offline_sensors_read_unknown_not_unavailable():
     assert J20WarningSensor(coordinator, entry).native_value is None
     assert J20ProblemBinarySensor(coordinator, entry).is_on is None
 
+
+def test_calibration_waits_for_a_woken_machine():
+    client = SimpleNamespace(async_send_desired=AsyncMock(), project_token="T")
+    coordinator = _coordinator(
+        data={"work_mode": 9}, _client=client, device_id="DEV",
+        async_request_refresh=AsyncMock(),
+    )
+    with pytest.raises(HomeAssistantError):
+        asyncio.run(coordinator.async_calibrate_grinder())
+    client.async_send_desired.assert_not_awaited()
+
+    coordinator.data["work_mode"] = 5
+    asyncio.run(coordinator.async_calibrate_grinder())
+    client.async_send_desired.assert_awaited_once_with("DEV", {"auto_calibrate": 1})
