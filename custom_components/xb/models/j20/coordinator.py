@@ -1,10 +1,9 @@
 """Coordinator for XBloom Original (J20).
 
-Polling the thing shadow is the read path. The app additionally opens a
-WebSocket for live deltas (``AppWsManager``); v1 deliberately polls only —
-the WS subscribe/auth handshake is not documented and polling is enough
-for HA's state model. The command path is the app's ``desired`` shadow
-write.
+Polling the thing shadow is the read path, with the app's WebSocket
+(``AppWsManager``) merging live deltas in between (``async_run_live_updates``;
+polling stays the fallback). The command path is the app's ``desired``
+shadow write.
 
 Implements ``machine.ManualControlMachine`` so the shared LLM tools and
 panel can drive it. The Original has no on-machine "armed" page, so the

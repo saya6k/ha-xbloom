@@ -2,20 +2,22 @@
 
 This package is wired into the existing ``xbloom`` integration as a second
 config-entry type (``device_type == "original"``) so HACS keeps shipping
-one domain. Nothing here imports ``j15`` or touches the BLE stack: Studio
-and Original are separate coordinators and separate entity sets. The
+one domain. Nothing here imports ``j15`` or its BLE stack: Studio and
+Original are separate coordinators and separate entity sets. The
 coordinator registers in ``hass.data[DOMAIN]`` like every model, so the
-shared LLM tools and panel reach it — limited to its ``capabilities``
-(manual grind/pour, stop, calibrate; no recipes, so no services).
+shared services, LLM tools and panel reach it — limited to its
+``capabilities`` (manual grind/pour, stop, calibrate, saved recipes, auto
+mode).
 
 The Original has no local control path. The integration is a client of
 xBloom's cloud, exactly like the official app:
 
-* read: ``POST /api/device/thing_shadow/`` (polled)
+* read: ``POST /api/device/thing_shadow/`` (polled), plus the app's
+  WebSocket for live deltas between polls
 * write: ``POST /api/device/command`` with a ``desired`` shadow document
 
-The app's WebSocket is intentionally not used in v1 — polling covers the
-state HA needs, and the subscribe/auth handshake is undocumented.
+Bluetooth is used only once, to hand a new machine its Wi-Fi settings
+(``provision.py``).
 """
 from __future__ import annotations
 
