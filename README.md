@@ -91,6 +91,7 @@ Version 3 changed the integration's domain from `xbloom` to `xb` (the old one cl
 4. Settings → Devices & Services → **Add integration** → "xBloom", and set each machine up again.
 5. Update what referred to the old install: entity ids are new (they follow the new device name, e.g. `xBloom Studio F64F`), `xbloom.*` actions become `xb.*`, a `xbloom:` block in `configuration.yaml` becomes `xb:`, and a conversation agent needs the xBloom LLM API selected again.
 
+<!-- ha-marketplace:exclude-start -->
 ## Installation (HACS)
 
 This integration is in the HACS default store.
@@ -100,16 +101,18 @@ This integration is in the HACS default store.
 1. In HACS, search for **xBloom Coffee Machine** (or use the button above to open it directly).
 2. Download it.
 3. Restart Home Assistant.
-4. Settings → Devices & Services → **Add integration** → search "xBloom".
-5. Pick the machine:
-   - **Studio**: usually found automatically by Bluetooth discovery; otherwise enter its Bluetooth MAC address.
-   - **Original** (experimental, status only): sign in with the xBloom app account that owns it (set the machine up in the official app first) — see [docs/en/original.md](docs/en/original.md).
 
 ## Manual installation
 
 Copy `custom_components/xb/` into your HA config's `custom_components/` folder and restart.
+<!-- ha-marketplace:exclude-end -->
 
 ## Configuration
+
+1. Settings → Devices & Services → **Add integration** → search "xBloom".
+2. Pick the machine:
+   - **Studio**: usually found automatically by Bluetooth discovery; otherwise enter its Bluetooth MAC address.
+   - **Original** (experimental, status only): sign in with the xBloom app account that owns it (set the machine up in the official app first) — see [docs/en/original.md](docs/en/original.md).
 
 The config flow handles MAC + telemetry interval + idle disconnect timeout (0, the default, keeps the Bluetooth link up). The
 Settings step (Settings → Devices & Services → xBloom → **Configure** →
@@ -285,6 +288,7 @@ Through Assist (LLM), the same surface is exposed as tools: `xbloom__list_recipe
 - **Recipe water source**: the manual pour entity respects the water-source select (tank vs. direct plumbed); recipe execution does not — the firmware runs its own pour sequence internally.
 - **Tea soak timing is approximately calibrated**: the wait between steeps is scaled from the recipe's `pausing` seconds using a factor derived from a couple of stopwatch measurements — see [`brewing-notes.md`](docs/en/brewing-notes.md) for details if you need tighter timing.
 
+<!-- ha-marketplace:exclude-start -->
 ## Development
 
 A devcontainer is provided for testing the integration against a real Home Assistant install. Its base image is the official HA image pinned to **2026.11.0b0** (in `.devcontainer/devcontainer.json`, matching `hacs.json`'s floor), so HA core and every runtime dependency come baked in — `scripts/setup` only installs dev tools. Open the folder in VS Code with the Dev Containers extension and run:
@@ -294,6 +298,7 @@ scripts/develop
 ```
 
 HA binds the standard port 8123 inside the container. The container's hostname is set to `ha-xbloom-dev` so it's distinguishable from any production HA instance you run on the host network. VS Code forwards 8123 to the host (and auto-picks a different host port if 8123 is already taken there).
+<!-- ha-marketplace:exclude-end -->
 
 ## License
 
